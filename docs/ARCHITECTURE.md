@@ -18,21 +18,69 @@ sees aggregate, anonymised data only — never individual answers, names, or
 scores.** This is a technical constraint enforced in the data model, not a
 policy enforced by application code discipline.
 
-## Relationship to the existing Circle.so community
+## Relationship to the existing Circle.so community — superseded
 
-Anthony already runs a live Circle.so community at `ntitt.co.uk` (spaces,
-events, a mobile app, real members and history). Circle stays as-is for
-community/events. This platform is built alongside it, not as a
-replacement — Circle has no answer for the private daily habit engine, the
-aggregate-only HR dashboard, or the Ask for Support alert flow, which is
-where this platform's entire value lives. The two are linked (SSO/deep-link
-into Circle for "Community"), not merged. Revisit consolidation only once
-this platform is proven and paying, not before.
+**Superseded decision, kept for history:** the original plan below (SSO/
+deep-link bridge into Circle, no native community tables) has been reversed.
+See "Core platform vs. co-branded portals" and "Community scope" below for
+the current decision: **this platform builds its own native, NTITT-wide
+community independently of Circle.** Circle is not the long-term home for
+community/events — no bridge, no merge, no ongoing integration is planned.
+Circle's eventual sunset timeline and whether any historical content is
+worth carrying over are business decisions, not yet made, and don't block
+building the native tables per the resolved schema below.
+
+Original (Phase 1) reasoning, no longer current: Anthony already runs a live
+Circle.so community at `ntitt.co.uk` (spaces, events, a mobile app, real
+members and history). The original plan was to link to it (SSO/deep-link)
+rather than build native community tables, revisiting consolidation only
+once the platform was proven and paying.
 
 "The STAND framework" (visible in Circle) is Anthony's philosophical
 backbone, not the platform's structural identity — NTITT is the brand. STAND
 can inform copy/framing (e.g. how check-in themes or content library tags
 are described) but has no schema or IA implications.
+
+## Core platform vs. co-branded portals — the unifying principle
+
+Anthony's own framing, and the one every "company-specific vs. shared"
+decision resolves against: **NTITT is the core platform. Co-branded portals
+for flagship clients (KP Snacks, Amazon, etc.) are an overlay on that core,
+never a fork of it.** The shared/core layer is the default and the primary
+experience; anything company-specific is optional, additive, and layered on
+top — visually (see "Multi-tenant / co-branded enterprise experience" above)
+and socially (see "Community scope" below). Nothing about a co-branded
+portal should require a different codebase, a different content library, or
+a different community — only a different skin and an optional extra space.
+
+## Community scope
+
+Resolved in favour of the Full Platform Build Brief (v3.1)'s model over the
+Website Spec's: **one shared, NTITT-wide community is the primary space, with
+an optional company-only space alongside it** — not a fully siloed,
+per-company community. This is the direct social expression of the
+core-vs-portal principle above: the community *is* the core, shared
+experience; a company-only space is the co-branded overlay on top of it.
+
+**Schema/RLS model (resolved now, not yet implemented — see Roadmap):**
+- One shared table set (`community_posts`, `community_wins`, etc.), not
+  per-company-isolated tables. Each row carries a `scope` column:
+  `'global' | 'company'`.
+- RLS: `scope = 'global'` → readable by any authenticated user, platform-wide,
+  regardless of `company_id`. `scope = 'company'` → readable only by
+  same-`company_id` users, following the same pattern as every other
+  company-scoped table in this schema.
+- **Moderation is platform-level, not `hr_admin`.** A company's HR admin gets
+  zero visibility into the cross-tenant feed's moderation queue — that's
+  Anthony's/NTITT's remit, never a client's, for the same reason HR admins
+  never see individual check-in data: scope of authority is a hard boundary,
+  not a courtesy. This requires a third role beyond `employee`/`hr_admin` —
+  `ntitt_admin` — added to the `user_role` enum, with its own RLS policies.
+  `hr_admin`'s dashboard access must never imply any community moderation
+  right.
+
+This model is locked so the eventual migration is built right the first
+time, not because Community has moved up in priority — see Roadmap.
 
 ## Build order
 
@@ -178,7 +226,19 @@ action is a follow-up task, not done in Phase 1.
    monitoring.
 6. **Company Dashboard** — full aggregate reporting, auto-generated 90-day
    impact PDF.
-7. **Community bridge** — SSO/link into Circle, KP Snacks pilot readiness.
+7. **Community (native)** — shared NTITT-wide feed + optional company space,
+   built on the resolved `scope`-column schema and `ntitt_admin` moderation
+   role (see "Community scope" above). No Circle bridge. Sequencing is
+   unchanged from the original plan, for reasons that still hold: the daily
+   core loop, reviews, and content library are what make this a sellable,
+   pilot-ready product to HR — the parts Circle has no answer for — while
+   Circle already provides a live substitute for community today, so there's
+   no unmet need pulling it forward. A shared feed is also more useful, and
+   safer to moderate, once an active user base exists to populate it with
+   check-ins, wins, and reviews; Content Library also has a direct dependency
+   (Workout Wednesday's demo videos) that argues for it landing first. Only
+   the *model* moved up (locked now to avoid a painful migration later, once
+   the daily-loop tables already exist) — not the build order.
 
 ## Open items (business decisions, not blocking Phase 1)
 
@@ -188,3 +248,7 @@ action is a follow-up task, not done in Phase 1.
 - Real NTITT brand colors/logo/PWA icon assets — `--brand-accent` and
   `public/icon-*.png` are placeholders right now (see `globals.css` and
   `src/app/manifest.ts`).
+- Circle.so's sunset timeline and whether any of its historical content
+  (STAND framework, Talking Tuesdays, Members Events posts/history) is worth
+  carrying over — platform builds independently either way; this only
+  affects Circle's own wind-down, not the native community schema.
