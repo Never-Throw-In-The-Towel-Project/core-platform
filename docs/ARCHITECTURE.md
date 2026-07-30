@@ -208,20 +208,68 @@ on a `failed`/`undelivered` status (escalating to a secondary contact,
 retrying). Currently this records status; wiring an actual escalation
 action is a follow-up task, not done in Phase 1.
 
+## Daily core loop (Phase 2): day-journeys vs. week-journeys
+
+Resolved by CTO decision: the platform has two parallel time models, not
+one, and every part of the daily/weekly framework is one or the other —
+never a guess re-derived per feature.
+
+- **Day-journeys** (Morning Routine, Night Routine, and the 30/90-Day Review
+  milestones that will key off them in Phase 3): tracked by **active
+  engagement**, not the calendar. "Day N" (`getDayCounter` in
+  `src/lib/routines/dayState.ts`) counts distinct calendar dates on which
+  the user completed at least a Morning or Night entry. A user who goes
+  quiet for a week doesn't lose their place, but doesn't advance either.
+  This is also the single source of truth the 30/90-Day trigger must read
+  from in Phase 3 — it should never be recomputed differently there.
+- **Week-journeys** (the five weekday themed check-ins, Sunday Setup,
+  Weekly Review): pinned to the **real calendar week (Monday–Sunday)** —
+  this is the accountability mechanic. There is no backfill: the themed
+  check-in actions (`src/lib/actions/themedCheckin.ts`) derive "today" from
+  the server clock, not a client-submitted value, so there is no field to
+  submit a false day through. Miss Tuesday and that Tuesday's check-in is
+  simply missed; Wednesday still only opens on the real Wednesday.
+
+**Workout Wednesday** is a week-journey like its four siblings, so it was
+built now in Phase 2 rather than deferred to Phase 4 (Content Library) as
+originally scoped. Its rotating "workout of the week" (`workout_weeks` /
+`workout_week_exercises`, see the Phase 2 migration) is keyed by real ISO
+calendar week number modulo however many weeks are seeded
+(`resolveBankPosition` in `src/lib/routines/dates.ts`) — every user sees the
+same workout in the same real week, regardless of when they personally
+started. Thoughts on Thursday's rotating quote bank (`daily_quotes`) follows
+the identical rotation pattern. Both are seeded content tables rather than
+hardcoded arrays, consistent with `content_videos`/`podcast_episodes` —
+Anthony's content ops can add a new week/quote as a data insert, no
+redeploy.
+
+**Known simplification, not yet a decision**: all date/time resolution
+(`src/lib/routines/dates.ts`) is UTC-based. There is no per-user timezone
+column on `profiles` yet, so a user near a day boundary could see their
+Morning/Night Routine or weekday check-in flip over at a UTC-relative
+time rather than their actual local midday/7pm. Revisit once a timezone
+column exists — see Open items.
+
 ## Roadmap
 
 1. **Foundation** (this phase) — repo scaffold, auth, the privacy-boundary
    schema (validated against a real Postgres instance), tenant/branding
    resolution, CI.
-2. **Daily core loop** — Morning/Night Routine, Mon–Fri themed check-ins
-   (with Monday→Friday goal linkage via `themed_checkins.goals`), Sunday
-   Setup.
+2. **Daily core loop** (done) — Morning/Night Routine (day-journey, active-
+   engagement day counter), Mon–Fri themed check-ins (week-journey, pinned
+   to the real calendar week, with Monday→Friday goal linkage via
+   `themed_checkins.goals`), Sunday Setup, including Workout Wednesday's
+   rotating workout bank (see "Daily core loop" above — brought forward
+   from Phase 4 since it's a week-journey like its siblings).
 3. **Reviews & history** — Weekly Review, My Journey/History, 30-Day
-   Review, 90-Day Review + PDF export.
+   Review, 90-Day Review + PDF export. The 30/90-Day trigger reads the same
+   active-engagement day counter Phase 2 established — see "Daily core
+   loop" above.
 4. **Content Library** — Vimeo-embedded, topic-tagged, editable by Anthony
-   without developer involvement. Aggregation job for participation/review
-   completion stats also lands here (needed for the dashboard to be
-   meaningful).
+   without developer involvement (full browsing/search UI; Workout
+   Wednesday's own demo-video linking already landed in Phase 2). Aggregation
+   job for participation/review completion stats also lands here (needed
+   for the dashboard to be meaningful).
 5. **Ask for Support hardening** — escalation-on-failure logic, response-time
    monitoring.
 6. **Company Dashboard** — full aggregate reporting, auto-generated 90-day
@@ -235,10 +283,9 @@ action is a follow-up task, not done in Phase 1.
    Circle already provides a live substitute for community today, so there's
    no unmet need pulling it forward. A shared feed is also more useful, and
    safer to moderate, once an active user base exists to populate it with
-   check-ins, wins, and reviews; Content Library also has a direct dependency
-   (Workout Wednesday's demo videos) that argues for it landing first. Only
-   the *model* moved up (locked now to avoid a painful migration later, once
-   the daily-loop tables already exist) — not the build order.
+   check-ins, wins, and reviews. Only the *model* moved up (locked now to
+   avoid a painful migration later, once the daily-loop tables already
+   exist) — not the build order.
 
 ## Open items (business decisions, not blocking Phase 1)
 
@@ -252,3 +299,6 @@ action is a follow-up task, not done in Phase 1.
   (STAND framework, Talking Tuesdays, Members Events posts/history) is worth
   carrying over — platform builds independently either way; this only
   affects Circle's own wind-down, not the native community schema.
+- Per-user timezone: `profiles` has no timezone column yet, so all
+  day/week-journey boundaries (Morning/Night Routine cutover, which weekday
+  check-in is "today") are resolved in UTC — see "Daily core loop" above.
