@@ -77,6 +77,53 @@ export interface ThemedCheckin {
   created_at: string;
 }
 
+export interface SundaySetup {
+  id: string;
+  user_id: string;
+  week_start_date: string;
+  prep_notes: string | null;
+  intention: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface ContentVideo {
+  id: string;
+  vimeo_id: string;
+  title: string;
+  category: VideoCategory;
+  tags: string[];
+  workout_tier: WorkoutTier | null;
+  duration_seconds: number | null;
+  created_at: string;
+}
+
+export interface WorkoutWeek {
+  id: string;
+  bank_position: number;
+  created_at: string;
+}
+
+export interface WorkoutWeekExercise {
+  id: string;
+  workout_week_id: string;
+  exercise_order: number;
+  exercise_name: string;
+  beginner_video_id: string | null;
+  intermediate_video_id: string | null;
+  advanced_video_id: string | null;
+  elite_video_id: string | null;
+  created_at: string;
+}
+
+export interface DailyQuote {
+  id: string;
+  bank_position: number;
+  quote_text: string;
+  author: string | null;
+  created_at: string;
+}
+
 export interface SupportRequestInsert {
   user_id: string;
   company_id: string;
