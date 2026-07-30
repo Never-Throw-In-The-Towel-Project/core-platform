@@ -1,0 +1,70 @@
+import { createClient } from "@supabase/supabase-js";
+import type { Company } from "@/types/database";
+
+const RESERVED_SUBDOMAINS = new Set(["app", "www"]);
+
+/**
+ * Pulls the tenant slug out of a request's Host header, for both production
+ * (`kpsnacks.ntitt.co.uk`) and local dev (`kpsnacks.localhost:3000`).
+ * Returns null for the un-branded default app (`app.ntitt.co.uk`,
+ * `ntitt.co.uk` itself, or bare `localhost`) — those get default NTITT
+ * branding, not a company theme.
+ */
+export function extractTenantSlug(host: string): string | null {
+  const hostname = host.split(":")[0].toLowerCase();
+  const rootDomain = (process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN ?? "ntitt.co.uk").toLowerCase();
+
+  let candidate: string | null = null;
+
+  if (hostname.endsWith(`.${rootDomain}`)) {
+    candidate = hostname.slice(0, -(rootDomain.length + 1));
+  } else if (hostname.endsWith(".localhost")) {
+    candidate = hostname.slice(0, -".localhost".length);
+  }
+
+  if (!candidate || candidate.includes(".") || RESERVED_SUBDOMAINS.has(candidate)) {
+    return null;
+  }
+
+  return candidate;
+}
+
+/**
+ * Resolves a request's Host header to a company (by subdomain slug or a
+ * flagship client's custom domain). Company branding is public-readable
+ * (see the migration's "companies are publicly readable" policy), so the
+ * anon key is sufficient here — no service role needed, and this is safe to
+ * call before a user is authenticated (e.g. to brand the login page).
+ *
+ * Perf note for later: this is one DB round-trip per request when called
+ * from proxy.ts. Fine for the foundation phase; worth caching (short-TTL,
+ * keyed by hostname) once real traffic makes it worth the complexity.
+ */
+export async function resolveCompanyForHost(host: string): Promise<Company | null> {
+  const hostname = host.split(":")[0].toLowerCase();
+  const slug = extractTenantSlug(host);
+
+  if (!slug && !hostname.endsWith(process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN ?? "ntitt.co.uk")) {
+    // Not a recognized subdomain pattern at all -- still check for a
+    // flagship client's custom domain (e.g. wellbeing.some-client.com).
+  } else if (!slug) {
+    return null; // bare root/app domain -- default NTITT branding
+  }
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  const orFilter = slug
+    ? `custom_domain.eq.${hostname},slug.eq.${slug}`
+    : `custom_domain.eq.${hostname}`;
+
+  const { data } = await supabase
+    .from("companies")
+    .select("*")
+    .or(orFilter)
+    .maybeSingle();
+
+  return (data as Company) ?? null;
+}
