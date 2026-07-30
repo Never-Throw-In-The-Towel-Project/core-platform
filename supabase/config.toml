@@ -1,0 +1,35 @@
+# Supabase local development config.
+# This file documents the project's real settings so a fresh `supabase link`
+# to the live project can restore them. It is not a substitute for reviewing
+# the live project's Auth/API settings before go-live.
+
+project_id = "ntitt-platform"
+
+[api]
+enabled = true
+port = 54321
+# `private` (journal/check-in/review data) IS included here deliberately.
+# An earlier draft excluded it on the theory that hiding it from the API was
+# an extra security layer -- tested locally and reverted: our own Next.js
+# server code reaches Postgres through this same PostgREST/`authenticated`
+# path via @supabase/ssr, so excluding the schema blocks our own reads and
+# writes too, not just outside access. Row Level Security (defined per table
+# in the migration) is the real, hard boundary here, not schema exclusion.
+# See supabase/migrations/20260730000000_init_schema.sql and
+# docs/ARCHITECTURE.md for the full reasoning.
+schemas = ["public", "private", "graphql_public"]
+extra_search_path = ["public"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://app.ntitt.co.uk"]
+jwt_expiry = 3600
+enable_signup = false
+# Employees and HR admins are provisioned by NTITT/company admin flows, not
+# open self-signup, since every account must be tied to a company at creation.

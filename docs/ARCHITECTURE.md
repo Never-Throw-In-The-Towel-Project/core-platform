@@ -1,0 +1,190 @@
+# NTITT Platform — Architecture & Decisions
+
+This is the durable record of the decisions made in planning, so they live
+in the codebase rather than only in chat history. Update it when a decision
+changes; don't let it drift from what's actually built.
+
+## What this platform is
+
+A daily wellbeing tool sold to companies as an employee wellbeing programme:
+journaling, habit tracking, community, and video content, built around a
+fixed weekly framework (Morning Routine, Mon–Fri themed check-ins, Night
+Routine, Weekly Review, Sunday Setup, 30/90-Day Reviews). Two user types:
+employee (end user) and company HR admin (aggregate dashboard only).
+
+The one rule everything else is built around: **all personal check-in,
+routine, and review data is private to the user only. The company dashboard
+sees aggregate, anonymised data only — never individual answers, names, or
+scores.** This is a technical constraint enforced in the data model, not a
+policy enforced by application code discipline.
+
+## Relationship to the existing Circle.so community
+
+Anthony already runs a live Circle.so community at `ntitt.co.uk` (spaces,
+events, a mobile app, real members and history). Circle stays as-is for
+community/events. This platform is built alongside it, not as a
+replacement — Circle has no answer for the private daily habit engine, the
+aggregate-only HR dashboard, or the Ask for Support alert flow, which is
+where this platform's entire value lives. The two are linked (SSO/deep-link
+into Circle for "Community"), not merged. Revisit consolidation only once
+this platform is proven and paying, not before.
+
+"The STAND framework" (visible in Circle) is Anthony's philosophical
+backbone, not the platform's structural identity — NTITT is the brand. STAND
+can inform copy/framing (e.g. how check-in themes or content library tags
+are described) but has no schema or IA implications.
+
+## Build order
+
+Website-first (PWA), not native app first — faster and cheaper, per the
+Website Full Spec brief — but built PWA-capable (installable, push
+notifications, offline-friendly for the daily forms) from day one, per the
+Full Platform Build Brief's app-shaped UX (day counters, daily notifications).
+A native app, if it's ever needed, becomes a thin wrapper rather than a
+rewrite. See `src/app/manifest.ts`.
+
+## Stack
+
+- **Next.js 16 (App Router) + TypeScript**, deployed on Vercel. Note: Next 16
+  renamed Middleware to Proxy (`src/proxy.ts`, not `middleware.ts` — same
+  functionality). Proxy runs on the Node.js runtime in this version, not
+  Edge, which is why it's safe to run a full Supabase auth check there
+  rather than a cookie-presence-only optimistic check.
+- **Supabase (Postgres + Auth)**. Row Level Security is the enforcement
+  mechanism for the privacy boundary — see below.
+- **Vimeo** (unlisted) for video hosting, embedded. Chosen over YouTube:
+  domain-locked embeds, no ads, no "up next" algorithmic rail pulling
+  someone away mid-video. This matters more than YouTube's free hosting
+  given the podcast/guest-contributor consent process explicitly promises a
+  right of withdrawal — a leaked "unlisted" YouTube link undermines that
+  promise in a way Vimeo's stricter privacy controls don't.
+- **Twilio + Brevo**, split by purpose, not one vendor for everything:
+  - **Twilio** (SMS), dedicated solely to the Ask for Support alert. Direct
+    API integration (fetch, no SDK yet), not Zapier — this is the one flow
+    the brief calls a failure condition if it's slow ("if someone reaches
+    out and nobody responds for hours, the system has failed"), so it gets
+    the vendor whose entire business is real-time delivery confirmation and
+    failover, not one where crisis alerting shares infrastructure with
+    marketing sends.
+  - **Brevo** for the CRM (corporate prospect/client management — Amazon, KP
+    Snacks, etc.) and general transactional/engagement email. Consolidates
+    3 vendors into 1 everywhere except the single highest-stakes path.
+- **Zapier and other no-code glue**: fine for everything else (podcast RSS,
+  content ops) — deliberately not used for the support alert path.
+
+## Privacy boundary: how it's actually enforced
+
+Personal data (`private` schema: `morning_entries`, `night_entries`,
+`themed_checkins`, `sunday_setups`, `weekly_reviews`, `periodic_reviews`,
+`support_requests`) vs. shared/aggregate data (`public` schema: `companies`,
+`profiles`, `content_videos`, `company_support_counts`,
+`company_daily_participation`, `company_review_completions`).
+
+**Row Level Security is the real, hard boundary — not schema separation.**
+An earlier draft of the migration also excluded `private` from Supabase's
+exposed API schemas, on the theory that this was an additional layer of
+protection. That was tested locally against a real Postgres instance and
+reverted: our own Next.js server code reaches Postgres through the same
+PostgREST/`authenticated`-role path as any other client (via
+`@supabase/ssr`'s `createServerClient`), so hiding the schema from the API
+blocks our own reads and writes too, not just outside access. `private` is
+now included in `supabase/config.toml`'s exposed schemas, and RLS (`auth.uid()
+= user_id`, no exceptions, no hr_admin policy anywhere on any private table)
+is what actually does the work. This was verified locally: seeded two
+employees and an HR admin against the real migration SQL, confirmed employee
+A cannot see or spoof-insert as employee B, and HR admin gets zero rows on
+every private table — see the migration file's header comment for the full
+reasoning, and git history for the test transcript.
+
+Sleep score (morning) and day rating (night) are the two fields the brief
+singles out by name as never-reportable, even in aggregate. They live in
+`private` like everything else, flagged in code comments as a standing
+reminder not to add any column, view, or aggregate that surfaces them.
+
+**Aggregation is one-way, `private → public`, and only ever written by
+`service_role`** (which bypasses RLS by design — that's what makes it able
+to compute cross-user rollups):
+- `company_support_counts` is updated live by a `SECURITY DEFINER` trigger
+  (`private.increment_support_count()`) on every `support_requests` insert.
+- `company_daily_participation` / `company_review_completions` (% completed
+  by day, most/least engaged day, 30/90-day completion rates) are lower
+  frequency, cross-user rollups — intended to be computed by a scheduled job
+  (Supabase Edge Function on a cron, or an external scheduler hitting a
+  service-role-authenticated endpoint) rather than a per-row trigger. **Not
+  yet implemented** — the tables and RLS read-policies exist; the job that
+  populates them is Phase 3/4 work.
+
+No table or policy anywhere lets an HR admin's session query another user's
+row. That's not "the policy denies it" — the grant simply doesn't exist.
+
+## Multi-tenant / co-branded enterprise experience
+
+Content and the check-in framework are identical for every company —
+that's the "built once, runs everywhere" economics the whole model depends
+on. Co-branding is a presentation-layer override on top:
+- `public.companies` holds `logo_url`, `primary_color`, `accent_color`,
+  `welcome_copy`, `slug` (subdomain), and an optional `custom_domain` for
+  flagship clients.
+- `src/lib/tenant/resolve.ts` resolves a request's Host header to a company
+  (subdomain slug, e.g. `kpsnacks.ntitt.co.uk`, or a custom domain).
+- `src/lib/theme/ThemeProvider.tsx` overrides four `--brand-*` CSS custom
+  properties (defined with NTITT defaults in `globals.css`) per company.
+  Every component should reference `--brand-*` tokens (Tailwind classes like
+  `bg-brand-accent`), never hardcode a brand color directly.
+- Scope note: the branding depth (logo+color theming vs. a fully distinct
+  app identity/PWA name per client) is still open — the architecture
+  supports either; only the amount of per-tenant design polish differs.
+- **Important distinction**: the hostname-resolved company (via
+  `resolveCompanyForHost`) is only used for *pre-authentication* branding
+  (e.g. the login page's logo on a client's subdomain). Once a user is
+  authenticated, the company that matters for data/routing purposes (Ask
+  for Support routing, dashboard scoping) is always their own
+  `profiles.company_id` — not whatever subdomain they happen to be on. Don't
+  conflate the two.
+
+## Ask for Support reliability design
+
+Person-led only — never triggered by any journal answer or score. Flow:
+`src/components/AskForSupport.tsx` (rendered in the `(app)` and `(admin)`
+layouts, using the signed-in user's own `company_id`) → `src/lib/actions/
+support.ts` (validates, inserts into `private.support_requests` under the
+user's own RLS-scoped session) → `src/lib/support/alert.ts` (dispatches SMS
+via Twilio and email via Brevo in parallel; one channel failing never blocks
+the other, and both outcomes are recorded in `delivery_status`).
+
+`src/app/api/webhooks/twilio-status/route.ts` receives Twilio's async
+delivery-status callback (queued → sent → delivered/failed), verified via
+Twilio's HMAC request-signing scheme so the endpoint can't be spoofed, and
+records the confirmed status. **Not yet implemented**: automatically acting
+on a `failed`/`undelivered` status (escalating to a secondary contact,
+retrying). Currently this records status; wiring an actual escalation
+action is a follow-up task, not done in Phase 1.
+
+## Roadmap
+
+1. **Foundation** (this phase) — repo scaffold, auth, the privacy-boundary
+   schema (validated against a real Postgres instance), tenant/branding
+   resolution, CI.
+2. **Daily core loop** — Morning/Night Routine, Mon–Fri themed check-ins
+   (with Monday→Friday goal linkage via `themed_checkins.goals`), Sunday
+   Setup.
+3. **Reviews & history** — Weekly Review, My Journey/History, 30-Day
+   Review, 90-Day Review + PDF export.
+4. **Content Library** — Vimeo-embedded, topic-tagged, editable by Anthony
+   without developer involvement. Aggregation job for participation/review
+   completion stats also lands here (needed for the dashboard to be
+   meaningful).
+5. **Ask for Support hardening** — escalation-on-failure logic, response-time
+   monitoring.
+6. **Company Dashboard** — full aggregate reporting, auto-generated 90-day
+   impact PDF.
+7. **Community bridge** — SSO/link into Circle, KP Snacks pilot readiness.
+
+## Open items (business decisions, not blocking Phase 1)
+
+- Exact co-branding depth for flagship clients (cosmetic vs. full app
+  identity).
+- Whether there's a fixed pilot deadline (e.g. KP Snacks) driving sequencing.
+- Real NTITT brand colors/logo/PWA icon assets — `--brand-accent` and
+  `public/icon-*.png` are placeholders right now (see `globals.css` and
+  `src/app/manifest.ts`).

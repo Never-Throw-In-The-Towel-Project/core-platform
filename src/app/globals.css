@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+/*
+ * Default NTITT brand tokens. --brand-primary/--brand-accent are TODOs:
+ * placeholder values only, standing in until real brand guidelines/hex
+ * values come from Anthony. Everything else (dark background, light
+ * foreground) matches the existing Circle/pitch-deck presentation.
+ *
+ * These four --brand-* variables are the entire co-branding mechanism: a
+ * company's ThemeProvider override (src/lib/theme/ThemeProvider.tsx) sets
+ * new values for the same variable names on a wrapping element, and every
+ * component that reads --brand-* rather than a hardcoded color picks up the
+ * tenant's branding automatically. Components should never hardcode a color
+ * that's meant to be brand-driven -- reference the token instead.
+ */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --brand-background: #0a0a0a;
+  --brand-foreground: #f5f5f5;
+  --brand-primary: #f5f5f5;
+  --brand-accent: #dc2626; /* TODO: placeholder -- replace with real NTITT brand color */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand-background: var(--brand-background);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-accent: var(--brand-accent);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
