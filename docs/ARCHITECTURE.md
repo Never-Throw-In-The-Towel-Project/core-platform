@@ -155,12 +155,25 @@ to compute cross-user rollups):
 - `company_support_counts` is updated live by a `SECURITY DEFINER` trigger
   (`private.increment_support_count()`) on every `support_requests` insert.
 - `company_daily_participation` / `company_review_completions` (% completed
-  by day, most/least engaged day, 30/90-day completion rates) are lower
-  frequency, cross-user rollups — intended to be computed by a scheduled job
-  (Supabase Edge Function on a cron, or an external scheduler hitting a
-  service-role-authenticated endpoint) rather than a per-row trigger. **Not
-  yet implemented** — the tables and RLS read-policies exist; the job that
-  populates them is Phase 3/4 work.
+  by day, most/least engaged day, 30/90-day completion rates): implemented in
+  Phase 4 as a Vercel Cron job (`vercel.json`, daily at 02:00 UTC) hitting
+  `src/app/api/jobs/aggregate-participation`, authenticated by a shared
+  `CRON_SECRET` bearer token rather than a user session — this is the one
+  route that reads across every user's private data via the service-role
+  client. It processes "yesterday" (the most recent fully-settled day) each
+  run: two admin-client reads (`public.profiles` for the company_id map,
+  then the relevant `private`-schema completion rows for that date),
+  aggregated in memory rather than a cross-schema join — a supabase-js query
+  is scoped to one schema per request, so `public.profiles` and
+  `private.morning_entries` can't be joined in a single query here.
+  `company_review_completions` is populated as an all-time running total per
+  `(company_id, review_type)` on a fixed sentinel `period_start`
+  (`2000-01-01`), not a real per-period breakdown — each user's own
+  `periodic_reviews.period_start` is personal (day-journey-based, see "Daily
+  core loop" above), so there's no shared calendar period to bucket a
+  company's cohort by the way daily participation has a shared `entry_date`.
+  The brief's actual dashboard requirement here is just a completion count,
+  which this satisfies.
 
 No table or policy anywhere lets an HR admin's session query another user's
 row. That's not "the policy denies it" — the grant simply doesn't exist.
@@ -305,11 +318,25 @@ column exists — see Open items.
    "Save as PDF"), not a server-side PDF pipeline — deliberately different
    from Phase 6's HR impact report, which must generate and email itself
    unattended and will need a real PDF library then.
-4. **Content Library** — Vimeo-embedded, topic-tagged, editable by Anthony
-   without developer involvement (full browsing/search UI; Workout
-   Wednesday's own demo-video linking already landed in Phase 2). Aggregation
-   job for participation/review completion stats also lands here (needed
-   for the dashboard to be meaningful).
+4. **Content Library** (done) — `/content`: browse and search
+   `content_videos` by category (Mental Fitness, Physical Fitness, Tools &
+   Tips) and by title/tag (`title.ilike`/`tags.cs` — search "divorce" or
+   "addiction" and land on relevant content, per the brief), Vimeo-embedded
+   via a lazy `<iframe>` (`src/components/VimeoEmbed.tsx` — starts as a
+   lightweight "Watch" card, only mounts the real player once tapped, rather
+   than loading every video's iframe on page load). **"Editable by Anthony
+   without developer involvement"**: satisfied by Supabase Studio's table
+   editor directly against `content_videos`/`workout_week_exercises`/
+   `daily_quotes`/`podcast_episodes` — deliberately not a bespoke in-app CMS
+   screen. The brief's requirement is that Anthony can add content without a
+   developer, which Supabase's own dashboard already does; building a
+   redundant internal tool for what's effectively spreadsheet-equivalent
+   data entry isn't work this phase needs to do. Revisit only if Anthony
+   finds the raw table editor genuinely unworkable in practice.
+   Workout Wednesday's own demo-video linking already landed in Phase 2.
+   The private→public aggregation job (participation/review completion
+   stats, needed for the dashboard to be meaningful) also lands here — see
+   "Aggregation is one-way" above.
 5. **Ask for Support hardening** — escalation-on-failure logic, response-time
    monitoring.
 6. **Company Dashboard** — full aggregate reporting, auto-generated 90-day
