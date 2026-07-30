@@ -66,16 +66,17 @@ export function ThemedCheckinForm({ weekday, mondayGoals, quote, podcastEpisode 
         </fieldset>
       )}
 
-      {weekday === "friday" && (
+      {/* Per Anthony's guidance: if Monday was skipped that week, Friday
+          just skips the goal check entirely -- no empty question, no
+          penalty for dipping in and out. */}
+      {weekday === "friday" && mondayGoals && mondayGoals.length > 0 && (
         <fieldset className="space-y-2 text-sm">
           <legend className="mb-1 font-medium">Did you achieve your goals from Monday?</legend>
-          {mondayGoals && mondayGoals.length > 0 && (
-            <ul className="list-inside list-disc rounded-lg border border-white/10 p-3 opacity-80">
-              {mondayGoals.map((goal, i) => (
-                <li key={i}>{goal}</li>
-              ))}
-            </ul>
-          )}
+          <ul className="list-inside list-disc rounded-lg border border-white/10 p-3 opacity-80">
+            {mondayGoals.map((goal, i) => (
+              <li key={i}>{goal}</li>
+            ))}
+          </ul>
           {FRIDAY_GOAL_OPTIONS.map((option) => (
             <label key={option.value} className="flex items-center gap-2">
               <input type="radio" name="achieved_monday_goals" value={option.value} required />

@@ -288,6 +288,49 @@ Morning/Night Routine or weekday check-in flip over at a UTC-relative
 time rather than their actual local midday/7pm. Revisit once a timezone
 column exists — see Open items.
 
+## No day numbers, per Anthony's direct guidance
+
+Superseding this doc's earlier framing (which called the active-engagement
+count "Day N" and displayed it): **the platform never shows a user a day
+number or streak count.** Anthony's reasoning, verbatim from planning:
+missed days read as failure ("Day 47 sitting there when they've only
+actually used it 20 times is demotivating"), and corporate users especially
+drift in and out with shift patterns, holidays, and illness — a visible
+count penalises exactly the dipping-in-and-out behaviour the platform is
+supposed to tolerate gracefully. `getActiveDayCount`
+(`src/lib/routines/dayState.ts`, formerly `getDayCounter`) still exists and
+is still computed the same way (distinct calendar dates with a completed
+Morning or Night entry) — it's purely an internal trigger input now, never
+rendered. `MorningRoutineForm`/`NightRoutineForm` no longer take a
+`dayNumber` prop at all.
+
+This also sharpened the "dipping in and out" behaviour already built:
+someone who comes back on a Thursday gets Thursday's content directly, no
+forced catch-up, which is what Phase 2's no-backfill week-journey design
+already did — Anthony's guidance confirms that was the right call, it
+doesn't change it. The one refinement: **Feel Good Friday's "did you
+achieve your goals from Monday?" question now only appears if Monday's
+goals actually exist for that week** (`submitThemedCheckin` looks up the
+real Monday row itself, same server-derives-the-truth pattern as the
+weekday lock) — if Monday was skipped, Friday skips the goal-check
+entirely rather than showing it empty or blocking completion on it.
+
+A separate, not-yet-resolved question Anthony's guidance raises: whether the
+30/90-Day Review trigger itself should move from active-engagement days to
+calendar days elapsed since the user's start date (his message frames the
+corporate offering as "4 x 90 day quarterly blocks... reviews trigger
+automatically at 30 and 90 days from each person's start date"). Left
+unchanged pending explicit confirmation — see Open items — since a literal
+calendar-day trigger would arguably work against his own stated goal here:
+it could land a "congratulations" milestone on someone who registered 90
+days ago but barely used the platform, which cuts against the review's
+"recognise the effort you've made" framing more than the active-engagement
+trigger does.
+
+Individual-purchase product (a numbered physical journal, plus a streak
+counter if a digital version of that product is ever built) is out of
+scope — the current build is the corporate/company platform only.
+
 ## Roadmap
 
 1. **Foundation** (this phase) — repo scaffold, auth, the privacy-boundary
@@ -370,3 +413,12 @@ column exists — see Open items.
 - Per-user timezone: `profiles` has no timezone column yet, so all
   day/week-journey boundaries (Morning/Night Routine cutover, which weekday
   check-in is "today") are resolved in UTC — see "Daily core loop" above.
+- **Whether the 30/90-Day Review trigger should be calendar-days-since-start
+  rather than active-engagement days** — see "No day numbers, per Anthony's
+  guidance" above. Currently unchanged (active-engagement), pending explicit
+  confirmation since Anthony's message can be read either way.
+- Whether "Week 1 / Week 4 / Week 12" framing (Anthony's suggested corporate
+  vocabulary, replacing day numbers) needs to surface anywhere in the
+  product — e.g. the Company Dashboard's participation trend (Phase 6) — or
+  is purely how the offering gets described commercially to HR, with no UI
+  implication. Not yet needed since Phase 6 isn't built.

@@ -6,7 +6,7 @@ import { initialRoutineState } from "@/lib/actions/routineState";
 
 const SLEEP_SCALE = Array.from({ length: 10 }, (_, i) => i + 1);
 
-export function MorningRoutineForm({ dayNumber }: { dayNumber: number }) {
+export function MorningRoutineForm() {
   const [state, formAction, isPending] = useActionState(submitMorningEntry, initialRoutineState);
   const [sleepScore, setSleepScore] = useState<number | null>(null);
 
@@ -22,7 +22,6 @@ export function MorningRoutineForm({ dayNumber }: { dayNumber: number }) {
   return (
     <form action={formAction} className="space-y-6">
       <header>
-        <p className="text-sm uppercase tracking-wide opacity-70">Day {dayNumber}</p>
         <h1 className="text-2xl font-bold">☀️ Morning Routine</h1>
         <p className="opacity-80">Win the morning, win the day.</p>
       </header>

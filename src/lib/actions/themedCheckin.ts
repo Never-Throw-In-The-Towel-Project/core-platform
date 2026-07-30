@@ -54,6 +54,8 @@ export async function submitThemedCheckin(
     if (value) answers[field.key] = value;
   }
 
+  const supabase = await createClient("private");
+
   let goals: { goals: string[] } | null = null;
   if (checkinWeekday === "monday") {
     const goalValues = [formData.get("goal1"), formData.get("goal2"), formData.get("goal3")]
@@ -63,17 +65,32 @@ export async function submitThemedCheckin(
   }
 
   if (checkinWeekday === "friday") {
-    const achievedStatus = formData.get("achieved_monday_goals");
-    if (
-      typeof achievedStatus !== "string" ||
-      !["yes", "partially", "no"].includes(achievedStatus)
-    ) {
-      return { status: "error", message: "Please let us know how Monday's goals went." };
-    }
-    answers.achieved_monday_goals = achievedStatus;
-  }
+    // Per Anthony's guidance: the goal-check is only asked if Monday's
+    // goals actually exist for this week -- derived server-side from the
+    // real Monday row, not trusted from the form, same reasoning as the
+    // weekday lock itself. If Monday was skipped, Friday just skips this
+    // question rather than showing it empty or blocking completion on it.
+    const { data: mondayRow } = await supabase
+      .from("themed_checkins")
+      .select("goals")
+      .eq("user_id", session.userId)
+      .eq("week_start_date", getMondayOfWeek(now))
+      .eq("weekday", "monday")
+      .maybeSingle();
 
-  const supabase = await createClient("private");
+    const mondayGoals = (mondayRow?.goals as { goals?: string[] } | null)?.goals ?? [];
+
+    if (mondayGoals.length > 0) {
+      const achievedStatus = formData.get("achieved_monday_goals");
+      if (
+        typeof achievedStatus !== "string" ||
+        !["yes", "partially", "no"].includes(achievedStatus)
+      ) {
+        return { status: "error", message: "Please let us know how Monday's goals went." };
+      }
+      answers.achieved_monday_goals = achievedStatus;
+    }
+  }
 
   const { error } = await supabase.from("themed_checkins").upsert(
     {
