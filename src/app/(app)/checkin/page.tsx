@@ -20,10 +20,10 @@ export default async function CheckinPage() {
     redirect("/home");
   }
 
-  const supabase = await createClient();
+  const privateClient = await createClient("private");
 
   if (weekday === "wednesday") {
-    const { data: lastWednesday } = await supabase
+    const { data: lastWednesday } = await privateClient
       .from("themed_checkins")
       .select("answers")
       .eq("user_id", profile.id)
@@ -54,7 +54,7 @@ export default async function CheckinPage() {
   }
 
   if (weekday === "friday") {
-    const { data: mondayRow } = await supabase
+    const { data: mondayRow } = await privateClient
       .from("themed_checkins")
       .select("goals")
       .eq("user_id", profile.id)
@@ -74,7 +74,8 @@ export default async function CheckinPage() {
   if (weekday === "tuesday") {
     let podcastEpisode = null;
     if (isFirstOccurrenceOfWeekdayInMonth(now, "tuesday")) {
-      const { data } = await supabase
+      const publicClient = await createClient();
+      const { data } = await publicClient
         .from("podcast_episodes")
         .select("title, embed_url")
         .order("release_date", { ascending: false })

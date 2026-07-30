@@ -8,7 +8,7 @@ import type { PeriodicReview, WeeklyReview } from "@/types/database";
 // through over time, not just a one-time form. Read-only.
 export default async function JourneyPage() {
   const profile = await getProfile();
-  const supabase = await createClient();
+  const supabase = await createClient("private");
 
   const [{ data: weeklyReviews }, { data: periodicReviews }] = await Promise.all([
     supabase

@@ -15,7 +15,7 @@ const THRESHOLDS: Record<ReviewType, number> = { "30_day": 30, "90_day": 90 };
  * reached.
  */
 export async function getFirstActiveDate(userId: string): Promise<string | null> {
-  const supabase = await createClient();
+  const supabase = await createClient("private");
 
   const [{ data: morning }, { data: night }] = await Promise.all([
     supabase
@@ -53,7 +53,7 @@ export async function getPendingPeriodicReview(
   userId: string,
   activeDayCount: number
 ): Promise<ReviewType | null> {
-  const supabase = await createClient();
+  const supabase = await createClient("private");
 
   const { data: completed } = await supabase
     .from("periodic_reviews")
@@ -73,7 +73,7 @@ export async function getHabitSummary(
   periodStart: string,
   periodEnd: string = todayISODate()
 ): Promise<HabitSummary> {
-  const supabase = await createClient();
+  const supabase = await createClient("private");
 
   const [{ count: morningCompleted }, { count: nightCompleted }, { count: themedCompleted }] =
     await Promise.all([

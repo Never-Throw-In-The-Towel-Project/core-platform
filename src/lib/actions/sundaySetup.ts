@@ -33,7 +33,7 @@ export async function submitSundaySetup(
     return { status: "error", message: "Please check the form and try again." };
   }
 
-  const supabase = await createClient();
+  const supabase = await createClient("private");
 
   const { error } = await supabase.from("sunday_setups").upsert(
     {

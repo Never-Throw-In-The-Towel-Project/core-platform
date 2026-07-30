@@ -15,7 +15,7 @@ export default async function NinetyDayReviewPage() {
     redirect("/home");
   }
 
-  const supabase = await createClient();
+  const supabase = await createClient("private");
   const { data: thirtyDayReview } = await supabase
     .from("periodic_reviews")
     .select("self_assessment")

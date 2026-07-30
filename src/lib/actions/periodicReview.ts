@@ -102,7 +102,7 @@ export async function submitPeriodicReview(
   if (reviewType === "90_day") {
     const habitSummary = await getHabitSummary(session.userId, periodStart, periodEnd);
 
-    const supabase = await createClient();
+    const supabase = await createClient("private");
     const { data: thirtyDayReview } = await supabase
       .from("periodic_reviews")
       .select("self_assessment")
@@ -119,7 +119,7 @@ export async function submitPeriodicReview(
     };
   }
 
-  const supabase = await createClient();
+  const supabase = await createClient("private");
   const { error } = await supabase.from("periodic_reviews").upsert(
     {
       user_id: session.userId,

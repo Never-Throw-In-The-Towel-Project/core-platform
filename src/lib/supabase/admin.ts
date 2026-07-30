@@ -19,11 +19,12 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
  * error go away", that's a sign the RLS policy is wrong, not that this is
  * the right fix.
  */
-export function createAdminClient() {
+export function createAdminClient(schema: "public" | "private" = "public") {
   return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
+      db: { schema },
       auth: {
         autoRefreshToken: false,
         persistSession: false,

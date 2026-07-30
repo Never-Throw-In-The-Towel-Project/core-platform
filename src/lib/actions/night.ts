@@ -34,7 +34,7 @@ export async function submitNightEntry(
     return { status: "error", message: "Please check the form and try again." };
   }
 
-  const supabase = await createClient();
+  const supabase = await createClient("private");
   const { noPhoneBeforeBed, hotBathOrShower, gratitude, highlight, dayRating, lookingAhead } = parsed.data;
 
   const { error } = await supabase.from("night_entries").upsert(

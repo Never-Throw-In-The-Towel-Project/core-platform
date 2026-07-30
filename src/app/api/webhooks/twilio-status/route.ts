@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "missing params" }, { status: 400 });
   }
 
-  const supabase = createAdminClient();
+  const supabase = createAdminClient("private");
 
   // Service role is required here: this is an unauthenticated webhook with
   // no user session to scope an RLS-respecting query to, and the row being

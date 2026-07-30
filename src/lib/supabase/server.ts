@@ -9,14 +9,28 @@ import { createServerClient } from "@supabase/ssr";
  * subject to the RLS policies in supabase/migrations — this is what makes
  * the private-schema access boundary actually work. Never use this client
  * for cross-user aggregation; that's what `admin.ts` is for.
+ *
+ * `schema` defaults to `public`. supabase/config.toml exposes multiple
+ * schemas (`public`, `private`, `graphql_public`) via PostgREST, and per
+ * PostgREST/postgrest-js, a client that doesn't explicitly select a schema
+ * always targets the default (`public`) -- it does NOT search across every
+ * exposed schema. Every table in the `private` schema (morning_entries,
+ * night_entries, themed_checkins, sunday_setups, weekly_reviews,
+ * periodic_reviews, support_requests) MUST be queried via
+ * `createClient("private")`, or the query 404s against a real Supabase
+ * instance even though RLS would have allowed it. Found and fixed after
+ * Phase 1-3 all queried these tables with no schema override -- tsc/lint/
+ * build never catch this class of bug since none of them touch the network;
+ * only a real PostgREST round-trip does. See docs/ARCHITECTURE.md.
  */
-export async function createClient() {
+export async function createClient(schema: "public" | "private" = "public") {
   const cookieStore = await cookies();
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      db: { schema },
       cookies: {
         getAll() {
           return cookieStore.getAll();

@@ -32,7 +32,7 @@ export async function submitMorningEntry(
     return { status: "error", message: "Please check the form and try again." };
   }
 
-  const supabase = await createClient();
+  const supabase = await createClient("private");
   const { sleepScore, morningWalk, breathwork, coldDip, powerList } = parsed.data;
 
   const { error } = await supabase.from("morning_entries").upsert(
