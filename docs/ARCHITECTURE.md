@@ -241,10 +241,50 @@ the other, and both outcomes are recorded in `delivery_status`).
 `src/app/api/webhooks/twilio-status/route.ts` receives Twilio's async
 delivery-status callback (queued → sent → delivered/failed), verified via
 Twilio's HMAC request-signing scheme so the endpoint can't be spoofed, and
-records the confirmed status. **Not yet implemented**: automatically acting
-on a `failed`/`undelivered` status (escalating to a secondary contact,
-retrying). Currently this records status; wiring an actual escalation
-action is a follow-up task, not done in Phase 1.
+records the confirmed status.
+
+## Ask for Support hardening (Phase 5)
+
+Three escalation paths, all landing on the same `escalateSupportRequest` in
+`src/lib/support/alert.ts`, all targeting a **global NTITT fallback contact**
+(`NTITT_FALLBACK_CONTACT_PHONE`/`_EMAIL` — Anthony/Craig, not the company's
+own contact, since that's the one that just failed or went unanswered):
+
+1. **Dispatch failure** — both SMS and email fail (or neither is
+   configured) at the moment of submission. Escalates immediately, inline in
+   `dispatchSupportAlert`, before the request even finishes processing.
+2. **Delivery failure** — Twilio's async status callback confirms
+   `failed`/`undelivered`. Only escalates if email didn't already succeed at
+   dispatch time (`escalateOnDeliveryFailureIfNeeded`) — a confirmed-sent
+   email means the contact has a real shot at seeing it even though SMS
+   specifically failed, so this doesn't page the fallback contact on every
+   partial SMS hiccup.
+3. **Response-time monitoring** — `src/app/api/jobs/monitor-support-response-time`,
+   a Vercel Cron job (every 15 minutes — this is why it's a separate cron
+   from the once-daily aggregation job, and requires a Vercel plan whose
+   cron scheduling supports sub-daily intervals). Escalates any request
+   still `status = 'new'` past an urgency-specific timeout (`urgent`: 15
+   min, `talk_today`: 4 hours, `check_in`: 24 hours — sane defaults, not yet
+   a per-company setting; the brief calls for "agree a response protocol
+   with each company before going live," which is a business step, not a
+   technical one, this phase doesn't block on).
+
+Every escalation path records its result in `delivery_status.escalation`
+(reason, timestamp, per-channel outcome) and only ever escalates once per
+request — a request that's already escalated for one reason doesn't get
+re-paged by another trigger finding it later.
+
+**"Mark as contacted" without a login**: there is no auth flow for company
+support contacts, Anthony, or first-aiders as platform users — they're
+contact info on `companies`, not rows in `profiles`. Every alert (SMS +
+email) includes a token-signed link (`src/app/api/support-requests/[id]/ack`,
+`generateAckToken`/`verifyAckToken` in `alert.ts` — same HMAC pattern as the
+Twilio signature check, not a session) that flips `support_requests.status`
+to `'contacted'`. This is what stops the response-time monitor from
+escalating a request someone has actually already responded to — without
+it, every request would eventually escalate regardless of whether a human
+handled it, since nothing else in the codebase ever moves `status` off
+`'new'`.
 
 ## Daily core loop (Phase 2): day-journeys vs. week-journeys
 
@@ -315,17 +355,17 @@ real Monday row itself, same server-derives-the-truth pattern as the
 weekday lock) — if Monday was skipped, Friday skips the goal-check
 entirely rather than showing it empty or blocking completion on it.
 
-A separate, not-yet-resolved question Anthony's guidance raises: whether the
-30/90-Day Review trigger itself should move from active-engagement days to
-calendar days elapsed since the user's start date (his message frames the
-corporate offering as "4 x 90 day quarterly blocks... reviews trigger
-automatically at 30 and 90 days from each person's start date"). Left
-unchanged pending explicit confirmation — see Open items — since a literal
-calendar-day trigger would arguably work against his own stated goal here:
-it could land a "congratulations" milestone on someone who registered 90
-days ago but barely used the platform, which cuts against the review's
-"recognise the effort you've made" framing more than the active-engagement
-trigger does.
+A separate question Anthony's guidance raised: whether the 30/90-Day Review
+trigger itself should move from active-engagement days to calendar days
+elapsed since the user's start date (his message frames the corporate
+offering as "4 x 90 day quarterly blocks... reviews trigger automatically at
+30 and 90 days from each person's start date"). **Resolved: stays
+active-engagement days**, confirmed rather than guessed at — a literal
+calendar-day trigger would have worked against Anthony's own stated goal
+here, since it could land a "congratulations" milestone on someone who
+registered 90 days ago but barely used the platform, cutting against the
+review's "recognise the effort you've made" framing more than the
+active-engagement trigger does.
 
 Individual-purchase product (a numbered physical journal, plus a streak
 counter if a digital version of that product is ever built) is out of
@@ -380,8 +420,9 @@ scope — the current build is the corporate/company platform only.
    The private→public aggregation job (participation/review completion
    stats, needed for the dashboard to be meaningful) also lands here — see
    "Aggregation is one-way" above.
-5. **Ask for Support hardening** — escalation-on-failure logic, response-time
-   monitoring.
+5. **Ask for Support hardening** (done) — escalation-on-failure logic,
+   response-time monitoring. See "Ask for Support hardening (Phase 5)"
+   above.
 6. **Company Dashboard** — full aggregate reporting, auto-generated 90-day
    impact PDF (server-side generation — see Phase 3's note above on why
    that one can't reuse the print-friendly approach).
@@ -413,10 +454,12 @@ scope — the current build is the corporate/company platform only.
 - Per-user timezone: `profiles` has no timezone column yet, so all
   day/week-journey boundaries (Morning/Night Routine cutover, which weekday
   check-in is "today") are resolved in UTC — see "Daily core loop" above.
-- **Whether the 30/90-Day Review trigger should be calendar-days-since-start
-  rather than active-engagement days** — see "No day numbers, per Anthony's
-  guidance" above. Currently unchanged (active-engagement), pending explicit
-  confirmation since Anthony's message can be read either way.
+- ~~Whether the 30/90-Day Review trigger should be calendar-days-since-start
+  rather than active-engagement days~~ — **resolved**: stays
+  active-engagement days, confirmed. Calendar-based would risk landing the
+  "congratulations" milestone on someone who registered 90 days ago but
+  barely engaged, cutting against the review's own "recognise the effort
+  you've made" framing. See "No day numbers, per Anthony's guidance" above.
 - Whether "Week 1 / Week 4 / Week 12" framing (Anthony's suggested corporate
   vocabulary, replacing day numbers) needs to surface anywhere in the
   product — e.g. the Company Dashboard's participation trend (Phase 6) — or
