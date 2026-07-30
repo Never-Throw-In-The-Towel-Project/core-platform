@@ -44,9 +44,9 @@ export async function submitSupportRequest(
   const { companyId, stayAnonymous, displayName, urgency, contactMethod } = parsed.data;
   const contactDisplayName = stayAnonymous ? null : displayName?.trim() || null;
 
-  const supabase = await createClient();
+  const privateClient = await createClient("private");
 
-  const { data: request, error: insertError } = await supabase
+  const { data: request, error: insertError } = await privateClient
     .from("support_requests")
     .insert({
       user_id: session.userId,
@@ -68,8 +68,10 @@ export async function submitSupportRequest(
   // Look up where to route the alert. Company support-contact routing info
   // is not sensitive (it's staff contact details, not a user's private
   // data), so the regular RLS-scoped client is fine here -- no admin client
-  // needed for this read.
-  const { data: company } = await supabase
+  // needed for this read. companies lives in the public schema, unlike
+  // support_requests, so this is a separate client -- see server.ts.
+  const publicClient = await createClient();
+  const { data: company } = await publicClient
     .from("companies")
     .select("name, support_contact_name, support_contact_phone, support_contact_email")
     .eq("id", companyId)
@@ -87,7 +89,7 @@ export async function submitSupportRequest(
       contactMethod: contactMethod ?? null,
     });
 
-    await supabase
+    await privateClient
       .from("support_requests")
       .update({ delivery_status: deliveryStatus })
       .eq("id", request.id);

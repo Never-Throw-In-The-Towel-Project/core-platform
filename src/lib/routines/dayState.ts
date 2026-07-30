@@ -37,7 +37,7 @@ export function resolveHomePhase(now: Date = new Date()): HomePhase {
  * source of that number so the two never drift apart.
  */
 export async function getDayCounter(userId: string): Promise<{ dayNumber: number; completedDays: number }> {
-  const supabase = await createClient();
+  const supabase = await createClient("private");
 
   const [{ data: mornings }, { data: nights }] = await Promise.all([
     supabase

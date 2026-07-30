@@ -73,7 +73,7 @@ export async function submitThemedCheckin(
     answers.achieved_monday_goals = achievedStatus;
   }
 
-  const supabase = await createClient();
+  const supabase = await createClient("private");
 
   const { error } = await supabase.from("themed_checkins").upsert(
     {
@@ -112,7 +112,7 @@ export async function submitWorkoutWednesday(
     return { status: "error", message: "Please select a difficulty level." };
   }
 
-  const supabase = await createClient();
+  const supabase = await createClient("private");
 
   const { error } = await supabase.from("themed_checkins").upsert(
     {

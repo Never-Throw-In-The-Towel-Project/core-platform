@@ -14,7 +14,7 @@ import type { PeriodicReview } from "@/types/database";
  */
 export default async function NinetyDaySummaryPage() {
   const profile = await getProfile();
-  const supabase = await createClient();
+  const supabase = await createClient("private");
 
   const { data: review } = await supabase
     .from("periodic_reviews")

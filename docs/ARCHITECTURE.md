@@ -165,6 +165,31 @@ to compute cross-user rollups):
 No table or policy anywhere lets an HR admin's session query another user's
 row. That's not "the policy denies it" — the grant simply doesn't exist.
 
+**Bug found and fixed while starting Phase 4** (affected every private-table
+query in Phases 1-3): `supabase/config.toml` exposing multiple schemas
+(`public`, `private`, `graphql_public`) to PostgREST does not mean a client
+searches across all of them. Per PostgREST/`postgrest-js`, a client that
+doesn't explicitly select a schema always targets the default (`public`)
+only. Every query against a `private`-schema table, across every phase, was
+written as plain `.from("morning_entries")` etc. with no schema override —
+meaning every one of them was actually querying `public.morning_entries`,
+which doesn't exist, and would 404 against a real Supabase instance despite
+RLS being correctly configured to allow it. This passed `tsc`/`lint`/`build`
+in every phase because none of those touch the network — only an actual
+PostgREST round-trip surfaces it, and Phase 1's RLS verification was done
+directly against Postgres, not through this code path.
+
+Fixed by making `createClient()` (`src/lib/supabase/server.ts`) and
+`createAdminClient()` (`src/lib/supabase/admin.ts`) take a
+`schema: "public" | "private"` parameter (default `"public"`), and updating
+every call site that touches a `private` table to pass `"private"`
+explicitly. A function touching both a `public` and a `private` table in the
+same request (e.g. `submitSupportRequest` reading `companies` while writing
+`support_requests`) now creates two client instances, one per schema. There
+is no compiler check that catches a future call site forgetting this — it
+depends on whoever adds a new private-table query following the pattern
+already established at every existing call site.
+
 ## Multi-tenant / co-branded enterprise experience
 
 Content and the check-in framework are identical for every company —

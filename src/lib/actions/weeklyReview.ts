@@ -45,7 +45,7 @@ export async function submitWeeklyReview(
     return { status: "error", message: "Please check the form and try again." };
   }
 
-  const supabase = await createClient();
+  const supabase = await createClient("private");
   const data = parsed.data;
 
   const { error } = await supabase.from("weekly_reviews").upsert(
