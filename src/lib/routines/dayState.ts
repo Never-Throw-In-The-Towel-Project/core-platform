@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { todayISODate, weekdayNameOrWeekend } from "./dates";
+import { weekdayNameOrWeekend } from "./dates";
 import type { Weekday } from "@/types/database";
 
 // Home-screen phase resolution, per the brief: Morning Routine "at the top
@@ -28,15 +28,17 @@ export function resolveHomePhase(now: Date = new Date()): HomePhase {
 }
 
 /**
- * "Day N" is a day-journey, resolved by CTO decision in favour of active
- * engagement over calendar time: it counts distinct calendar dates on which
- * the user completed at least a Morning or Night entry, not days since
- * signup. A user who goes quiet for a week doesn't lose their place, but
- * doesn't advance either. This is also the counter that will drive the
- * automatic 30/90-Day Review trigger in Phase 3 -- keep this the single
- * source of that number so the two never drift apart.
+ * Active-engagement day count: distinct calendar dates on which the user
+ * completed at least a Morning or Night entry, not days since signup. A
+ * user who goes quiet for a week doesn't lose their place, but doesn't
+ * advance either. Per Anthony's guidance, this number is never shown to the
+ * user as a "Day N" counter -- corporate users especially drift in and out
+ * with shift patterns/leave, and a visible day count turns that into a
+ * feeling of falling behind. It exists purely to drive the automatic
+ * 30/90-Day Review trigger (see getPendingPeriodicReview) -- keep this the
+ * single source of that number so the two never drift apart.
  */
-export async function getDayCounter(userId: string): Promise<{ dayNumber: number; completedDays: number }> {
+export async function getActiveDayCount(userId: string): Promise<number> {
   const supabase = await createClient("private");
 
   const [{ data: mornings }, { data: nights }] = await Promise.all([
@@ -56,9 +58,5 @@ export async function getDayCounter(userId: string): Promise<{ dayNumber: number
   for (const row of mornings ?? []) days.add(row.entry_date as string);
   for (const row of nights ?? []) days.add(row.entry_date as string);
 
-  const completedDays = days.size;
-  const today = todayISODate();
-  const dayNumber = days.has(today) ? completedDays : completedDays + 1;
-
-  return { dayNumber, completedDays };
+  return days.size;
 }

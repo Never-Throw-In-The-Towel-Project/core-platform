@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { verifySession } from "@/lib/auth/dal";
 import { todayISODate } from "@/lib/routines/dates";
-import { getDayCounter } from "@/lib/routines/dayState";
+import { getActiveDayCount } from "@/lib/routines/dayState";
 import {
   getFirstActiveDate,
   getHabitSummary,
@@ -85,8 +85,8 @@ export async function submitPeriodicReview(
     .map((value) => (typeof value === "string" ? value.trim() : ""))
     .filter((value) => value.length > 0);
 
-  const { completedDays } = await getDayCounter(session.userId);
-  const pending = await getPendingPeriodicReview(session.userId, completedDays);
+  const activeDayCount = await getActiveDayCount(session.userId);
+  const pending = await getPendingPeriodicReview(session.userId, activeDayCount);
 
   if (pending !== reviewType) {
     return {

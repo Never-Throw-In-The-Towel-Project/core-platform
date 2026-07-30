@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth/dal";
-import { resolveHomePhase, getDayCounter } from "@/lib/routines/dayState";
+import { resolveHomePhase, getActiveDayCount } from "@/lib/routines/dayState";
 import { getPendingPeriodicReview } from "@/lib/routines/periodicReview";
 import { weekdayNameOrWeekend } from "@/lib/routines/dates";
 import { MorningRoutineForm } from "@/components/routines/MorningRoutineForm";
@@ -17,13 +17,13 @@ const REVIEW_ROUTES = { "30_day": "/reviews/30-day", "90_day": "/reviews/90-day"
 
 export default async function HomePage() {
   const profile = await getProfile();
-  const { dayNumber, completedDays } = await getDayCounter(profile.id);
+  const activeDayCount = await getActiveDayCount(profile.id);
 
   // The 30/90-Day Review is "the critical retention point" / "triggers the
   // renewal conversation" per the brief -- it takes over the home screen
   // as a full-screen moment until completed, ahead of the normal
   // morning/themed/night dispatch below.
-  const pendingReview = await getPendingPeriodicReview(profile.id, completedDays);
+  const pendingReview = await getPendingPeriodicReview(profile.id, activeDayCount);
   if (pendingReview) {
     redirect(REVIEW_ROUTES[pendingReview]);
   }
@@ -35,7 +35,7 @@ export default async function HomePage() {
   if (phase.kind === "morning") {
     return (
       <main className="mx-auto max-w-xl px-6 py-12">
-        <MorningRoutineForm dayNumber={dayNumber} />
+        <MorningRoutineForm />
       </main>
     );
   }
@@ -43,7 +43,7 @@ export default async function HomePage() {
   if (phase.kind === "night") {
     return (
       <main className="mx-auto max-w-xl px-6 py-12">
-        <NightRoutineForm dayNumber={dayNumber} />
+        <NightRoutineForm />
       </main>
     );
   }
