@@ -9,6 +9,20 @@ import { extractTenantSlug } from "@/lib/tenant/resolve";
 // Fail-closed: everything is protected by default except this explicit
 // public list. New routes are safe-by-default as the app grows, rather than
 // depending on remembering to add every new protected path to a list.
+//
+// `/api/*` is NOT gated here at all -- see the `matcher` config below, which
+// excludes it from the proxy entirely. Found in a full-codebase review:
+// every existing /api route (the Twilio status webhook, both Vercel Cron
+// jobs, the Ask for Support "mark as contacted" ack link) is called by
+// something with no Supabase session -- Twilio, Vercel's cron runner, or an
+// anonymous link tap from an SMS/email -- and each already authenticates
+// itself independently (Twilio request signing, a CRON_SECRET bearer token,
+// or a signed ack token). Gating them here as well meant every one of them
+// was silently redirected to /login instead of ever reaching its handler,
+// since none of those callers carry a session. This has been broken since
+// Phase 1's Twilio webhook. If a future /api route ever needs a real user
+// session, gate it explicitly inside that route (verifySession()), not by
+// removing this exclusion -- proxy is for browser-facing pages.
 const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth/callback", "/community-guidelines"];
 
 function isPublicPath(pathname: string): boolean {
@@ -71,6 +85,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|.*\\.(?:svg|png|jpg|jpeg|ico)$).*)",
+    "/((?!api/|_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|.*\\.(?:svg|png|jpg|jpeg|ico)$).*)",
   ],
 };

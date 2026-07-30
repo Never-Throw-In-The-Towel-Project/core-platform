@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { todayISODate } from "./dates";
+import { getMondayOfWeek, todayISODate } from "./dates";
 import type { HabitSummary, ReviewType } from "@/types/database";
 
 const THRESHOLDS: Record<ReviewType, number> = { "30_day": 30, "90_day": 90 };
@@ -91,12 +91,16 @@ export async function getHabitSummary(
         .not("completed_at", "is", null)
         .gte("entry_date", periodStart)
         .lte("entry_date", periodEnd),
+      // week_start_date is always a Monday, but periodStart (the user's
+      // actual first active day) can be any weekday -- widening to that
+      // week's Monday avoids undercounting a themed check-in completed
+      // earlier in the same week periodStart falls in.
       supabase
         .from("themed_checkins")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
         .not("completed_at", "is", null)
-        .gte("week_start_date", periodStart)
+        .gte("week_start_date", getMondayOfWeek(new Date(periodStart + "T00:00:00Z")))
         .lte("week_start_date", periodEnd),
     ]);
 

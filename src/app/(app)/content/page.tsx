@@ -42,7 +42,13 @@ export default async function ContentLibraryPage({
     query = query.eq("category", category);
   }
   if (q) {
-    query = query.or(`title.ilike.%${q}%,tags.cs.{${q}}`);
+    // PostgREST's .or() filter syntax uses commas/parens as delimiters --
+    // an unquoted search term containing either could inject extra filter
+    // conditions instead of just being matched against. Wrapping the value
+    // in double quotes (escaping any literal quotes first) is PostgREST's
+    // documented escape mechanism for values containing reserved characters.
+    const escaped = q.replace(/"/g, '\\"');
+    query = query.or(`title.ilike."%${escaped}%",tags.cs.{"${escaped}"}`);
   }
 
   const { data } = await query;
