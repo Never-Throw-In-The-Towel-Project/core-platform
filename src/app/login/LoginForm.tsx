@@ -5,7 +5,7 @@ import { signInWithMagicLink, type MagicLinkState } from "@/lib/actions/auth";
 
 const initialState: MagicLinkState = { status: "idle" };
 
-export function LoginForm() {
+export function LoginForm({ next }: { next?: string }) {
   const [state, formAction, isPending] = useActionState(signInWithMagicLink, initialState);
 
   if (state.status === "sent") {
@@ -18,6 +18,7 @@ export function LoginForm() {
 
   return (
     <form action={formAction} className="flex w-full max-w-sm flex-col gap-3">
+      {next && <input type="hidden" name="next" value={next} />}
       <label className="text-sm">
         Email
         <input

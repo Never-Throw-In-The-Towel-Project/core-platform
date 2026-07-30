@@ -371,6 +371,63 @@ Individual-purchase product (a numbered physical journal, plus a streak
 counter if a digital version of that product is ever built) is out of
 scope — the current build is the corporate/company platform only.
 
+## Full codebase review (post-Phase 5)
+
+A deliberate pass over everything merged so far, ahead of Company Dashboard.
+One serious functional bug, plus three smaller hardening fixes:
+
+- **Every `/api/*` route was unreachable in production.** `src/proxy.ts`'s
+  fail-closed matcher intercepted all paths except a small `PUBLIC_PATHS`
+  allowlist, and `/api/*` was never on it or excluded from the matcher. The
+  Twilio status webhook, both Vercel Cron jobs, and the Ask for Support ack
+  link are all called by something with no Supabase session (Twilio, Vercel's
+  cron runner, an anonymous SMS/email link tap) — every one of them was
+  silently redirected to `/login` instead of reaching its handler. This has
+  been broken since Phase 1's Twilio webhook; `tsc`/`lint`/`build` can't catch
+  it since it's request-routing behaviour, not a type or syntax issue. Fixed
+  by excluding `api/` from the proxy's matcher entirely (see `src/proxy.ts`)
+  — every existing `/api` route already authenticates itself independently
+  (Twilio request signing, a `CRON_SECRET` bearer token, or a signed ack
+  token), so none of them needed proxy-level gating in the first place. If a
+  future `/api` route ever needs a real user session, gate it explicitly
+  inside that route, not by removing this exclusion.
+- **Filter-string injection** in two places that built a PostgREST `.or()`
+  filter by directly interpolating external input: the Content Library
+  search (`src/app/(app)/content/page.tsx`, user-typed query) and tenant
+  resolution (`src/lib/tenant/resolve.ts`, the request's Host header). A
+  value containing a comma or parenthesis could break out of the intended
+  filter and inject an extra condition — not classic SQL injection (PostgREST
+  parses this itself), and low real impact today since neither
+  `content_videos` nor `companies` holds sensitive data, but the wrong
+  pattern to have anywhere since it's exactly what would matter if ever
+  copied onto a sensitive table. Fixed by wrapping the interpolated value in
+  double quotes (PostgREST's documented escape mechanism) and escaping any
+  literal quotes in the input first.
+- **Open redirect** in `/auth/callback`: the `next` query param (where to
+  send someone after login) was used in a redirect with no validation that
+  it was a same-origin path. Fixed with `isSafeRedirectPath`
+  (`src/lib/auth/redirect.ts`, shared with the login action below) — only a
+  path starting with a single `/` is honoured.
+- **The post-login redirect never actually worked**: `next` was set on the
+  `/login` redirect by `proxy.ts`, but `signInWithMagicLink` never read or
+  forwarded it into the magic link's `emailRedirectTo`, so every login
+  landed on `/home` regardless of what page was originally requested. Fixed
+  by threading `next` through the login page → `LoginForm` (hidden field) →
+  `signInWithMagicLink` (validated with the same `isSafeRedirectPath`) →
+  `emailRedirectTo`'s own `next` query param, which `/auth/callback` already
+  read correctly.
+- **Minor precision fix**: the 90-Day Review's habit-completion summary
+  (`getHabitSummary`) undercounted themed check-ins from the first partial
+  week, since `periodStart` (the user's actual first active day) can fall
+  mid-week while `themed_checkins.week_start_date` is always a Monday.
+  Widened the lower bound to that week's Monday.
+
+All verified with `tsc --noEmit`/`lint`/`build` after every fix; the proxy
+and redirect fixes in particular can't be verified that way (they're
+request-routing/runtime behaviour) — flagged for real verification once
+there's a live Supabase + deployed instance, same as every other
+not-yet-live-tested item in this doc.
+
 ## Roadmap
 
 1. **Foundation** (this phase) — repo scaffold, auth, the privacy-boundary

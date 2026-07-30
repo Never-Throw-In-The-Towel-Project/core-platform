@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { isSafeRedirectPath } from "@/lib/auth/redirect";
 
 export type MagicLinkState =
   | { status: "idle" }
@@ -24,11 +25,20 @@ export async function signInWithMagicLink(
     return { status: "error", message: "Please enter a valid email address." };
   }
 
+  // Carries proxy.ts's "return here after login" target through the magic
+  // link so /auth/callback can honour it -- previously dropped entirely,
+  // so every login landed on /home regardless of what page was requested.
+  const requestedNext = formData.get("next");
+  const next =
+    typeof requestedNext === "string" && isSafeRedirectPath(requestedNext) ? requestedNext : null;
+  const callbackUrl = new URL("/auth/callback", process.env.NEXT_PUBLIC_SITE_URL);
+  if (next) callbackUrl.searchParams.set("next", next);
+
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+      emailRedirectTo: callbackUrl.toString(),
     },
   });
 

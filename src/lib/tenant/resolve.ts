@@ -56,9 +56,14 @@ export async function resolveCompanyForHost(host: string): Promise<Company | nul
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
+  // hostname/slug are derived from the request's Host header -- external
+  // input. Quoted (PostgREST's escape mechanism for .or() filter values) so
+  // a crafted Host header containing a comma or parenthesis can't inject an
+  // extra filter condition instead of just failing to match a company.
+  const escapedHostname = hostname.replace(/"/g, '\\"');
   const orFilter = slug
-    ? `custom_domain.eq.${hostname},slug.eq.${slug}`
-    : `custom_domain.eq.${hostname}`;
+    ? `custom_domain.eq."${escapedHostname}",slug.eq."${slug.replace(/"/g, '\\"')}"`
+    : `custom_domain.eq."${escapedHostname}"`;
 
   const { data } = await supabase
     .from("companies")
