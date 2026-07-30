@@ -1,15 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { verifyTwilioSignature } from "@/lib/support/alert";
+import { escalateOnDeliveryFailureIfNeeded, verifyTwilioSignature } from "@/lib/support/alert";
 import { createAdminClient } from "@/lib/supabase/admin";
+
+const FAILURE_STATUSES = new Set(["failed", "undelivered"]);
 
 /**
  * Twilio calls this back as an SMS's delivery status changes (queued ->
- * sent -> delivered / failed / undelivered). This is what turns "we asked
- * Twilio to send it" into "we know whether it actually landed" -- the
- * escalation trigger point discussed in planning: if this callback reports
- * failed/undelivered, that's where a future iteration hooks in a fallback
- * (secondary contact, forced email-only, etc). Not implemented yet in
- * Phase 1 -- this records status; acting on a failure is a follow-up task.
+ * sent -> delivered / failed / undelivered). Phase 5 hardening: a
+ * failed/undelivered status now escalates to the NTITT fallback contact if
+ * email didn't already succeed at dispatch time -- see
+ * escalateOnDeliveryFailureIfNeeded in src/lib/support/alert.ts.
  */
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
@@ -29,15 +29,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "missing params" }, { status: 400 });
   }
 
-  const supabase = createAdminClient("private");
+  const privateClient = createAdminClient("private");
 
   // Service role is required here: this is an unauthenticated webhook with
   // no user session to scope an RLS-respecting query to, and the row being
   // updated belongs to whichever user submitted the original request, not
   // Twilio. The signature check above is what establishes trust instead.
-  const { data: matches } = await supabase
+  const { data: matches } = await privateClient
     .from("support_requests")
-    .select("id, delivery_status")
+    .select("id, company_id, contact_display_name, urgency, contact_method, delivery_status")
     .filter("delivery_status->sms->>providerId", "eq", messageSid)
     .limit(1);
 
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, note: "no matching request" });
   }
 
-  const updatedDeliveryStatus = {
+  let updatedDeliveryStatus = {
     ...match.delivery_status,
     sms: {
       ...match.delivery_status.sms,
@@ -56,7 +56,33 @@ export async function POST(request: NextRequest) {
     },
   };
 
-  await supabase
+  if (FAILURE_STATUSES.has(messageStatus) && !updatedDeliveryStatus.escalation) {
+    const publicClient = createAdminClient();
+    const { data: company } = await publicClient
+      .from("companies")
+      .select("name, support_contact_name, support_contact_phone, support_contact_email")
+      .eq("id", match.company_id)
+      .single();
+
+    if (company) {
+      const escalation = await escalateOnDeliveryFailureIfNeeded(
+        {
+          requestId: match.id,
+          company,
+          contactDisplayName: match.contact_display_name,
+          urgency: match.urgency,
+          contactMethod: match.contact_method,
+        },
+        updatedDeliveryStatus.email?.ok === true
+      );
+
+      if (escalation) {
+        updatedDeliveryStatus = { ...updatedDeliveryStatus, escalation };
+      }
+    }
+  }
+
+  await privateClient
     .from("support_requests")
     .update({ delivery_status: updatedDeliveryStatus })
     .eq("id", match.id);

@@ -3,6 +3,10 @@
     {
       "path": "/api/jobs/aggregate-participation",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/jobs/monitor-support-response-time",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
