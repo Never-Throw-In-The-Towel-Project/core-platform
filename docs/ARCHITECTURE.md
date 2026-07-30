@@ -261,10 +261,25 @@ column exists — see Open items.
    `themed_checkins.goals`), Sunday Setup, including Workout Wednesday's
    rotating workout bank (see "Daily core loop" above — brought forward
    from Phase 4 since it's a week-journey like its siblings).
-3. **Reviews & history** — Weekly Review, My Journey/History, 30-Day
-   Review, 90-Day Review + PDF export. The 30/90-Day trigger reads the same
-   active-engagement day counter Phase 2 established — see "Daily core
-   loop" above.
+3. **Reviews & history** (done) — Weekly Review (`/weekly-review`, open
+   Friday through the weekend, separate from Feel Good Friday), My
+   Journey/History (`/journey`, read-only scroll-back through past Weekly
+   and 30/90-Day Reviews), and the 30-Day/90-Day Review. The 30/90-Day
+   trigger reads the exact active-engagement day counter Phase 2
+   established (`getDayCounter`'s `completedDays`) via
+   `getPendingPeriodicReview` in `src/lib/routines/periodicReview.ts` —
+   never re-derived — and takes over the home screen as a full-screen
+   moment (`src/app/(app)/home/page.tsx` redirects there before the normal
+   morning/themed/night dispatch) until completed, per the brief calling
+   the 30-day mark "the critical retention point" and the 90-day mark the
+   one that "triggers the renewal conversation." `period_start` is the
+   user's first-ever completed active day, `period_end` is whenever the
+   30/90 threshold was actually reached — not fixed calendar quarters,
+   since day-journeys aren't calendar-based. The 90-Day Review's PDF
+   export (`/reviews/90-day/summary`) is a print-friendly page (browser
+   "Save as PDF"), not a server-side PDF pipeline — deliberately different
+   from Phase 6's HR impact report, which must generate and email itself
+   unattended and will need a real PDF library then.
 4. **Content Library** — Vimeo-embedded, topic-tagged, editable by Anthony
    without developer involvement (full browsing/search UI; Workout
    Wednesday's own demo-video linking already landed in Phase 2). Aggregation
@@ -273,7 +288,8 @@ column exists — see Open items.
 5. **Ask for Support hardening** — escalation-on-failure logic, response-time
    monitoring.
 6. **Company Dashboard** — full aggregate reporting, auto-generated 90-day
-   impact PDF.
+   impact PDF (server-side generation — see Phase 3's note above on why
+   that one can't reuse the print-friendly approach).
 7. **Community (native)** — shared NTITT-wide feed + optional company space,
    built on the resolved `scope`-column schema and `ntitt_admin` moderation
    role (see "Community scope" above). No Circle bridge. Sequencing is

@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth/dal";
 import { resolveHomePhase, getDayCounter } from "@/lib/routines/dayState";
+import { getPendingPeriodicReview } from "@/lib/routines/periodicReview";
+import { weekdayNameOrWeekend } from "@/lib/routines/dates";
 import { MorningRoutineForm } from "@/components/routines/MorningRoutineForm";
 import { NightRoutineForm } from "@/components/routines/NightRoutineForm";
 import { CHECKIN_CONFIG, type TextCheckinWeekday } from "@/lib/routines/checkinConfig";
@@ -10,10 +13,24 @@ const THEMED_TITLES: Record<string, { title: string; subtitle: string }> = {
   wednesday: { title: "Workout Wednesday", subtitle: "Move the body" },
 };
 
+const REVIEW_ROUTES = { "30_day": "/reviews/30-day", "90_day": "/reviews/90-day" } as const;
+
 export default async function HomePage() {
   const profile = await getProfile();
+  const { dayNumber, completedDays } = await getDayCounter(profile.id);
+
+  // The 30/90-Day Review is "the critical retention point" / "triggers the
+  // renewal conversation" per the brief -- it takes over the home screen
+  // as a full-screen moment until completed, ahead of the normal
+  // morning/themed/night dispatch below.
+  const pendingReview = await getPendingPeriodicReview(profile.id, completedDays);
+  if (pendingReview) {
+    redirect(REVIEW_ROUTES[pendingReview]);
+  }
+
   const phase = resolveHomePhase();
-  const { dayNumber } = await getDayCounter(profile.id);
+  const weekday = weekdayNameOrWeekend(new Date());
+  const weeklyReviewOpen = weekday === "friday" || weekday === "saturday" || weekday === "sunday";
 
   if (phase.kind === "morning") {
     return (
@@ -44,23 +61,32 @@ export default async function HomePage() {
         >
           Open today&apos;s check-in
         </Link>
+        {weeklyReviewOpen && (
+          <Link href="/weekly-review" className="mt-4 block text-sm underline opacity-80">
+            Weekly Review is also open
+          </Link>
+        )}
       </main>
     );
   }
 
-  // weekend_midday -- Weekly Review is Phase 3 and isn't built yet, so
-  // Saturday just gets a rest message; Sunday links to Sunday Setup.
+  // weekend_midday
   return (
     <main className="mx-auto max-w-xl px-6 py-16 text-center">
       <h1 className="text-2xl font-bold">Enjoy the weekend.</h1>
-      {phase.isSunday && (
+      <div className="mt-6 flex flex-col items-center gap-3">
         <Link
-          href="/sunday-setup"
-          className="mt-6 inline-block rounded-md bg-brand-accent px-5 py-3 text-sm font-semibold text-white"
+          href="/weekly-review"
+          className="inline-block rounded-md bg-brand-accent px-5 py-3 text-sm font-semibold text-white"
         >
-          Sunday Setup
+          Weekly Review
         </Link>
-      )}
+        {phase.isSunday && (
+          <Link href="/sunday-setup" className="text-sm underline opacity-80">
+            Sunday Setup
+          </Link>
+        )}
+      </div>
     </main>
   );
 }

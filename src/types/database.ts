@@ -124,6 +124,71 @@ export interface DailyQuote {
   created_at: string;
 }
 
+export interface WeeklyReview {
+  id: string;
+  user_id: string;
+  week_start_date: string;
+  habits_served_well: string | null;
+  challenges_helped_grow: string | null;
+  lessons_learned: string | null;
+  challenges_overcome: string | null;
+  feels_better_from_habits: string | null;
+  one_thing_to_improve: string | null;
+  habits_to_double_down: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface SelfAssessment {
+  mindset: number;
+  energy: number;
+  discipline: number;
+  relationships: number;
+  confidence: number;
+  overall: number;
+}
+
+export interface HabitSummary {
+  morning_completed: number;
+  morning_eligible: number;
+  night_completed: number;
+  night_eligible: number;
+  themed_completed: number;
+  themed_eligible: number;
+}
+
+// 90-day-only fields, kept out of the shared column set (see the Phase 1
+// migration's comment on `extra`) so the 30-day review doesn't carry sparse
+// unused columns.
+export interface PeriodicReviewExtra {
+  life_changes?: string;
+  next_period_vision?: string;
+  habit_summary?: HabitSummary;
+  comparison_self_assessment?: SelfAssessment; // snapshot of the prior 30-day scores, for the delta view
+}
+
+export interface PeriodicReview {
+  id: string;
+  user_id: string;
+  review_type: ReviewType;
+  period_start: string;
+  period_end: string;
+  most_proud_of: string | null;
+  most_consistent_habits: string | null;
+  challenges_faced: string | null;
+  whats_working: string | null;
+  needs_to_change: string | null;
+  top_wins: string[];
+  self_assessment: SelfAssessment | null;
+  focus_next_period: string | null;
+  commitment_signed_name: string | null;
+  commitment_signed_date: string | null;
+  extra: PeriodicReviewExtra;
+  pdf_generated_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
 export interface SupportRequestInsert {
   user_id: string;
   company_id: string;
