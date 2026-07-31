@@ -4,13 +4,13 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { verifySession, getProfile } from "@/lib/auth/dal";
+import { uploadCommunityImage } from "@/lib/community/imageUpload";
 import { type RoutineActionState } from "./routineState";
 
 const PostSchema = z.object({
   scope: z.enum(["global", "company"]),
   board: z.enum(["feed", "wins"]),
   body: z.string().trim().min(1).max(2000),
-  imageUrl: z.string().url().optional(),
 });
 
 /**
@@ -21,6 +21,11 @@ const PostSchema = z.object({
  * boundary. company_id always comes from the caller's own profile, never a
  * client-submitted value, even though RLS would reject a mismatched one
  * anyway -- same defense-in-depth pattern as every other action here.
+ *
+ * The photo, if any, arrives as a real File (Phase 9 -- replaces the
+ * pasted-URL interim from Phase 7) and is uploaded to the `community-images`
+ * Storage bucket before the row is inserted, so image_url always ends up
+ * either null or a real uploaded photo's public URL.
  */
 export async function submitCommunityPost(
   _prevState: RoutineActionState,
@@ -37,7 +42,6 @@ export async function submitCommunityPost(
     scope: formData.get("scope"),
     board: formData.get("board"),
     body: formData.get("body"),
-    imageUrl: formData.get("imageUrl") || undefined,
   });
 
   if (!parsed.success) {
@@ -45,13 +49,24 @@ export async function submitCommunityPost(
   }
 
   const supabase = await createClient();
+
+  let imageUrl: string | null = null;
+  const image = formData.get("image");
+  if (image instanceof File && image.size > 0) {
+    const result = await uploadCommunityImage(supabase, session.userId, image);
+    if ("error" in result) {
+      return { status: "error", message: result.error };
+    }
+    imageUrl = result.url;
+  }
+
   const { error } = await supabase.from("community_posts").insert({
     user_id: session.userId,
     company_id: profile.company_id,
     scope: parsed.data.scope,
     board: parsed.data.board,
     body: parsed.data.body,
-    image_url: parsed.data.imageUrl ?? null,
+    image_url: imageUrl,
   });
 
   if (error) {

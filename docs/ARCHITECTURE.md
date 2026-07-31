@@ -586,6 +586,45 @@ for the first time.
   or API tooling is available here. That's a capability gap, not a code
   change, so it's tracked as an Open item rather than worked around.
 
+## Community photo upload (Phase 9)
+
+Replaces the pasted-image-URL interim from Phase 7 with a real upload
+pipeline, per that phase's own note that `community_posts.image_url` was
+"ready for a real upload pipeline (Supabase Storage) later without a
+further migration" — this only needed a Storage bucket + policies, not a
+schema change.
+
+- **Bucket**: `community-images`, created via
+  `20260731040000_phase9_community_photo_storage.sql` as `public: true`,
+  with a 5 MiB `file_size_limit` and an `allowed_mime_types` allowlist
+  (JPEG/PNG/WebP/GIF) enforced at the bucket level, in addition to the
+  application-level checks in `src/lib/community/imageUpload.ts`.
+- **Why public-read**: post photos are shown to every viewer the post's own
+  `scope` column already allows (RLS on `community_posts` itself is the
+  real visibility boundary, same as before). A public bucket is no more
+  exposed than the arbitrary pasted URLs it replaces — anyone with the
+  exact URL could already view those.
+- **Why the real boundary is the upload policy, not the read policy**: the
+  `storage.objects` INSERT/DELETE policies restrict a user to their own
+  `{auth.uid()}/...` folder prefix via Supabase's standard
+  `storage.foldername()` pattern — checked again here since dry-run
+  validating this class of policy against a real Postgres instance is
+  possible (unlike RLS's own runtime behavior, which needs a live
+  PostgREST round-trip — see "Privacy boundary" above), by stubbing
+  `storage.buckets`/`storage.objects`/`storage.foldername()` to mirror
+  Supabase's real shape.
+- **Upload flow**: no browser-side Supabase client exists in this codebase
+  (every prior phase is server components + server actions only) — rather
+  than introduce one, `submitCommunityPost` (`src/lib/actions/community.ts`)
+  accepts the photo as a `File` straight off the `FormData` a Server Action
+  already receives, uploads it server-side via the request-scoped session
+  client (so the upload runs as the user's own `auth.uid()`, subject to the
+  same RLS-equivalent Storage policies as any other client), and stores the
+  resulting public URL. `next.config.ts`'s
+  `experimental.serverActions.bodySizeLimit` raised from the 1MB default to
+  `6mb` to fit a photo plus multipart overhead — `imageUpload.ts`'s own 5MB
+  cap is the real enforced limit.
+
 ## Roadmap
 
 1. **Foundation** (this phase) — repo scaffold, auth, the privacy-boundary
@@ -691,9 +730,8 @@ for the first time.
   Phase 6, currently labelled by calendar date, not week number) — or is
   purely how the offering gets described commercially to HR, with no UI
   implication.
-- Real photo upload for Community posts (Supabase Storage, a browser-side
-  Supabase client, bucket policies) — see "Community scope" above for why
-  this shipped as a pasted-URL interim instead.
+- ~~Real photo upload for Community posts~~ — **resolved (Phase 9)**: see
+  "Community photo upload (Phase 9)" below.
 - One-time manual setup needed before Community moderation can be used for
   real: an internal "NTITT (internal)" `companies` row (so an `ntitt_admin`
   profile has something to satisfy the `NOT NULL` `company_id` constraint),
