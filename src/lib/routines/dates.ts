@@ -15,7 +15,14 @@ import type { Weekday } from "@/types/database";
 
 export type TimeZone = string;
 
-type ZonedParts = { year: number; month: number; day: number; hour: number; weekday: WeekdayOrWeekend };
+type ZonedParts = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  weekday: WeekdayOrWeekend;
+};
 
 const WEEKDAY_ABBR_TO_NAME: Record<string, WeekdayOrWeekend> = {
   Sun: "sunday",
@@ -35,6 +42,7 @@ function zonedParts(now: Date, timeZone: TimeZone): ZonedParts {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
+    minute: "2-digit",
     hour12: false,
     weekday: "short",
   });
@@ -48,6 +56,7 @@ function zonedParts(now: Date, timeZone: TimeZone): ZonedParts {
     month: Number(parts.month),
     day: Number(parts.day),
     hour,
+    minute: Number(parts.minute),
     weekday: WEEKDAY_ABBR_TO_NAME[parts.weekday],
   };
 }
@@ -65,6 +74,12 @@ export function todayISODate(now: Date, timeZone: TimeZone): string {
 /** The hour of day (0-23) `now` falls on in `timeZone` -- drives the home-screen phase cutovers. */
 export function localHour(now: Date, timeZone: TimeZone): number {
   return zonedParts(now, timeZone).hour;
+}
+
+/** Minutes since local midnight (0-1439) `now` falls on in `timeZone` -- drives push notification scheduling. */
+export function localMinutesSinceMidnight(now: Date, timeZone: TimeZone): number {
+  const { hour, minute } = zonedParts(now, timeZone);
+  return hour * 60 + minute;
 }
 
 export type WeekdayOrWeekend = Weekday | "saturday" | "sunday";

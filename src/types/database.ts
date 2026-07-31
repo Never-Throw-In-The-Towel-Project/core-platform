@@ -12,6 +12,7 @@ export type VideoCategory = "mental_fitness" | "physical_fitness" | "tools_tips"
 export type WorkoutTier = "beginner" | "intermediate" | "advanced" | "elite";
 export type CommunityScope = "global" | "company";
 export type CommunityBoard = "feed" | "wins";
+export type PushNotificationType = "morning" | "night" | "sunday";
 
 export interface Company {
   id: string;
@@ -40,6 +41,15 @@ export interface Profile {
   night_notification_time: string | null;
   sunday_notification_time: string | null;
   timezone: string;
+  created_at: string;
+}
+
+export interface PushSubscriptionRow {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
   created_at: string;
 }
 

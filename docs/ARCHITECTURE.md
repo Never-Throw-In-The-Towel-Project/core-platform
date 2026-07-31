@@ -716,6 +716,68 @@ execute the logic, just check that it compiles):
   floor, not full coverage — worth expanding opportunistically, not in one
   pass.
 
+## Push notifications (Phase 9)
+
+The last piece of the "installable, push-capable" PWA promise `manifest.ts`
+has claimed since Phase 1. `profiles.morning_notification_time`/
+`night_notification_time`/`sunday_notification_time` have existed since
+Phase 1 with nothing reading them; this is what finally makes them mean
+something. Explicitly a build-it-or-defer decision, not something started
+speculatively — confirmed with the team before starting since it's a
+meaningfully sized feature (a migration, a service worker, a scheduled
+dispatch job, permission-prompt UX), not a quick add.
+
+- **`public.push_subscriptions`** (migration
+  `20260731070000_phase9_push_notifications.sql`) — one row per browser
+  subscription (`endpoint`/`p256dh`/`auth`, the standard Web Push
+  subscription shape), globally unique on `endpoint` (a push endpoint
+  identifies a specific browser subscription, not a user) and RLS-scoped
+  to `auth.uid() = user_id`, same placement reasoning as `profiles` itself:
+  a device identifier tied to account settings, not journal-style content,
+  so `public`, not `private`.
+- **`public.push_notification_log`** — dedup for the dispatch cron: one row
+  per (user, notification type, local calendar date) actually sent, via a
+  unique constraint the cron relies on rather than any in-memory tracking.
+  No RLS policies at all (matching the existing convention for the
+  service-role-only aggregate tables) — `service_role` bypasses RLS
+  entirely, so none are needed for legitimate access, and enabling RLS with
+  zero policies means zero access for every other role.
+- **`src/lib/routines/dates.ts` gained `localMinutesSinceMidnight`** —
+  the same `zonedParts()` internals as the rest of Phase 9's timezone work,
+  now also extracting minutes, so the dispatch job can compare "is it
+  currently this user's configured notification time, in their own
+  timezone" without a new date library.
+- **`/settings`** gained a push notification toggle
+  (`PushNotificationToggle.tsx`): requests Notification permission,
+  registers `public/sw.js` (a plain, unbundled service worker — outside the
+  Next.js/TS build pipeline on purpose, since a service worker must be
+  served as-is at the root scope to control every page), subscribes via
+  `PushManager`, and hands the subscription to `subscribeToPush`
+  (`src/lib/actions/pushSubscription.ts`) to store.
+- **`src/app/api/jobs/send-push-notifications`** (new Vercel Cron, every 15
+  minutes — matching `monitor-support-response-time`'s granularity, the
+  other sub-daily job) — for each of the three notification types, reads
+  every profile with that time set, checks whether the user's current local
+  time (via their own `profile.timezone`) falls in the same 15-minute
+  bucket as their configured time, and if so tries to insert today's dedup
+  log row before sending — a unique-constraint failure there means it
+  already went out this run/day, so it's skipped rather than double-sent.
+  Actual delivery goes through `src/lib/notifications/sendPush.ts`
+  (`web-push`), which deletes a subscription on a `404`/`410` response
+  (the browser unsubscribed or cleared site data) but leaves it alone for
+  any other error, since a transient failure shouldn't delete a
+  subscription that might work again on the next run.
+- **`VAPID_SUBJECT`** (new env var, `.env.example`) — `web-push`'s own
+  VAPID validation requires the subject to be a `mailto:` address or an
+  `https:` URL; `NEXT_PUBLIC_SITE_URL` couldn't be reused for this since its
+  local-dev value (`http://localhost:3000`) is neither.
+- **Not done**: an actual VAPID keypair. `.env.example`'s
+  `NEXT_PUBLIC_VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` are still blank
+  placeholders — generate a real pair (`npx web-push generate-vapid-keys`)
+  once the real Supabase/Vercel deployment exists, and set them in Vercel's
+  Production environment alongside everything else in
+  `docs/DEPLOYMENT.md`.
+
 ## Roadmap
 
 1. **Foundation** (this phase) — repo scaffold, auth, the privacy-boundary
