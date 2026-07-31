@@ -699,14 +699,16 @@ for the first time.
   profile has something to satisfy the `NOT NULL` `company_id` constraint),
   and Anthony's own profile row's `role` set to `ntitt_admin` — both via
   Supabase Studio, not any in-app flow.
-- **Real Supabase project + Vercel deployment**: requested, not yet done.
-  This build environment has no Supabase or Vercel account access or API
-  tooling, so provisioning has to happen through the account owner. Needs:
-  (1) a Supabase project with all 5 migrations under `supabase/migrations/`
-  run in order, and the `private` schema added to the project's exposed
-  schemas in API settings (the entire privacy boundary depends on this —
-  see "Privacy boundary" above); (2) a Vercel project connected to this
-  repo with every var in `.env.example` set for Production; (3) confirming
-  the Vercel plan supports the sub-daily cron schedule in `vercel.json`
-  (`*/15 * * * *` for support response-time monitoring) — Hobby is limited
-  to one run/day per cron, so this may need at least a Pro plan.
+- **Real Supabase project + Vercel deployment**: requested, not yet done —
+  full runbook in `docs/DEPLOYMENT.md`. Confirmed (not assumed) that this
+  build environment cannot do this part itself: its outbound network policy
+  denies `supabase.com`/`api.supabase.com`/`api.vercel.com` at the proxy
+  level (a `403` policy denial, verified via the proxy's own status
+  endpoint — not a missing tool or a bug), and project creation requires an
+  interactive login regardless. Provisioning has to happen through the
+  account owner. The 5 migrations under `supabase/migrations/` have already
+  been dry-run validated end-to-end against a real local Postgres 16 (all 5
+  apply cleanly in order; resulting schema has RLS enabled on all 21 tables
+  across `public`/`private`, matching what's documented here) — the runbook
+  is the remaining work, not open questions about whether the schema is
+  correct.
