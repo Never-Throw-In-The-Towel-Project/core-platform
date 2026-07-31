@@ -23,6 +23,7 @@ export interface Company {
   support_contact_name: string | null;
   support_contact_phone: string | null;
   support_contact_email: string | null;
+  ninety_day_report_sent_at: string | null;
   created_at: string;
 }
 
@@ -201,4 +202,25 @@ export interface CompanySupportCounts {
   company_id: string;
   total_count: number;
   updated_at: string;
+}
+
+export interface CompanyDailyParticipation {
+  id: string;
+  company_id: string;
+  entry_date: string;
+  weekday: Weekday | null;
+  segment: "morning" | "night" | "themed_checkin";
+  completed_count: number;
+  eligible_count: number;
+  created_at: string;
+}
+
+export interface CompanyReviewCompletions {
+  id: string;
+  company_id: string;
+  review_type: ReviewType;
+  period_start: string;
+  completed_count: number;
+  eligible_count: number;
+  created_at: string;
 }
