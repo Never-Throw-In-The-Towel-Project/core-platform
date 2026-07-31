@@ -827,6 +827,22 @@ decisions:
   with the calendar date kept alongside as supporting detail rather than
   removed outright.
 
+**Real event/podcast photography on the marketing page**: Anthony supplied
+9 photos via `Web Image/` at the repo root (same pattern as `NTITT Logos/`
+— source material kept in the repo, not deleted after use). 5 were used,
+resized/recompressed to web-appropriate sizes into `public/site/`: a hero
+shot (a boxing match — the literal "never throw in the towel" image, most
+on-message of the set), two event photos ("From our events"), and two
+podcast-adjacent photos ("The podcast" — a recording session and a
+speaking-engagement shot). Gated behind `{!company}` the same as the
+"Trusted by" strip and the co-branded-portal logic above — a client's own
+co-branded portal shouldn't show NTITT's own event photography either.
+**Deliberately not used**: a casual talking-head video still (redundant
+with the stronger podcast-studio photo) and a decades-old, low-resolution
+reality-TV broadcast screenshot — personal history unrelated to NTITT
+branding and a different category of sensitivity than the rest of the set,
+so left out rather than assumed to be fair game for the public site.
+
 ## Roadmap
 
 1. **Foundation** (this phase) — repo scaffold, auth, the privacy-boundary
