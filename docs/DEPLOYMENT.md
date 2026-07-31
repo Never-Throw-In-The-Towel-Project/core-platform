@@ -125,9 +125,11 @@ bootstrap, not a feature):
    co-branded subdomains at this project.
 4. **Settings → Cron Jobs / plan tier**: `vercel.json` defines 3 cron jobs,
    one of which (`monitor-support-response-time`) runs every 15 minutes.
-   Vercel's Hobby plan caps cron at once per day per job — this needs at
-   least a Pro plan for the support-response monitor to actually run on
-   schedule. Confirm the plan before relying on it.
+   Vercel's Hobby plan caps cron at once per day per job — confirmed live
+   during this project's own deploy attempt (Vercel rejected the deployment
+   with exactly this error) — so this needs at least a Pro plan for the
+   support-response monitor to actually run on schedule. **Resolved**:
+   upgraded to Pro.
 5. Deploy. Once live, smoke-test:
    - Sign in via magic link end-to-end.
    - Trigger the Twilio webhook path (`/api/webhooks/twilio-status`) and

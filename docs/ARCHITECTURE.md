@@ -681,6 +681,41 @@ UTC-relative time rather than their own local midday/7pm.
   Auckland, and the ISO Monday-of-week/first-Tuesday-of-month logic
   producing the same answers as before for a fixed zone.
 
+## Minimal automated tests (Phase 9)
+
+No test framework existed anywhere in this codebase before this — every
+prior phase was verified by `tsc`/`lint`/`build` plus manual smoke tests
+(directly running a script via `npx tsx`, screenshotting a page, hitting a
+route by hand). That caught real bugs before (the `/api` proxy bug, the
+CSS cascade-layer bug that silently defeated the whole brand theme), but
+only because those checks happened to go looking in the right place each
+time — nothing forced it. This phase adds a floor under the two classes
+of bug that `tsc`/`lint`/`build` structurally cannot catch (they never
+execute the logic, just check that it compiles):
+
+- **Vitest** (`vitest.config.mts`, `npm test`) — chosen over Jest for
+  zero-config ESM/TS support in a Next.js project with no existing test
+  setup to work around. Added to CI (`.github/workflows/ci.yml`) between
+  the Typecheck and Build steps.
+- **`src/lib/routines/dates.test.ts`** — the timezone-aware date math from
+  this same phase, including the actual cross-zone case that motivated the
+  whole rewrite (the same instant resolving to different calendar days in
+  different zones), not just the same-zone cases `tsc` would have let pass
+  silently either way.
+- **`src/lib/supabase/filterEscape.test.ts`** — the PostgREST filter-
+  injection escaping found and fixed during the post-Phase 5 codebase
+  review. The escaping logic was previously duplicated inline at both call
+  sites (`src/lib/tenant/resolve.ts`, `src/app/(app)/content/page.tsx`);
+  extracted into a shared `escapeFilterValue()` so there's one implementation
+  to test rather than two to keep in sync by hand.
+- **Deliberately not covered here**: RLS policy behavior (needs a live
+  PostgREST round-trip against a real or stubbed Postgres instance — see
+  the migration dry-run validation approach used throughout Phase 8/9
+  instead, which exercises the actual policies, just not from an automated
+  test file yet) and anything requiring a live Supabase session. This is a
+  floor, not full coverage — worth expanding opportunistically, not in one
+  pass.
+
 ## Roadmap
 
 1. **Foundation** (this phase) — repo scaffold, auth, the privacy-boundary
@@ -792,16 +827,14 @@ UTC-relative time rather than their own local midday/7pm.
   profile has something to satisfy the `NOT NULL` `company_id` constraint),
   and Anthony's own profile row's `role` set to `ntitt_admin` — both via
   Supabase Studio, not any in-app flow.
-- **Real Supabase project + Vercel deployment**: requested, not yet done —
-  full runbook in `docs/DEPLOYMENT.md`. Confirmed (not assumed) that this
-  build environment cannot do this part itself: its outbound network policy
-  denies `supabase.com`/`api.supabase.com`/`api.vercel.com` at the proxy
-  level (a `403` policy denial, verified via the proxy's own status
-  endpoint — not a missing tool or a bug), and project creation requires an
-  interactive login regardless. Provisioning has to happen through the
-  account owner. The 5 migrations under `supabase/migrations/` have already
-  been dry-run validated end-to-end against a real local Postgres 16 (all 5
-  apply cleanly in order; resulting schema has RLS enabled on all 21 tables
-  across `public`/`private`, matching what's documented here) — the runbook
-  is the remaining work, not open questions about whether the schema is
-  correct.
+- **Real Supabase project + Vercel deployment**: in progress, driven by the
+  account owner per `docs/DEPLOYMENT.md` (this build environment still can't
+  do this part itself — see that doc). A Vercel project now exists and is
+  connected to this repo — its first deploy attempt surfaced exactly the
+  cron-plan-tier risk `docs/DEPLOYMENT.md` flagged in advance (Hobby
+  rejected the 15-minute `monitor-support-response-time` schedule); resolved
+  by upgrading to Pro, no code change needed. Supabase project status not
+  yet confirmed. All migrations under `supabase/migrations/` (7 as of Phase
+  9) have been dry-run validated end-to-end against a real local Postgres 16
+  every time one was added — schema has RLS enabled on every table across
+  `public`/`private`, matching what's documented here.

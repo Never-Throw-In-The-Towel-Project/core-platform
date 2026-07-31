@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { escapeFilterValue } from "@/lib/supabase/filterEscape";
 import type { Company } from "@/types/database";
 
 const RESERVED_SUBDOMAINS = new Set(["app", "www"]);
@@ -60,9 +61,9 @@ export async function resolveCompanyForHost(host: string): Promise<Company | nul
   // input. Quoted (PostgREST's escape mechanism for .or() filter values) so
   // a crafted Host header containing a comma or parenthesis can't inject an
   // extra filter condition instead of just failing to match a company.
-  const escapedHostname = hostname.replace(/"/g, '\\"');
+  const escapedHostname = escapeFilterValue(hostname);
   const orFilter = slug
-    ? `custom_domain.eq."${escapedHostname}",slug.eq."${slug.replace(/"/g, '\\"')}"`
+    ? `custom_domain.eq."${escapedHostname}",slug.eq."${escapeFilterValue(slug)}"`
     : `custom_domain.eq."${escapedHostname}"`;
 
   const { data } = await supabase
