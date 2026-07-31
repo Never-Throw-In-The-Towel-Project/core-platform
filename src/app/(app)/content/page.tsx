@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { escapeFilterValue } from "@/lib/supabase/filterEscape";
 import { VimeoEmbed } from "@/components/VimeoEmbed";
 import type { ContentVideo, VideoCategory } from "@/types/database";
 
@@ -42,12 +43,7 @@ export default async function ContentLibraryPage({
     query = query.eq("category", category);
   }
   if (q) {
-    // PostgREST's .or() filter syntax uses commas/parens as delimiters --
-    // an unquoted search term containing either could inject extra filter
-    // conditions instead of just being matched against. Wrapping the value
-    // in double quotes (escaping any literal quotes first) is PostgREST's
-    // documented escape mechanism for values containing reserved characters.
-    const escaped = q.replace(/"/g, '\\"');
+    const escaped = escapeFilterValue(q);
     query = query.or(`title.ilike."%${escaped}%",tags.cs.{"${escaped}"}`);
   }
 
