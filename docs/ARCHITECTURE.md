@@ -119,6 +119,9 @@ rewrite. See `src/app/manifest.ts`.
     3 vendors into 1 everywhere except the single highest-stakes path.
 - **Zapier and other no-code glue**: fine for everything else (podcast RSS,
   content ops) — deliberately not used for the support alert path.
+- **`@react-pdf/renderer`** for the 90-day HR impact report (Phase 6) —
+  pure-JS PDF generation, no headless browser/Chromium, so it runs fine as a
+  normal Vercel serverless function on the Node runtime.
 
 ## Privacy boundary: how it's actually enforced
 
@@ -428,6 +431,68 @@ request-routing/runtime behaviour) — flagged for real verification once
 there's a live Supabase + deployed instance, same as every other
 not-yet-live-tested item in this doc.
 
+## Company Dashboard (Phase 6)
+
+Full aggregate reporting per the brief, all from `src/lib/dashboard/aggregates.ts`
+against the three public aggregate tables Phase 1 scaffolded
+(`company_support_counts`, `company_daily_participation`,
+`company_review_completions`) — nothing under `(admin)` reaches into
+`private`, same invariant as before. Aggregate functions take a Supabase
+client as a parameter rather than creating their own, since they're used in
+two different auth contexts: the RLS-scoped session client for the
+dashboard/on-demand export (an hr_admin reading their own company's rows),
+and the service-role admin client for the day-90 auto-report cron job (no
+user session to scope to there).
+
+- **Weekly participation**: `company_daily_participation` rows bucketed by
+  the Monday of each `entry_date`, giving a per-week % for morning/night/
+  themed-check-in segments.
+- **Most/least engaged weekday**: summed from the `themed_checkin` segment's
+  `weekday` column (the only segment that carries one) across all recorded
+  data.
+- **Participation trend** (rising/falling/steady): compares the most recent
+  week's average completion rate across all three segments to the week
+  before it, with a ±5-point band counted as "steady" so it doesn't react
+  to single-week noise.
+- **Review completion**: read directly from `company_review_completions` —
+  see its "all-time running total" design in the Phase 4 section above.
+
+**The 90-day HR impact report** ("make it look professional — it needs to
+work as a standalone document in a board meeting without Anthony being in
+the room") uses real server-side PDF generation: **`@react-pdf/renderer`**
+(pure JS, no headless browser/Chromium — a real dependency addition,
+deliberately different from Phase 3's print-a-webpage approach for the
+user's own 90-day summary, which only works because a logged-in person is
+there to click print). `src/lib/reports/ImpactReportDocument.tsx` defines
+the layout; `generateImpactReportPdf.tsx` renders it to a `Buffer`.
+Smoke-tested directly (`renderToBuffer` against both a minimal document and
+the full report with synthetic data) since this is pure rendering logic,
+independently verifiable without a live Supabase instance — unlike almost
+everything else in this codebase.
+
+Two ways to get the report:
+1. **On-demand**: `/api/reports/impact`, gated by `requireHrAdmin()` inside
+   the route itself. This is the one `/api` route that *does* need a real
+   user session — see the exception noted in `src/proxy.ts`'s comment.
+2. **Automatic at day 90**: `src/app/api/jobs/generate-90-day-impact-reports`,
+   a daily Vercel Cron job. "Day 90" for a company is 90 calendar days since
+   `companies.created_at` — there's no other "company start date" concept
+   in the schema, and unlike the per-user 30/90-Day Review (deliberately
+   active-engagement based, see "Daily core loop" above), a company-wide
+   milestone is reasonably calendar time since onboarding: the report covers
+   a fixed quarter of the subscription regardless of how many individual
+   employees engaged, which is exactly the "here's your impact this
+   quarter" conversation this report exists to trigger. Sent via Brevo with
+   the PDF as an attachment (`sendImpactReportEmail` — extends the existing
+   Brevo integration with attachment support) to every `hr_admin` on the
+   company, looked up via `auth.admin.getUserById` since an HR admin's email
+   lives on their `auth.users` row, not on `profiles`/`companies` (Ask for
+   Support's `support_contact_email` is a different, not-necessarily-same
+   contact — see "Ask for Support reliability design" above).
+   `companies.ninety_day_report_sent_at` gates this to once per company; a
+   failed send (or no HR admin provisioned yet) leaves it `null` so the next
+   day's run retries rather than silently losing the report.
+
 ## Roadmap
 
 1. **Foundation** (this phase) — repo scaffold, auth, the privacy-boundary
@@ -480,9 +545,10 @@ not-yet-live-tested item in this doc.
 5. **Ask for Support hardening** (done) — escalation-on-failure logic,
    response-time monitoring. See "Ask for Support hardening (Phase 5)"
    above.
-6. **Company Dashboard** — full aggregate reporting, auto-generated 90-day
-   impact PDF (server-side generation — see Phase 3's note above on why
-   that one can't reuse the print-friendly approach).
+6. **Company Dashboard** (done) — full aggregate reporting, auto-generated
+   90-day impact PDF (server-side generation via `@react-pdf/renderer` — see
+   "Company Dashboard (Phase 6)" above for why that one can't reuse Phase 3's
+   print-friendly approach).
 7. **Community (native)** — shared NTITT-wide feed + optional company space,
    built on the resolved `scope`-column schema and `ntitt_admin` moderation
    role (see "Community scope" above). No Circle bridge. Sequencing is
