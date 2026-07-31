@@ -4,6 +4,7 @@ import {
   getMondayOfWeek,
   getNextMonday,
   isFirstOccurrenceOfWeekdayInMonth,
+  localMinutesSinceMidnight,
   todayISODate,
   weekdayNameOrWeekend,
 } from "./dates";
@@ -66,5 +67,20 @@ describe("isFirstOccurrenceOfWeekdayInMonth", () => {
   it("is false for a different weekday even in the first week", () => {
     const firstTuesday = new Date("2026-08-04T10:00:00Z");
     expect(isFirstOccurrenceOfWeekdayInMonth(firstTuesday, "UTC", "wednesday")).toBe(false);
+  });
+});
+
+describe("localMinutesSinceMidnight", () => {
+  it("computes minutes since local midnight for a fixed zone", () => {
+    // 10:15 UTC is 615 minutes since midnight.
+    const instant = new Date("2026-08-04T10:15:00Z");
+    expect(localMinutesSinceMidnight(instant, "UTC")).toBe(615);
+  });
+
+  it("resolves differently across zones for the same instant", () => {
+    // Same instant as above, but Auckland (UTC+12) is 12 hours ahead --
+    // 22:15 local, 1335 minutes since its own midnight.
+    const instant = new Date("2026-08-04T10:15:00Z");
+    expect(localMinutesSinceMidnight(instant, "Pacific/Auckland")).toBe(22 * 60 + 15);
   });
 });

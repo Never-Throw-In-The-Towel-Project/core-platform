@@ -120,6 +120,9 @@ bootstrap, not a feature):
    Do not reuse `SUPABASE_SERVICE_ROLE_KEY` anywhere client-exposed — it's
    server-only, used by `src/lib/supabase/admin.ts` for the aggregation
    job, the PDF report generator, and the Twilio status webhook.
+   `NEXT_PUBLIC_VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` still need a real
+   keypair generated (`npx web-push generate-vapid-keys`) — they're blank
+   placeholders in `.env.example`.
 3. **Settings → Domains**: point the production domain
    (`app.ntitt.co.uk`, per `NEXT_PUBLIC_APP_ROOT_DOMAIN`) and any
    co-branded subdomains at this project.

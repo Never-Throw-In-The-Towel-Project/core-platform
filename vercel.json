@@ -11,6 +11,10 @@
     {
       "path": "/api/jobs/generate-90-day-impact-reports",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/jobs/send-push-notifications",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
