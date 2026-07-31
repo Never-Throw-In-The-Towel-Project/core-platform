@@ -28,11 +28,13 @@ const InviteEmployeeSchema = z.object({
  * (company_id) or a fixed constant ("employee") -- so a crafted form post
  * can't escalate role or plant an account in a different company.
  *
- * See supabase/migrations/20260731080000_account_provisioning.sql for the
- * handle_new_user trigger this relies on: the invited user's auth.users row
- * (and profiles row) exist the moment this call succeeds, not when they
- * eventually click the invite link -- so there's no window where a signed-in
- * user has no profile.
+ * The profiles row is upserted directly here, right after invite success --
+ * not left to the handle_new_user trigger (see
+ * supabase/migrations/20260731090000_fix_handle_new_user_non_blocking.sql):
+ * testing this end-to-end found Supabase's invite API doesn't reliably
+ * attach user_metadata to the same auth.users insert that trigger fires on,
+ * so this server action is the actual source of truth for the values it
+ * already validated, rather than round-tripping them through metadata.
  */
 export async function inviteEmployee(
   _prevState: RoutineActionState,
@@ -49,7 +51,7 @@ export async function inviteEmployee(
   }
 
   const admin = createAdminClient();
-  const { error } = await admin.auth.admin.inviteUserByEmail(parsed.data.email, {
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(parsed.data.email, {
     data: {
       company_id: inviter.company_id,
       role: "employee",
@@ -58,8 +60,24 @@ export async function inviteEmployee(
     redirectTo: buildInviteRedirect(),
   });
 
-  if (error) {
-    return { status: "error", message: inviteErrorMessage(error.message) };
+  if (error || !data.user) {
+    return { status: "error", message: inviteErrorMessage(error?.message ?? "") };
+  }
+
+  const { error: profileError } = await admin.from("profiles").upsert(
+    {
+      id: data.user.id,
+      company_id: inviter.company_id,
+      role: "employee",
+      display_name: parsed.data.displayName,
+    },
+    { onConflict: "id" }
+  );
+  if (profileError) {
+    return {
+      status: "error",
+      message: "Invite sent, but finishing account setup failed. Please try again.",
+    };
   }
 
   return { status: "success" };
@@ -77,6 +95,10 @@ const InviteStaffSchema = z.object({
  * place in the app that can create an hr_admin or another ntitt_admin.
  * Never exposed to hr_admin, same "platform-level, never a client's" line
  * docs/ARCHITECTURE.md draws for community moderation.
+ *
+ * Upserts the profiles row directly -- see the matching comment on
+ * inviteEmployee above for why this doesn't rely on the handle_new_user
+ * trigger alone.
  */
 export async function inviteStaffMember(
   _prevState: RoutineActionState,
@@ -95,7 +117,7 @@ export async function inviteStaffMember(
   }
 
   const admin = createAdminClient();
-  const { error } = await admin.auth.admin.inviteUserByEmail(parsed.data.email, {
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(parsed.data.email, {
     data: {
       company_id: parsed.data.companyId,
       role: parsed.data.role,
@@ -104,8 +126,24 @@ export async function inviteStaffMember(
     redirectTo: buildInviteRedirect(),
   });
 
-  if (error) {
-    return { status: "error", message: inviteErrorMessage(error.message) };
+  if (error || !data.user) {
+    return { status: "error", message: inviteErrorMessage(error?.message ?? "") };
+  }
+
+  const { error: profileError } = await admin.from("profiles").upsert(
+    {
+      id: data.user.id,
+      company_id: parsed.data.companyId,
+      role: parsed.data.role,
+      display_name: parsed.data.displayName,
+    },
+    { onConflict: "id" }
+  );
+  if (profileError) {
+    return {
+      status: "error",
+      message: "Invite sent, but finishing account setup failed. Please try again.",
+    };
   }
 
   return { status: "success" };
