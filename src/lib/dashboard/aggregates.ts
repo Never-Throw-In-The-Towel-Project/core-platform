@@ -80,7 +80,11 @@ export async function getWeeklyParticipation(
   const byWeek = new Map<string, { morning: Bucket; night: Bucket; themed: Bucket }>();
 
   for (const row of data ?? []) {
-    const weekStart = getMondayOfWeek(new Date(`${row.entry_date}T00:00:00Z`));
+    // Cross-user aggregation (Phase 9): row.entry_date is already a
+    // resolved plain calendar-date string per-user, and this buckets many
+    // users' rows into one company-wide week -- deliberately UTC, not any
+    // one user's timezone. See docs/ARCHITECTURE.md "Per-user timezone".
+    const weekStart = getMondayOfWeek(new Date(`${row.entry_date}T00:00:00Z`), "UTC");
     if (!byWeek.has(weekStart)) {
       byWeek.set(weekStart, { morning: { c: 0, e: 0 }, night: { c: 0, e: 0 }, themed: { c: 0, e: 0 } });
     }

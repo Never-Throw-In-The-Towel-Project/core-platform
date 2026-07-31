@@ -29,7 +29,9 @@ export async function collectImpactReportData(
 
   return {
     companyName,
-    generatedAt: todayISODate(),
+    // System timestamp for a company-wide report, not any one user's
+    // local day -- deliberately UTC (Phase 9).
+    generatedAt: todayISODate(new Date(), "UTC"),
     supportCount,
     reviewCompletions,
     weeklyParticipation,

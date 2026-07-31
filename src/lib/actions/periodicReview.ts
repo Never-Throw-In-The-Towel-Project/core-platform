@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { verifySession } from "@/lib/auth/dal";
+import { verifySession, getProfile } from "@/lib/auth/dal";
 import { todayISODate } from "@/lib/routines/dates";
 import { getActiveDayCount } from "@/lib/routines/dayState";
 import {
@@ -48,6 +48,7 @@ export async function submitPeriodicReview(
   formData: FormData
 ): Promise<RoutineActionState> {
   const session = await verifySession();
+  const profile = await getProfile();
 
   const parsed = PeriodicReviewSchema.safeParse({
     reviewType: formData.get("reviewType"),
@@ -95,8 +96,8 @@ export async function submitPeriodicReview(
     };
   }
 
-  const periodStart = (await getFirstActiveDate(session.userId)) ?? todayISODate();
-  const periodEnd = todayISODate();
+  const periodStart = (await getFirstActiveDate(session.userId)) ?? todayISODate(new Date(), profile.timezone);
+  const periodEnd = todayISODate(new Date(), profile.timezone);
 
   let extra: PeriodicReviewExtra = {};
   if (reviewType === "90_day") {
@@ -135,7 +136,7 @@ export async function submitPeriodicReview(
       self_assessment: selfAssessmentParsed.data,
       focus_next_period: parsed.data.focusNextPeriod ?? null,
       commitment_signed_name: parsed.data.commitmentSignedName ?? null,
-      commitment_signed_date: todayISODate(),
+      commitment_signed_date: todayISODate(new Date(), profile.timezone),
       extra,
       completed_at: new Date().toISOString(),
     },

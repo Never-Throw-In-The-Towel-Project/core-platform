@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { verifySession } from "@/lib/auth/dal";
+import { verifySession, getProfile } from "@/lib/auth/dal";
 import { getNextMonday, weekdayNameOrWeekend } from "@/lib/routines/dates";
 import { type RoutineActionState } from "./routineState";
 
@@ -16,11 +16,12 @@ export async function submitSundaySetup(
   formData: FormData
 ): Promise<RoutineActionState> {
   const session = await verifySession();
+  const profile = await getProfile();
 
   // Server derives "today" itself rather than trusting the client, same
   // pattern as the themed check-in lock -- Sunday Setup only writes on an
   // actual Sunday.
-  if (weekdayNameOrWeekend(new Date()) !== "sunday") {
+  if (weekdayNameOrWeekend(new Date(), profile.timezone) !== "sunday") {
     return { status: "error", message: "Sunday Setup is only available on Sundays." };
   }
 
@@ -38,7 +39,7 @@ export async function submitSundaySetup(
   const { error } = await supabase.from("sunday_setups").upsert(
     {
       user_id: session.userId,
-      week_start_date: getNextMonday(),
+      week_start_date: getNextMonday(new Date(), profile.timezone),
       prep_notes: parsed.data.prepNotes ?? null,
       intention: parsed.data.intention ?? null,
       completed_at: new Date().toISOString(),

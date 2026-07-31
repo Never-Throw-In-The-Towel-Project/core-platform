@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { verifySession } from "@/lib/auth/dal";
+import { verifySession, getProfile } from "@/lib/auth/dal";
 import { getMondayOfWeek, weekdayNameOrWeekend } from "@/lib/routines/dates";
 import { CHECKIN_CONFIG, type TextCheckinWeekday } from "@/lib/routines/checkinConfig";
 import { type RoutineActionState } from "./routineState";
@@ -25,8 +25,9 @@ export async function submitThemedCheckin(
   formData: FormData
 ): Promise<RoutineActionState> {
   const session = await verifySession();
+  const profile = await getProfile();
   const now = new Date();
-  const weekday = weekdayNameOrWeekend(now);
+  const weekday = weekdayNameOrWeekend(now, profile.timezone);
 
   if (!TEXT_CHECKIN_WEEKDAYS.includes(weekday as TextCheckinWeekday)) {
     return { status: "error", message: "There's no check-in to complete right now." };
@@ -74,7 +75,7 @@ export async function submitThemedCheckin(
       .from("themed_checkins")
       .select("goals")
       .eq("user_id", session.userId)
-      .eq("week_start_date", getMondayOfWeek(now))
+      .eq("week_start_date", getMondayOfWeek(now, profile.timezone))
       .eq("weekday", "monday")
       .maybeSingle();
 
@@ -95,7 +96,7 @@ export async function submitThemedCheckin(
   const { error } = await supabase.from("themed_checkins").upsert(
     {
       user_id: session.userId,
-      week_start_date: getMondayOfWeek(now),
+      week_start_date: getMondayOfWeek(now, profile.timezone),
       weekday: checkinWeekday,
       goals,
       answers,
@@ -118,9 +119,10 @@ export async function submitWorkoutWednesday(
   formData: FormData
 ): Promise<RoutineActionState> {
   const session = await verifySession();
+  const profile = await getProfile();
   const now = new Date();
 
-  if (weekdayNameOrWeekend(now) !== "wednesday") {
+  if (weekdayNameOrWeekend(now, profile.timezone) !== "wednesday") {
     return { status: "error", message: "Workout Wednesday isn't today." };
   }
 
@@ -134,7 +136,7 @@ export async function submitWorkoutWednesday(
   const { error } = await supabase.from("themed_checkins").upsert(
     {
       user_id: session.userId,
-      week_start_date: getMondayOfWeek(now),
+      week_start_date: getMondayOfWeek(now, profile.timezone),
       weekday: "wednesday",
       answers: { tier: parsed.data },
       completed_at: new Date().toISOString(),

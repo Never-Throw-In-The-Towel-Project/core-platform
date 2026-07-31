@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { verifySession } from "@/lib/auth/dal";
+import { verifySession, getProfile } from "@/lib/auth/dal";
 import { todayISODate } from "@/lib/routines/dates";
 import { type RoutineActionState } from "./routineState";
 
@@ -19,6 +19,7 @@ export async function submitMorningEntry(
   formData: FormData
 ): Promise<RoutineActionState> {
   const session = await verifySession();
+  const profile = await getProfile();
 
   const parsed = MorningEntrySchema.safeParse({
     sleepScore: formData.get("sleepScore"),
@@ -38,7 +39,7 @@ export async function submitMorningEntry(
   const { error } = await supabase.from("morning_entries").upsert(
     {
       user_id: session.userId,
-      entry_date: todayISODate(),
+      entry_date: todayISODate(new Date(), profile.timezone),
       sleep_score: sleepScore,
       morning_walk: morningWalk,
       breathwork,

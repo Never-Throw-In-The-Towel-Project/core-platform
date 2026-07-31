@@ -53,7 +53,8 @@ export async function GET(request: NextRequest) {
       toEmails: emails,
       companyName: company.name,
       pdfBuffer: pdf,
-      filename: `ntitt-impact-report-${todayISODate()}.pdf`,
+      // System-generated filename, not any one user's local day -- UTC (Phase 9).
+      filename: `ntitt-impact-report-${todayISODate(new Date(), "UTC")}.pdf`,
     });
 
     if (result.ok) {

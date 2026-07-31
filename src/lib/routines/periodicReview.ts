@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { getMondayOfWeek, todayISODate } from "./dates";
+import { getMondayOfWeek } from "./dates";
 import type { HabitSummary, ReviewType } from "@/types/database";
 
 const THRESHOLDS: Record<ReviewType, number> = { "30_day": 30, "90_day": 90 };
@@ -71,7 +71,7 @@ export async function getPendingPeriodicReview(
 export async function getHabitSummary(
   userId: string,
   periodStart: string,
-  periodEnd: string = todayISODate()
+  periodEnd: string
 ): Promise<HabitSummary> {
   const supabase = await createClient("private");
 
@@ -94,13 +94,16 @@ export async function getHabitSummary(
       // week_start_date is always a Monday, but periodStart (the user's
       // actual first active day) can be any weekday -- widening to that
       // week's Monday avoids undercounting a themed check-in completed
-      // earlier in the same week periodStart falls in.
+      // earlier in the same week periodStart falls in. periodStart is
+      // already a resolved plain calendar-date string (no zone attached),
+      // so interpreting it as UTC midnight here is just how a floating
+      // date is read back, not a timezone choice.
       supabase
         .from("themed_checkins")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
         .not("completed_at", "is", null)
-        .gte("week_start_date", getMondayOfWeek(new Date(periodStart + "T00:00:00Z")))
+        .gte("week_start_date", getMondayOfWeek(new Date(periodStart + "T00:00:00Z"), "UTC"))
         .lte("week_start_date", periodEnd),
     ]);
 

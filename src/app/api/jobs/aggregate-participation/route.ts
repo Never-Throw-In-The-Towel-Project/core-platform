@@ -36,7 +36,9 @@ export async function GET(request: NextRequest) {
   const dateParam = request.nextUrl.searchParams.get("date");
   const targetDate = dateParam ?? yesterday();
   const targetDateObj = new Date(targetDate + "T00:00:00Z");
-  const targetWeekday = weekdayNameOrWeekend(targetDateObj);
+  // Cross-company aggregation, not any one user's local day -- deliberately
+  // UTC (Phase 9). See docs/ARCHITECTURE.md "Per-user timezone".
+  const targetWeekday = weekdayNameOrWeekend(targetDateObj, "UTC");
   const isWeekday = (WEEKDAYS as readonly string[]).includes(targetWeekday);
 
   const publicClient = createAdminClient();
@@ -73,7 +75,7 @@ export async function GET(request: NextRequest) {
       ? privateClient
           .from("themed_checkins")
           .select("user_id")
-          .eq("week_start_date", getMondayOfWeek(targetDateObj))
+          .eq("week_start_date", getMondayOfWeek(targetDateObj, "UTC"))
           .eq("weekday", targetWeekday)
           .not("completed_at", "is", null)
       : Promise.resolve({ data: [] as { user_id: string }[] }),
@@ -185,5 +187,5 @@ function countByCompany(
 function yesterday(): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() - 1);
-  return todayISODate(d);
+  return todayISODate(d, "UTC");
 }

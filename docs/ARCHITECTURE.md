@@ -625,6 +625,62 @@ schema change.
   `6mb` to fit a photo plus multipart overhead — `imageUpload.ts`'s own 5MB
   cap is the real enforced limit.
 
+## Per-user timezone (Phase 9)
+
+Replaces the UTC-only simplification flagged since Phase 1: every day/week-
+journey boundary (Morning/Night Routine cutover, which weekday check-in is
+"today", the Sunday Setup/Weekly Review gates) was resolved in server UTC,
+so a user near a date boundary could see their "morning" flip over at a
+UTC-relative time rather than their own local midday/7pm.
+
+- `profiles.timezone` (migration `20260731050000_phase9_profile_timezone.sql`)
+  — a plain `text` column, not validated against a fixed enum at the
+  database level (Postgres doesn't track valid IANA zone names natively).
+  Defaults to `'Europe/London'`. Validated where it's actually set — the
+  `/settings` page's `updateTimezone` action
+  (`src/lib/actions/settings.ts`) constructs an `Intl.DateTimeFormat` with
+  the submitted value and rejects it if that throws, rather than
+  maintaining a hardcoded list.
+- **`src/lib/routines/dates.ts` now takes an explicit `timeZone` on every
+  function, with no default.** This mirrors the design lesson from the
+  Phase 1-3 schema-parameter bug (see "Privacy boundary" above): a
+  timezone parameter that silently defaulted to the wrong value at a
+  forgotten call site is the same shape of risk, so every call site must
+  say explicitly which zone it means. `zonedParts()` (new, internal) uses
+  `Intl.DateTimeFormat` with the `timeZone` option to read the real
+  calendar date/hour/weekday for an instant in any IANA zone, with no new
+  npm dependency.
+- **User-facing call sites** (Morning/Night entry writes, the themed
+  check-in weekday lock and `week_start_date`, Sunday Setup's Sunday gate,
+  Weekly Review's Friday-onwards gate, the home screen's phase dispatch,
+  the 30/90-Day Review's `period_start`/`period_end`) all now pass the
+  caller's own `profile.timezone`.
+- **System/cross-user call sites deliberately pass `"UTC"` explicitly,
+  not a personal timezone** — because they either bucket many users' data
+  into one company-wide aggregate, or select shared content that must be
+  identical for every user in the same real calendar week:
+  - `src/lib/dashboard/aggregates.ts` and the daily aggregation cron
+    (`src/app/api/jobs/aggregate-participation/route.ts`) — bucketing
+    every company's participation into weeks needs one consistent
+    definition of "week," not each user's own.
+  - `src/lib/routines/workouts.ts`'s `getWorkoutForWeek`/`getDailyQuote` —
+    already documented as "every user sees the same workout in the same
+    real week regardless of when they personally started"; using each
+    user's own zone could flip different users onto different rotating-
+    bank positions on the same calendar day near a week boundary.
+  - The HR impact report (`collectImpactReportData.ts`) and its PDF
+    filename (`generate-90-day-impact-reports/route.ts`) — a system
+    timestamp for a company-wide report, not any one user's local day.
+- **`/settings`** (new page): the only place a user can view/change their
+  own timezone today — there's no signup flow yet that asks for one (see
+  Open items), so every new profile starts on the `'Europe/London'`
+  default until they visit this page.
+- Sanity-checked the new zone-aware date math directly (not just type-
+  checked) via `npx tsx` against real cross-zone cases — e.g. the same
+  instant resolving to a Saturday in UTC/Los Angeles but already Sunday in
+  Auckland, and the ISO Monday-of-week/first-Tuesday-of-month logic
+  producing the same answers as before for a fixed zone.
+
 ## Roadmap
 
 1. **Foundation** (this phase) — repo scaffold, auth, the privacy-boundary
@@ -715,9 +771,8 @@ schema change.
   (STAND framework, Talking Tuesdays, Members Events posts/history) is worth
   carrying over — platform builds independently either way; this only
   affects Circle's own wind-down, not the native community schema.
-- Per-user timezone: `profiles` has no timezone column yet, so all
-  day/week-journey boundaries (Morning/Night Routine cutover, which weekday
-  check-in is "today") are resolved in UTC — see "Daily core loop" above.
+- ~~Per-user timezone~~ — **resolved (Phase 9)**: see "Per-user timezone
+  (Phase 9)" below.
 - ~~Whether the 30/90-Day Review trigger should be calendar-days-since-start
   rather than active-engagement days~~ — **resolved**: stays
   active-engagement days, confirmed. Calendar-based would risk landing the
