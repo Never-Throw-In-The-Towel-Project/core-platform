@@ -23,9 +23,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             My Journey
           </Link>
           {profile.role === "ntitt_admin" && (
-            <Link href="/community/admin" className="text-sm underline opacity-80">
-              Moderation
-            </Link>
+            <>
+              <Link href="/community/admin" className="text-sm underline opacity-80">
+                Moderation
+              </Link>
+              <Link href="/admin/invite" className="text-sm underline opacity-80">
+                Invite
+              </Link>
+            </>
           )}
           <Link href="/settings" className="text-sm underline opacity-80">
             Settings
