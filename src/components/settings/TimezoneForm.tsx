@@ -40,7 +40,7 @@ export function TimezoneForm({ currentTimezone }: { currentTimezone: string }) {
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-md bg-brand-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+        className="rounded-md bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Saving…" : "Save"}
       </button>

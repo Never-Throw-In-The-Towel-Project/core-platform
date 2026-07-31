@@ -778,6 +778,55 @@ dispatch job, permission-prompt UX), not a quick add.
   Production environment alongside everything else in
   `docs/DEPLOYMENT.md`.
 
+## Co-branding depth (Phase 10)
+
+Confirmed with the team, not guessed at — three previously-open business
+decisions:
+
+- **Brand color: monochrome, not a placeholder waiting on a hex value.**
+  The real NTITT brand is black and white, matching the logomark itself
+  (which carries no color information either way). `--brand-accent` in
+  `globals.css` changed from the placeholder red (`#dc2626`) to
+  near-white (`#f5f5f5`, matching `--brand-foreground`), so CTA buttons
+  read as a light chip against the dark background — the same visual
+  language the logomark and the marketing page's "Trusted by" strip
+  already used. Added a paired `--brand-accent-foreground` token
+  (`#0a0a0a`) for text/icons sitting on an accent-colored background,
+  since a fixed `text-white` no longer contrasts against a light accent —
+  every one of the 24 `bg-brand-accent` usages across the codebase now
+  pairs with `text-brand-accent-foreground` instead.
+- **Co-branding depth: Amazon and KP Snacks specifically get real
+  co-branded portals; the other 6 partner logos (ALDI Australia, Barbour,
+  L'Oréal, Lighthouse Charity, The Hill Group, Vanlove) stay sponsor/
+  "worked with" credits on the public marketing page only, not company
+  rows.** `supabase/seed.sql` (new — the idiomatic Supabase CLI location
+  for non-schema starter data, run automatically by `supabase db reset`
+  locally, but needs a manual one-time apply against a remote project —
+  see `docs/DEPLOYMENT.md`) seeds both as real `companies` rows with
+  their existing `/public/partners/*.png` logo. `primary_color`/
+  `accent_color`/`support_contact_*` are deliberately left `null` for both
+  — no real values exist yet, and `null` correctly falls back to NTITT's
+  own default (now monochrome) via `ThemeProvider`, rather than guessing a
+  brand color for either client.
+  - The login page and marketing page previously never actually rendered
+    `companies.logo_url` at all despite the column existing since Phase
+    1 — both now show the resolved company's logo next to the NTITT
+    logomark (an "×" lockup, matching the existing "Company × Never Throw
+    In The Towel" heading text) when a co-branded subdomain resolves one.
+    The marketing page's partner "Trusted by" strip is hidden on a
+    co-branded portal itself, since a company's own portal shouldn't also
+    show a generic wall of other partners' logos.
+- **Week-number framing: yes, surface it in the Company Dashboard.**
+  `getWeeklyParticipation` (`src/lib/dashboard/aggregates.ts`) now returns
+  a `weekNumber` per row — the week's 1-based position among the
+  company's *entire* participation history, not just the displayed slice,
+  so "Week 1" always means the company's actual first recorded week even
+  when only the most recent 12 are shown. Both the live Dashboard
+  (`src/app/(admin)/dashboard/page.tsx`) and the 90-day PDF impact report
+  (`ImpactReportDocument.tsx`) now show "Week N" as the primary label,
+  with the calendar date kept alongside as supporting detail rather than
+  removed outright.
+
 ## Roadmap
 
 1. **Foundation** (this phase) — repo scaffold, auth, the privacy-boundary
@@ -849,21 +898,26 @@ dispatch job, permission-prompt UX), not a quick add.
 
 ## Open items (business decisions, not blocking Phase 1)
 
-- Exact co-branding depth for flagship clients (cosmetic vs. full app
-  identity).
+- ~~Exact co-branding depth for flagship clients~~ — **partially resolved
+  (Phase 10)**: confirmed logo-level co-branding (own subdomain + logo
+  shown alongside NTITT's) for Amazon and KP Snacks specifically — see
+  "Co-branding depth (Phase 10)" below. Still open: real brand
+  colors for either (their `companies.primary_color`/`accent_color` are
+  null, falling back to NTITT's own default), and whether any other
+  partner eventually gets the same treatment.
 - Whether there's a fixed pilot deadline (e.g. KP Snacks) driving sequencing.
 - ~~Real NTITT logo/PWA icon assets~~ — **resolved**: the real logomark
   (`NTITT Logos/NTITT-LOGOMARK-OUTLINE-TRANS.png`, supplied by Anthony) is
   now used throughout — see "Brand assets: real NTITT logo and partner
-  logos" below. `--brand-accent` in `globals.css` is still the one
-  remaining placeholder (`#dc2626`): the source logomark is pure
-  black/white, so it carries no color information to derive an accent from
-  — needs an actual brand color/hex from Anthony.
-- Whether the 8 partner/client logos (ALDI Australia, Amazon, Barbour, KP
-  Snacks, L'Oréal, Lighthouse Charity, The Hill Group, Vanlove) should also
-  be seeded as real `companies.logo_url` values for co-branded portals, in
-  addition to the public marketing-page "Trusted by" strip they're used for
-  now — see "Brand assets" below.
+  logos" below.
+- ~~`--brand-accent` placeholder~~ — **resolved (Phase 10)**: confirmed
+  monochrome (black/white) is the real brand, not a placeholder waiting on
+  a color — see "Co-branding depth (Phase 10)" below.
+- ~~Whether the 8 partner/client logos should be seeded as real
+  `companies.logo_url` values~~ — **resolved (Phase 10)**: only Amazon and
+  KP Snacks, confirmed — the other 6 are sponsor/"worked with" credits
+  only, staying on the public marketing-page "Trusted by" strip. See
+  `supabase/seed.sql` and "Co-branding depth (Phase 10)" below.
 - Circle.so's sunset timeline and whether any of its historical content
   (STAND framework, Talking Tuesdays, Members Events posts/history) is worth
   carrying over — platform builds independently either way; this only
@@ -876,12 +930,10 @@ dispatch job, permission-prompt UX), not a quick add.
   "congratulations" milestone on someone who registered 90 days ago but
   barely engaged, cutting against the review's own "recognise the effort
   you've made" framing. See "No day numbers, per Anthony's guidance" above.
-- Whether "Week 1 / Week 4 / Week 12" framing (Anthony's suggested corporate
-  vocabulary, replacing day numbers) needs to surface anywhere in the
-  product — e.g. the Company Dashboard's weekly participation view (built in
-  Phase 6, currently labelled by calendar date, not week number) — or is
-  purely how the offering gets described commercially to HR, with no UI
-  implication.
+- ~~Whether "Week 1 / Week 4 / Week 12" framing needs to surface in the
+  product~~ — **resolved (Phase 10)**: yes, confirmed for the Company
+  Dashboard's weekly participation view — see "Week-number framing (Phase
+  10)" below.
 - ~~Real photo upload for Community posts~~ — **resolved (Phase 9)**: see
   "Community photo upload (Phase 9)" below.
 - One-time manual setup needed before Community moderation can be used for

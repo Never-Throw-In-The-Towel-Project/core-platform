@@ -57,7 +57,7 @@ export default async function HomePage() {
         <p className="mt-1 opacity-80">{info.subtitle}</p>
         <Link
           href="/checkin"
-          className="mt-6 inline-block rounded-md bg-brand-accent px-5 py-3 text-sm font-semibold text-white"
+          className="mt-6 inline-block rounded-md bg-brand-accent px-5 py-3 text-sm font-semibold text-brand-accent-foreground"
         >
           Open today&apos;s check-in
         </Link>
@@ -77,7 +77,7 @@ export default async function HomePage() {
       <div className="mt-6 flex flex-col items-center gap-3">
         <Link
           href="/weekly-review"
-          className="inline-block rounded-md bg-brand-accent px-5 py-3 text-sm font-semibold text-white"
+          className="inline-block rounded-md bg-brand-accent px-5 py-3 text-sm font-semibold text-brand-accent-foreground"
         >
           Weekly Review
         </Link>

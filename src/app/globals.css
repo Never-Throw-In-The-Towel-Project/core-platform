@@ -1,12 +1,21 @@
 @import "tailwindcss";
 
 /*
- * Default NTITT brand tokens. --brand-primary/--brand-accent are TODOs:
- * placeholder values only, standing in until real brand guidelines/hex
- * values come from Anthony. Everything else (dark background, light
- * foreground) matches the existing Circle/pitch-deck presentation.
+ * Default NTITT brand tokens. Confirmed with the team (Phase 10): the real
+ * brand is monochrome -- black and white, matching the logomark itself
+ * (which carries no color information) -- not a placeholder waiting on a
+ * hex value. --brand-accent is white/near-white (matching --brand-foreground)
+ * rather than the earlier placeholder red, so CTA buttons read as a light
+ * chip against the dark background, the same visual language the logomark
+ * and the marketing page's "Trusted by" strip already use.
  *
- * These four --brand-* variables are the entire co-branding mechanism: a
+ * --brand-accent-foreground is the paired token for content sitting ON TOP
+ * of an accent-colored background (button text/icons) -- needed because
+ * --brand-accent is no longer a fixed dark color that plain white text
+ * always contrasts against; every `bg-brand-accent` usage in the codebase
+ * now pairs with `text-brand-accent-foreground`, not a hardcoded `text-white`.
+ *
+ * These five --brand-* variables are the entire co-branding mechanism: a
  * company's ThemeProvider override (src/lib/theme/ThemeProvider.tsx) sets
  * new values for the same variable names on a wrapping element, and every
  * component that reads --brand-* rather than a hardcoded color picks up the
@@ -19,7 +28,8 @@
   --brand-background: #0a0a0a;
   --brand-foreground: #f5f5f5;
   --brand-primary: #f5f5f5;
-  --brand-accent: #dc2626; /* TODO: placeholder -- replace with real NTITT brand color */
+  --brand-accent: #f5f5f5;
+  --brand-accent-foreground: #0a0a0a;
 }
 
 @theme inline {
@@ -29,6 +39,7 @@
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-primary: var(--brand-primary);
   --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-foreground: var(--brand-accent-foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

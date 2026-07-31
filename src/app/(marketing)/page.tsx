@@ -29,7 +29,23 @@ export default async function MarketingHomePage() {
   return (
     <main className="flex flex-1 flex-col items-center gap-16 px-6 py-24 text-center">
       <div className="flex flex-col items-center gap-6">
-        <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={120} height={122} preload />
+        <div className="flex items-center gap-4">
+          <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={80} height={82} preload />
+          {company?.logo_url && (
+            <>
+              <span className="text-2xl opacity-40">×</span>
+              <div className="flex h-16 w-28 items-center justify-center rounded-md bg-white p-3">
+                <Image
+                  src={company.logo_url}
+                  alt={company.name}
+                  width={96}
+                  height={40}
+                  style={{ width: "auto", height: "auto", maxWidth: "100%", maxHeight: "100%" }}
+                />
+              </div>
+            </>
+          )}
+        </div>
         <h1 className="text-4xl font-bold tracking-tight">
           {company ? `${company.name} × Never Throw In The Towel` : "Never Throw In The Towel"}
         </h1>
@@ -39,33 +55,37 @@ export default async function MarketingHomePage() {
         </p>
         <Link
           href="/login"
-          className="rounded-md bg-brand-accent px-6 py-3 font-semibold text-white"
+          className="rounded-md bg-brand-accent px-6 py-3 font-semibold text-brand-accent-foreground"
         >
           Sign in
         </Link>
       </div>
 
-      <div className="flex flex-col items-center gap-6">
-        <p className="text-xs font-semibold tracking-widest text-brand-foreground/50 uppercase">
-          Trusted by teams at
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-4">
-          {PARTNER_LOGOS.map((partner) => (
-            <div
-              key={partner.src}
-              className="flex h-16 w-32 items-center justify-center rounded-md bg-white p-3"
-            >
-              <Image
-                src={partner.src}
-                alt={partner.name}
-                width={104}
-                height={40}
-                style={{ width: "auto", height: "auto", maxWidth: "100%", maxHeight: "100%" }}
-              />
-            </div>
-          ))}
+      {/* Only on the default (non-branded) marketing page -- a company's
+          own co-branded portal shouldn't show a generic partner wall. */}
+      {!company && (
+        <div className="flex flex-col items-center gap-6">
+          <p className="text-xs font-semibold tracking-widest text-brand-foreground/50 uppercase">
+            Trusted by teams at
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            {PARTNER_LOGOS.map((partner) => (
+              <div
+                key={partner.src}
+                className="flex h-16 w-32 items-center justify-center rounded-md bg-white p-3"
+              >
+                <Image
+                  src={partner.src}
+                  alt={partner.name}
+                  width={104}
+                  height={40}
+                  style={{ width: "auto", height: "auto", maxWidth: "100%", maxHeight: "100%" }}
+                />
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </main>
   );
 }

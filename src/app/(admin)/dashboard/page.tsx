@@ -59,7 +59,7 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-bold">Company Dashboard</h1>
         <a
           href="/api/reports/impact"
-          className="rounded-md bg-brand-accent px-4 py-2 text-sm font-semibold text-white"
+          className="rounded-md bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accent-foreground"
         >
           Download impact report
         </a>
@@ -122,7 +122,9 @@ export default async function DashboardPage() {
         <div className="mt-3 space-y-4">
           {weeklyParticipation.map((week) => (
             <div key={week.weekStartDate} className="rounded-lg border border-white/10 p-4">
-              <p className="text-sm font-medium">Week of {week.weekStartDate}</p>
+              <p className="text-sm font-medium">
+                Week {week.weekNumber} <span className="font-normal opacity-50">({week.weekStartDate})</span>
+              </p>
               <div className="mt-2 space-y-1.5">
                 <Bar label="Morning" percent={week.morningPercent} />
                 <Bar label="Night" percent={week.nightPercent} />

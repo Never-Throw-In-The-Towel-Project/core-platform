@@ -52,7 +52,7 @@ export function WorkoutWednesdayForm({
                 className="peer sr-only"
                 required
               />
-              <span className="cursor-pointer rounded-full border border-white/20 px-3 py-1.5 text-sm peer-checked:bg-brand-accent peer-checked:text-white">
+              <span className="cursor-pointer rounded-full border border-white/20 px-3 py-1.5 text-sm peer-checked:bg-brand-accent peer-checked:text-brand-accent-foreground">
                 {option.label}
               </span>
             </label>
@@ -99,7 +99,7 @@ export function WorkoutWednesdayForm({
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-md bg-brand-accent px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+        className="w-full rounded-md bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Saving…" : "Complete Workout Wednesday"}
       </button>

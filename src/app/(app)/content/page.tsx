@@ -69,7 +69,7 @@ export default async function ContentLibraryPage({
           className="flex-1 rounded-md border border-white/20 bg-transparent px-3 py-2 text-sm"
         />
         {category && <input type="hidden" name="category" value={category} />}
-        <button type="submit" className="rounded-md bg-brand-accent px-4 py-2 text-sm font-semibold text-white">
+        <button type="submit" className="rounded-md bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accent-foreground">
           Search
         </button>
       </form>
@@ -77,7 +77,7 @@ export default async function ContentLibraryPage({
       <div className="mt-4 flex flex-wrap gap-2 text-sm">
         <Link
           href="/content"
-          className={`rounded-full border border-white/20 px-3 py-1 ${!category ? "bg-brand-accent text-white" : "opacity-70"}`}
+          className={`rounded-full border border-white/20 px-3 py-1 ${!category ? "bg-brand-accent text-brand-accent-foreground" : "opacity-70"}`}
         >
           All
         </Link>
@@ -85,7 +85,7 @@ export default async function ContentLibraryPage({
           <Link
             key={cat.value}
             href={`/content?category=${cat.value}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
-            className={`rounded-full border border-white/20 px-3 py-1 ${category === cat.value ? "bg-brand-accent text-white" : "opacity-70"}`}
+            className={`rounded-full border border-white/20 px-3 py-1 ${category === cat.value ? "bg-brand-accent text-brand-accent-foreground" : "opacity-70"}`}
           >
             {cat.label}
           </Link>
