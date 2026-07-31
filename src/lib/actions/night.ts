@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { verifySession } from "@/lib/auth/dal";
+import { verifySession, getProfile } from "@/lib/auth/dal";
 import { todayISODate } from "@/lib/routines/dates";
 import { type RoutineActionState } from "./routineState";
 
@@ -20,6 +20,7 @@ export async function submitNightEntry(
   formData: FormData
 ): Promise<RoutineActionState> {
   const session = await verifySession();
+  const profile = await getProfile();
 
   const parsed = NightEntrySchema.safeParse({
     noPhoneBeforeBed: formData.get("noPhoneBeforeBed") === "true",
@@ -40,7 +41,7 @@ export async function submitNightEntry(
   const { error } = await supabase.from("night_entries").upsert(
     {
       user_id: session.userId,
-      entry_date: todayISODate(),
+      entry_date: todayISODate(new Date(), profile.timezone),
       no_phone_before_bed: noPhoneBeforeBed,
       hot_bath_or_shower: hotBathOrShower,
       gratitude: gratitude ?? null,

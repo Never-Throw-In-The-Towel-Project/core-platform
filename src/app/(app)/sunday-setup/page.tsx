@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
+import { getProfile } from "@/lib/auth/dal";
 import { weekdayNameOrWeekend } from "@/lib/routines/dates";
 import { SundaySetupForm } from "@/components/routines/SundaySetupForm";
 
-export default function SundaySetupPage() {
-  if (weekdayNameOrWeekend(new Date()) !== "sunday") {
+export default async function SundaySetupPage() {
+  const profile = await getProfile();
+  if (weekdayNameOrWeekend(new Date(), profile.timezone) !== "sunday") {
     redirect("/home");
   }
 

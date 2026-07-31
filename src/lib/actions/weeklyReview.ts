@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { verifySession } from "@/lib/auth/dal";
+import { verifySession, getProfile } from "@/lib/auth/dal";
 import { getMondayOfWeek, weekdayNameOrWeekend } from "@/lib/routines/dates";
 import { type RoutineActionState } from "./routineState";
 
@@ -21,12 +21,13 @@ export async function submitWeeklyReview(
   formData: FormData
 ): Promise<RoutineActionState> {
   const session = await verifySession();
+  const profile = await getProfile();
   const now = new Date();
 
   // Per the brief, Weekly Review is its own section, separate from Feel
   // Good Friday, "accessible from Friday onwards through the weekend" --
   // enforced server-side, same no-guessing pattern as the themed check-ins.
-  const weekday = weekdayNameOrWeekend(now);
+  const weekday = weekdayNameOrWeekend(now, profile.timezone);
   if (weekday !== "friday" && weekday !== "saturday" && weekday !== "sunday") {
     return { status: "error", message: "Weekly Review opens from Friday onwards." };
   }
@@ -51,7 +52,7 @@ export async function submitWeeklyReview(
   const { error } = await supabase.from("weekly_reviews").upsert(
     {
       user_id: session.userId,
-      week_start_date: getMondayOfWeek(now),
+      week_start_date: getMondayOfWeek(now, profile.timezone),
       habits_served_well: data.habitsServedWell ?? null,
       challenges_helped_grow: data.challengesHelpedGrow ?? null,
       lessons_learned: data.lessonsLearned ?? null,

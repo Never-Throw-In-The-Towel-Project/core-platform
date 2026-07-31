@@ -39,6 +39,7 @@ export interface Profile {
   morning_notification_time: string | null;
   night_notification_time: string | null;
   sunday_notification_time: string | null;
+  timezone: string;
   created_at: string;
 }
 

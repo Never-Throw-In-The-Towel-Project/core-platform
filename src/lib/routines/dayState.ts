@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { weekdayNameOrWeekend } from "./dates";
+import { localHour, weekdayNameOrWeekend, type TimeZone } from "./dates";
 import type { Weekday } from "@/types/database";
 
 // Home-screen phase resolution, per the brief: Morning Routine "at the top
@@ -14,13 +14,13 @@ export type HomePhase =
   | { kind: "weekend_midday"; isSunday: boolean }
   | { kind: "night" };
 
-export function resolveHomePhase(now: Date = new Date()): HomePhase {
-  const hour = now.getUTCHours();
+export function resolveHomePhase(now: Date, timeZone: TimeZone): HomePhase {
+  const hour = localHour(now, timeZone);
 
   if (hour < 12) return { kind: "morning" };
   if (hour >= 19) return { kind: "night" };
 
-  const weekday = weekdayNameOrWeekend(now);
+  const weekday = weekdayNameOrWeekend(now, timeZone);
   if (weekday === "saturday" || weekday === "sunday") {
     return { kind: "weekend_midday", isSunday: weekday === "sunday" };
   }

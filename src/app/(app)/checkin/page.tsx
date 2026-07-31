@@ -14,7 +14,7 @@ import type { WorkoutTier } from "@/types/database";
 export default async function CheckinPage() {
   const profile = await getProfile();
   const now = new Date();
-  const weekday = weekdayNameOrWeekend(now);
+  const weekday = weekdayNameOrWeekend(now, profile.timezone);
 
   if (weekday === "saturday" || weekday === "sunday") {
     redirect("/home");
@@ -58,7 +58,7 @@ export default async function CheckinPage() {
       .from("themed_checkins")
       .select("goals")
       .eq("user_id", profile.id)
-      .eq("week_start_date", getMondayOfWeek(now))
+      .eq("week_start_date", getMondayOfWeek(now, profile.timezone))
       .eq("weekday", "monday")
       .maybeSingle();
 
@@ -73,7 +73,7 @@ export default async function CheckinPage() {
 
   if (weekday === "tuesday") {
     let podcastEpisode = null;
-    if (isFirstOccurrenceOfWeekdayInMonth(now, "tuesday")) {
+    if (isFirstOccurrenceOfWeekdayInMonth(now, profile.timezone, "tuesday")) {
       const publicClient = await createClient();
       const { data } = await publicClient
         .from("podcast_episodes")

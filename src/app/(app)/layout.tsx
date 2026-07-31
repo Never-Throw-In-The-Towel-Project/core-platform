@@ -27,6 +27,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               Moderation
             </Link>
           )}
+          <Link href="/settings" className="text-sm underline opacity-80">
+            Settings
+          </Link>
         </nav>
       </header>
       <div className="flex-1">{children}</div>

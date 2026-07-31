@@ -28,8 +28,8 @@ export default async function HomePage() {
     redirect(REVIEW_ROUTES[pendingReview]);
   }
 
-  const phase = resolveHomePhase();
-  const weekday = weekdayNameOrWeekend(new Date());
+  const phase = resolveHomePhase(new Date(), profile.timezone);
+  const weekday = weekdayNameOrWeekend(new Date(), profile.timezone);
   const weeklyReviewOpen = weekday === "friday" || weekday === "saturday" || weekday === "sunday";
 
   if (phase.kind === "morning") {

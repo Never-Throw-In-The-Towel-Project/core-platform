@@ -27,8 +27,13 @@ const TIER_COLUMNS = {
  * Resolves "the workout of the week" for `now` -- a week-journey (see
  * docs/ARCHITECTURE.md): keyed by real ISO calendar week modulo however many
  * weeks are seeded, so every user sees the same workout in the same real
- * week regardless of when they personally started. Returns null if no
- * workout weeks have been seeded yet (content ops hasn't run, not an error).
+ * week regardless of when they personally started. Deliberately keyed off
+ * UTC, not the caller's own timezone (Phase 9) -- this is shared content
+ * selection, and using each user's own zone could flip different users onto
+ * different bank positions on the same calendar day near a week boundary,
+ * breaking the "same workout in the same real week" guarantee this already
+ * promises. Returns null if no workout weeks have been seeded yet (content
+ * ops hasn't run, not an error).
  */
 export async function getWorkoutForWeek(now: Date = new Date()): Promise<WeekWorkout | null> {
   const supabase = await createClient();
@@ -39,7 +44,7 @@ export async function getWorkoutForWeek(now: Date = new Date()): Promise<WeekWor
 
   if (!count) return null;
 
-  const bankPosition = resolveBankPosition(getIsoWeekNumber(now), count);
+  const bankPosition = resolveBankPosition(getIsoWeekNumber(now, "UTC"), count);
 
   const { data: week } = await supabase
     .from("workout_weeks")
@@ -92,6 +97,7 @@ export async function getWorkoutForWeek(now: Date = new Date()): Promise<WeekWor
   return { bankPosition, exercises: resolvedExercises };
 }
 
+/** Same "shared content, same real week for everyone" reasoning as getWorkoutForWeek -- deliberately UTC. */
 export async function getDailyQuote(now: Date = new Date()) {
   const supabase = await createClient();
 
@@ -101,7 +107,7 @@ export async function getDailyQuote(now: Date = new Date()) {
 
   if (!count) return null;
 
-  const bankPosition = resolveBankPosition(getIsoWeekNumber(now), count);
+  const bankPosition = resolveBankPosition(getIsoWeekNumber(now, "UTC"), count);
 
   const { data } = await supabase
     .from("daily_quotes")
