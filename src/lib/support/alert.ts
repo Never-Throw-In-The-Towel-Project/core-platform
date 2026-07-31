@@ -281,5 +281,11 @@ async function buildAckUrl(requestId: string): Promise<string> {
   const token = await generateAckToken(requestId);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
   if (!token || !siteUrl) return "";
-  return `${siteUrl}/api/support-requests/${requestId}/ack?token=${token}`;
+  // Built via the URL constructor, not string concatenation: a
+  // path-absolute input always replaces the base's own path entirely, so
+  // this stays correct even if NEXT_PUBLIC_SITE_URL ever has a path of its
+  // own tacked on (it shouldn't, but this shouldn't silently double up if it did).
+  const url = new URL(`/api/support-requests/${requestId}/ack`, siteUrl);
+  url.searchParams.set("token", token);
+  return url.toString();
 }

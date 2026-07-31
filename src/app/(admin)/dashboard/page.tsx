@@ -7,6 +7,7 @@ import {
   getWeekdayEngagement,
   getWeeklyParticipation,
 } from "@/lib/dashboard/aggregates";
+import { InviteEmployeeForm } from "@/components/admin/InviteEmployeeForm";
 
 const TREND_LABEL: Record<string, string> = {
   rising: "Rising",
@@ -67,6 +68,10 @@ export default async function DashboardPage() {
       <p className="mt-2 text-sm text-brand-foreground/70">
         Aggregate, anonymised data only. No individual answers, names, or scores.
       </p>
+
+      <div className="mt-8">
+        <InviteEmployeeForm />
+      </div>
 
       <div className="mt-8 grid grid-cols-2 gap-4">
         <Stat label="Participation trend" value={TREND_LABEL[trend]} />

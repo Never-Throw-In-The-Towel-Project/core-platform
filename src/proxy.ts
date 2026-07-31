@@ -23,7 +23,13 @@ import { extractTenantSlug } from "@/lib/tenant/resolve";
 // Phase 1's Twilio webhook. If a future /api route ever needs a real user
 // session, gate it explicitly inside that route (verifySession()), not by
 // removing this exclusion -- proxy is for browser-facing pages.
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth/callback", "/community-guidelines"];
+// No public /signup: enable_signup is false (supabase/config.toml) --
+// accounts are provisioned by admin invite only (see
+// src/lib/actions/invite.ts), so there is no self-service page to allow
+// through. /community-guidelines was never a real route either -- the
+// actual page (/community/guidelines) intentionally requires a session,
+// same as the rest of /community.
+const PUBLIC_PATHS = ["/", "/login", "/auth/callback"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
