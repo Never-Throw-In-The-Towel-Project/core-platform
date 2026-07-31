@@ -16,9 +16,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href="/content" className="text-sm underline opacity-80">
             Content Library
           </Link>
+          <Link href="/community" className="text-sm underline opacity-80">
+            Community
+          </Link>
           <Link href="/journey" className="text-sm underline opacity-80">
             My Journey
           </Link>
+          {profile.role === "ntitt_admin" && (
+            <Link href="/community/admin" className="text-sm underline opacity-80">
+              Moderation
+            </Link>
+          )}
         </nav>
       </header>
       <div className="flex-1">{children}</div>

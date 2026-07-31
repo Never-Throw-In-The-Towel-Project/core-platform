@@ -3,13 +3,15 @@
 // typescript` and reconcile — this file exists so we get type safety before
 // that project exists, not as a permanent hand-maintained source of truth.
 
-export type UserRole = "employee" | "hr_admin";
+export type UserRole = "employee" | "hr_admin" | "ntitt_admin";
 export type Weekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday";
 export type ReviewType = "30_day" | "90_day";
 export type SupportUrgency = "check_in" | "talk_today" | "urgent";
 export type SupportStatus = "new" | "contacted" | "resolved";
 export type VideoCategory = "mental_fitness" | "physical_fitness" | "tools_tips";
 export type WorkoutTier = "beginner" | "intermediate" | "advanced" | "elite";
+export type CommunityScope = "global" | "company";
+export type CommunityBoard = "feed" | "wins";
 
 export interface Company {
   id: string;
@@ -222,5 +224,51 @@ export interface CompanyReviewCompletions {
   period_start: string;
   completed_count: number;
   eligible_count: number;
+  created_at: string;
+}
+
+export interface CommunityPost {
+  id: string;
+  user_id: string;
+  company_id: string;
+  scope: CommunityScope;
+  board: CommunityBoard;
+  body: string;
+  image_url: string | null;
+  is_removed: boolean;
+  removed_by: string | null;
+  removed_at: string | null;
+  removal_reason: string | null;
+  created_at: string;
+}
+
+export interface CommunityComment {
+  id: string;
+  post_id: string;
+  user_id: string;
+  scope: CommunityScope;
+  company_id: string;
+  body: string;
+  is_removed: boolean;
+  removed_by: string | null;
+  removed_at: string | null;
+  created_at: string;
+}
+
+export interface CommunityLike {
+  id: string;
+  post_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface CommunityReport {
+  id: string;
+  post_id: string;
+  reporter_user_id: string;
+  reason: string | null;
+  resolved: boolean;
+  resolved_by: string | null;
+  resolved_at: string | null;
   created_at: string;
 }

@@ -1,0 +1,21 @@
+-- ============================================================================
+-- PHASE 7 (1/2) — adds the `ntitt_admin` role ahead of the community tables
+-- that need it for moderation policies.
+-- ============================================================================
+-- Split into its own migration/transaction deliberately: Postgres forbids
+-- using a newly-added enum value in the same transaction that added it via
+-- `alter type ... add value`. The community tables (and the RLS policies
+-- that reference 'ntitt_admin') land in the next migration file instead.
+--
+-- Community moderation is platform-level, not `hr_admin` -- see
+-- docs/ARCHITECTURE.md "Community scope": a company's HR admin gets zero
+-- visibility into the cross-tenant feed's moderation queue, for the same
+-- reason they never see individual check-in data. `ntitt_admin` accounts
+-- are provisioned manually via Supabase Studio (same pattern as content
+-- ops in Phase 4), not through any in-app flow -- there is no self-service
+-- way to become one. Since `profiles.company_id` is NOT NULL and NTITT
+-- staff aren't an employee of any client company, an `ntitt_admin` profile
+-- is assigned to a dedicated internal `companies` row (e.g. "NTITT
+-- (internal)"), created once via Studio, purely to satisfy that constraint
+-- -- their RLS policies below are never scoped by company_id.
+alter type public.user_role add value 'ntitt_admin';

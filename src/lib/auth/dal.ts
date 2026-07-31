@@ -53,3 +53,20 @@ export const requireHrAdmin = cache(async (): Promise<Profile> => {
 
   return profile;
 });
+
+/**
+ * For the community moderation queue: verifies the session AND that the
+ * user is an ntitt_admin -- a separate role from hr_admin, deliberately.
+ * See docs/ARCHITECTURE.md "Community scope": an hr_admin's dashboard
+ * access must never imply any community moderation right, so this must
+ * never fall back to accepting hr_admin.
+ */
+export const requireNtittAdmin = cache(async (): Promise<Profile> => {
+  const profile = await getProfile();
+
+  if (profile.role !== "ntitt_admin") {
+    redirect("/");
+  }
+
+  return profile;
+});
