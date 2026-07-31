@@ -537,6 +537,55 @@ Two ways to get the report:
    failed send (or no HR admin provisioned yet) leaves it `null` so the next
    day's run retries rather than silently losing the report.
 
+## Brand assets: real NTITT logo and partner logos
+
+Anthony supplied the real NTITT logomark and 8 partner/client logos via
+`NTITT Logos/` at the repo root. This work replaces the placeholder PWA
+icons flagged since Phase 1 and puts the real brand mark in front of users
+for the first time.
+
+- **Source logomark**: `NTITT-LOGOMARK-OUTLINE-TRANS.png` — a clenched-fist
+  mark, black outline + white fill, transparent background, 2048×2048.
+  Pure black/white — it carries no color information, so it doesn't resolve
+  the `--brand-accent` placeholder (see Open items).
+- **PWA icons** (`public/icon-192.png`, `public/icon-512.png`,
+  `src/app/apple-icon.png`, `src/app/favicon.ico`) are generated from the
+  logomark composited onto `#0a0a0a` — the same `background_color`/
+  `theme_color` already declared in `manifest.ts` — so the black outline
+  recedes and only the white fist reads, at every icon size down to 16px.
+  Generated once via Pillow (`pip install Pillow`; not otherwise a project
+  dependency) rather than committing a build step, since these are static
+  brand assets that only change when the source logo changes.
+  `src/app/apple-icon.png` uses Next's file-convention auto-detection
+  (App Icons — `app/apple-icon.png` → `<link rel="apple-touch-icon">`)
+  rather than living in `public/`, per `node_modules/next/dist/docs/.../
+  app-icons.md` (this Next version's docs are the source of truth per
+  `AGENTS.md`, not prior training data).
+- **In-app logo** (`public/logo-mark.png`): a transparent (no composited
+  background) crop of the same source, used on the marketing landing page
+  and the login page since both already sit on `--brand-background`
+  (`#0a0a0a`) — no separate light-mode variant exists yet because the app
+  has no light theme.
+- **Partner logos** (`public/partners/*.png`): all 8 files from
+  `NTITT Logos/` were identified (two had non-descriptive filenames —
+  confirmed by opening them: `Screenshot-2025-08-06-120827-300x111.png` is
+  Amazon, `images-1.jpeg` is Vanlove) and normalized to PNG. Rendered on
+  the marketing page's new "Trusted by" strip inside white chips, since the
+  source files are a mix of transparent PNG, opaque PNG, and JPEG with
+  their own (mostly light) backgrounds — a white chip is the one
+  presentation that reads correctly for all of them without editing each
+  logo's actual pixels.
+- **Not done**: seeding these 8 logos as real `companies.logo_url` values
+  for co-branded portals — that's a business decision (are these actual
+  paying co-branded clients, or past partners/media mentions being shown
+  on the public site) rather than an asset question, so it's left as an
+  Open item rather than guessed at.
+- **Also not done**: provisioning a real Supabase project or a Vercel
+  deployment. Both were requested alongside the logo work, but neither is
+  achievable from this environment — no Supabase or Vercel account access
+  or API tooling is available here. That's a capability gap, not a code
+  change, so it's tracked as an Open item rather than worked around.
+
 ## Roadmap
 
 1. **Foundation** (this phase) — repo scaffold, auth, the privacy-boundary
@@ -611,9 +660,18 @@ Two ways to get the report:
 - Exact co-branding depth for flagship clients (cosmetic vs. full app
   identity).
 - Whether there's a fixed pilot deadline (e.g. KP Snacks) driving sequencing.
-- Real NTITT brand colors/logo/PWA icon assets — `--brand-accent` and
-  `public/icon-*.png` are placeholders right now (see `globals.css` and
-  `src/app/manifest.ts`).
+- ~~Real NTITT logo/PWA icon assets~~ — **resolved**: the real logomark
+  (`NTITT Logos/NTITT-LOGOMARK-OUTLINE-TRANS.png`, supplied by Anthony) is
+  now used throughout — see "Brand assets: real NTITT logo and partner
+  logos" below. `--brand-accent` in `globals.css` is still the one
+  remaining placeholder (`#dc2626`): the source logomark is pure
+  black/white, so it carries no color information to derive an accent from
+  — needs an actual brand color/hex from Anthony.
+- Whether the 8 partner/client logos (ALDI Australia, Amazon, Barbour, KP
+  Snacks, L'Oréal, Lighthouse Charity, The Hill Group, Vanlove) should also
+  be seeded as real `companies.logo_url` values for co-branded portals, in
+  addition to the public marketing-page "Trusted by" strip they're used for
+  now — see "Brand assets" below.
 - Circle.so's sunset timeline and whether any of its historical content
   (STAND framework, Talking Tuesdays, Members Events posts/history) is worth
   carrying over — platform builds independently either way; this only
@@ -641,3 +699,14 @@ Two ways to get the report:
   profile has something to satisfy the `NOT NULL` `company_id` constraint),
   and Anthony's own profile row's `role` set to `ntitt_admin` — both via
   Supabase Studio, not any in-app flow.
+- **Real Supabase project + Vercel deployment**: requested, not yet done.
+  This build environment has no Supabase or Vercel account access or API
+  tooling, so provisioning has to happen through the account owner. Needs:
+  (1) a Supabase project with all 5 migrations under `supabase/migrations/`
+  run in order, and the `private` schema added to the project's exposed
+  schemas in API settings (the entire privacy boundary depends on this —
+  see "Privacy boundary" above); (2) a Vercel project connected to this
+  repo with every var in `.env.example` set for Production; (3) confirming
+  the Vercel plan supports the sub-daily cron schedule in `vercel.json`
+  (`*/15 * * * *` for support response-time monitoring) — Hobby is limited
+  to one run/day per cron, so this may need at least a Pro plan.

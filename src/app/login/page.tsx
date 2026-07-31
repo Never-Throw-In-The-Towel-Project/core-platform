@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { LoginForm } from "./LoginForm";
 
 export default async function LoginPage({
@@ -9,6 +10,7 @@ export default async function LoginPage({
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-24">
+      <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={64} height={65} />
       <h1 className="text-2xl font-bold">Sign in</h1>
       <LoginForm next={next} />
     </main>
