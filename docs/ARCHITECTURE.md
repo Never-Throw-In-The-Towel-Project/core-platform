@@ -62,25 +62,69 @@ per-company community. This is the direct social expression of the
 core-vs-portal principle above: the community *is* the core, shared
 experience; a company-only space is the co-branded overlay on top of it.
 
-**Schema/RLS model (resolved now, not yet implemented — see Roadmap):**
-- One shared table set (`community_posts`, `community_wins`, etc.), not
-  per-company-isolated tables. Each row carries a `scope` column:
-  `'global' | 'company'`.
+**Schema/RLS model (implemented Phase 7):**
+- One shared table set (`community_posts`, `community_comments`,
+  `community_likes`, `community_reports`), not per-company-isolated tables.
+  Posts/comments carry a `scope` column: `'global' | 'company'`. `board`
+  (`'feed' | 'wins'`) distinguishes the main feed from the dedicated Wins
+  Board on the same table, since they're structurally identical content.
 - RLS: `scope = 'global'` → readable by any authenticated user, platform-wide,
   regardless of `company_id`. `scope = 'company'` → readable only by
   same-`company_id` users, following the same pattern as every other
-  company-scoped table in this schema.
+  company-scoped table in this schema. Comments denormalize `scope`/
+  `company_id` from their parent post (set once at insert by the server
+  action, never changes) so their own RLS doesn't need a cross-table join.
 - **Moderation is platform-level, not `hr_admin`.** A company's HR admin gets
   zero visibility into the cross-tenant feed's moderation queue — that's
   Anthony's/NTITT's remit, never a client's, for the same reason HR admins
   never see individual check-in data: scope of authority is a hard boundary,
-  not a courtesy. This requires a third role beyond `employee`/`hr_admin` —
-  `ntitt_admin` — added to the `user_role` enum, with its own RLS policies.
-  `hr_admin`'s dashboard access must never imply any community moderation
-  right.
+  not a courtesy. This required a third role beyond `employee`/`hr_admin` —
+  `ntitt_admin` — added to the `user_role` enum in its own migration/
+  transaction (`20260731020000_add_ntitt_admin_role.sql`), split from the
+  tables/policies that reference it (`20260731030000_phase7_community.sql`):
+  Postgres forbids using a newly-added enum value in the same transaction
+  that added it. `hr_admin`'s dashboard access never implies any community
+  moderation right — no policy anywhere in the Phase 7 migration references
+  `role = 'hr_admin'`.
+- `ntitt_admin` accounts are provisioned manually via Supabase Studio (same
+  pattern as Phase 4's content ops), not through any in-app flow. Since
+  `profiles.company_id` is `NOT NULL` and NTITT staff aren't an employee of
+  any client company, an `ntitt_admin` profile needs a dedicated internal
+  `companies` row (e.g. "NTITT (internal)") created once via Studio, purely
+  to satisfy that constraint — their RLS policies are never scoped by it.
 
-This model is locked so the eventual migration is built right the first
-time, not because Community has moved up in priority — see Roadmap.
+**Author display names needed a real fix, not a workaround**: `profiles`
+only has a self-read RLS policy (Phase 1, deliberate — no role has ever
+been granted visibility into another user's profile row). `display_name`
+is the one column the brief explicitly means to be community-facing, so
+resolving an author's name for a post/comment the viewer is already
+independently authorized to see (via `community_posts`/`_comments`' own
+RLS) uses the service-role admin client (`getDisplayNames` in
+`src/lib/community/queries.ts`), narrowed to selecting only `id,
+display_name` and never exposed to the browser. This doesn't widen what a
+client can query — `profiles`' RLS is untouched — it's the server
+rendering the one field the model already intends to be visible, for
+content the viewer is already allowed to see. The podcast guest list
+(`/community/admin/podcast-guests`) and the moderation queue's "reported
+by" name use the same justified exception, on the same reasoning as the
+Phase 6 HR admin email lookup.
+
+**Photo posts, scoped down deliberately for this phase**: the brief calls
+for "text and photo posts." Real upload (a file picker → Supabase Storage
+→ signed URL) needs a browser-side Supabase client, a storage bucket, and
+bucket-level policies — none of which exist anywhere in this codebase yet
+(every prior phase has been server-only), and storage behaviour is
+notoriously environment-dependent, so it's not verifiable without a live
+project the way everything else in this build has been. `community_posts.
+image_url` is a plain optional URL field for this phase — the composer
+lets someone paste a link to an already-hosted image, which renders inline
+if present. This is an honest, working interim (not a silent scope cut,
+and not a fake "upload" that doesn't actually upload anywhere) — a real
+upload pipeline is a documented follow-up, not forgotten scope.
+
+This model was locked in a prior session specifically so the eventual
+build wouldn't need a painful migration once these tables existed — see
+"No day numbers" section's confirmation of this same principle.
 
 ## Build order
 
@@ -549,18 +593,18 @@ Two ways to get the report:
    90-day impact PDF (server-side generation via `@react-pdf/renderer` — see
    "Company Dashboard (Phase 6)" above for why that one can't reuse Phase 3's
    print-friendly approach).
-7. **Community (native)** — shared NTITT-wide feed + optional company space,
-   built on the resolved `scope`-column schema and `ntitt_admin` moderation
-   role (see "Community scope" above). No Circle bridge. Sequencing is
-   unchanged from the original plan, for reasons that still hold: the daily
-   core loop, reviews, and content library are what make this a sellable,
-   pilot-ready product to HR — the parts Circle has no answer for — while
-   Circle already provides a live substitute for community today, so there's
-   no unmet need pulling it forward. A shared feed is also more useful, and
-   safer to moderate, once an active user base exists to populate it with
-   check-ins, wins, and reviews. Only the *model* moved up (locked now to
-   avoid a painful migration later, once the daily-loop tables already
-   exist) — not the build order.
+7. **Community (native)** (done) — shared NTITT-wide feed (`/community`) +
+   dedicated Wins Board (`/community/wins`) + optional company space
+   (`/community/company`), built on the resolved `scope`-column schema and
+   `ntitt_admin` moderation role (`/community/admin`) — see "Community
+   scope" above. No Circle bridge. This landed as the final phase, per the
+   original sequencing reasoning: the daily core loop, reviews, and content
+   library were what made this a sellable, pilot-ready product to HR — the
+   parts Circle had no answer for — while Circle provided a live substitute
+   for community until this shipped. A shared feed is also more useful, and
+   safer to moderate, with an active user base already generating
+   check-ins, wins, and reviews to share — which every prior phase now
+   provides.
 
 ## Open items (business decisions, not blocking Phase 1)
 
@@ -585,6 +629,15 @@ Two ways to get the report:
   you've made" framing. See "No day numbers, per Anthony's guidance" above.
 - Whether "Week 1 / Week 4 / Week 12" framing (Anthony's suggested corporate
   vocabulary, replacing day numbers) needs to surface anywhere in the
-  product — e.g. the Company Dashboard's participation trend (Phase 6) — or
-  is purely how the offering gets described commercially to HR, with no UI
-  implication. Not yet needed since Phase 6 isn't built.
+  product — e.g. the Company Dashboard's weekly participation view (built in
+  Phase 6, currently labelled by calendar date, not week number) — or is
+  purely how the offering gets described commercially to HR, with no UI
+  implication.
+- Real photo upload for Community posts (Supabase Storage, a browser-side
+  Supabase client, bucket policies) — see "Community scope" above for why
+  this shipped as a pasted-URL interim instead.
+- One-time manual setup needed before Community moderation can be used for
+  real: an internal "NTITT (internal)" `companies` row (so an `ntitt_admin`
+  profile has something to satisfy the `NOT NULL` `company_id` constraint),
+  and Anthony's own profile row's `role` set to `ntitt_admin` — both via
+  Supabase Studio, not any in-app flow.
