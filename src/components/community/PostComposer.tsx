@@ -33,11 +33,12 @@ export function PostComposer({
         className="w-full rounded-md border border-white/20 bg-transparent px-3 py-2 text-sm"
       />
       <input
-        name="imageUrl"
-        type="url"
-        placeholder="Photo URL (optional)"
-        className="w-full rounded-md border border-white/20 bg-transparent px-3 py-2 text-sm"
+        name="image"
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-sm file:font-semibold"
       />
+      <p className="text-xs opacity-50">Optional photo -- JPEG, PNG, WebP, or GIF, up to 5MB.</p>
       {state.status === "error" && <p className="text-sm text-red-400">{state.message}</p>}
       <button
         type="submit"
