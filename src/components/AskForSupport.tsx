@@ -27,7 +27,7 @@ export function AskForSupport({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 z-50 rounded-full bg-brand-accent px-5 py-3 text-sm font-semibold text-white shadow-lg"
+        className="fixed bottom-4 right-4 z-50 rounded-full bg-brand-accent px-5 py-3 text-sm font-semibold text-brand-accent-foreground shadow-lg"
       >
         I want someone to check in with me
       </button>
@@ -120,7 +120,7 @@ export function AskForSupport({
                   <button
                     type="submit"
                     disabled={isPending}
-                    className="rounded-md bg-brand-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    className="rounded-md bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
                   >
                     {isPending ? "Sending…" : "Send"}
                   </button>

@@ -80,7 +80,7 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
               <button
                 type="submit"
                 disabled={reportPending}
-                className="rounded-md bg-brand-accent px-3 py-1.5 font-semibold text-white disabled:opacity-50"
+                className="rounded-md bg-brand-accent px-3 py-1.5 font-semibold text-brand-accent-foreground disabled:opacity-50"
               >
                 {reportPending ? "Reporting…" : "Submit report"}
               </button>
@@ -113,7 +113,7 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
             <button
               type="submit"
               disabled={commentPending}
-              className="rounded-md bg-brand-accent px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+              className="rounded-md bg-brand-accent px-3 py-1 text-xs font-semibold text-brand-accent-foreground disabled:opacity-50"
             >
               {commentPending ? "…" : "Send"}
             </button>

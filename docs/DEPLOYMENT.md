@@ -96,6 +96,14 @@ order by schemaname, tablename;
 Every row should show `rowsecurity = true`. If any is `false`, stop —
 something didn't apply correctly.
 
+**Also run `supabase/seed.sql`** (Phase 10) — seeds the two confirmed
+co-branded companies (Amazon, KP Snacks; see that file's comment for why
+only these two of the 8 partner logos). `supabase db push` does **not**
+run this automatically against a remote project (only `supabase db reset`
+does, and only for local dev) — apply it the same way as a migration,
+either `psql <connection-string> -f supabase/seed.sql` or pasted into
+Studio's SQL Editor. Safe to re-run (`on conflict (slug) do nothing`).
+
 ## 3. One-time manual data setup
 
 Two rows need to exist before Community moderation (`ntitt_admin`) works,

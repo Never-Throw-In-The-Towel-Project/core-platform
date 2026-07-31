@@ -49,7 +49,7 @@ export function WeeklyReviewForm() {
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-md bg-brand-accent px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+        className="w-full rounded-md bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Saving…" : "Save Weekly Review"}
       </button>

@@ -29,7 +29,23 @@ export default async function MarketingHomePage() {
   return (
     <main className="flex flex-1 flex-col items-center gap-16 px-6 py-24 text-center">
       <div className="flex flex-col items-center gap-6">
-        <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={120} height={122} preload />
+        <div className="flex items-center gap-4">
+          <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={80} height={82} preload />
+          {company?.logo_url && (
+            <>
+              <span className="text-2xl opacity-40">×</span>
+              <div className="flex h-16 w-28 items-center justify-center rounded-md bg-white p-3">
+                <Image
+                  src={company.logo_url}
+                  alt={company.name}
+                  width={96}
+                  height={40}
+                  style={{ width: "auto", height: "auto", maxWidth: "100%", maxHeight: "100%" }}
+                />
+              </div>
+            </>
+          )}
+        </div>
         <h1 className="text-4xl font-bold tracking-tight">
           {company ? `${company.name} × Never Throw In The Towel` : "Never Throw In The Towel"}
         </h1>
@@ -39,33 +55,103 @@ export default async function MarketingHomePage() {
         </p>
         <Link
           href="/login"
-          className="rounded-md bg-brand-accent px-6 py-3 font-semibold text-white"
+          className="rounded-md bg-brand-accent px-6 py-3 font-semibold text-brand-accent-foreground"
         >
           Sign in
         </Link>
       </div>
 
-      <div className="flex flex-col items-center gap-6">
-        <p className="text-xs font-semibold tracking-widest text-brand-foreground/50 uppercase">
-          Trusted by teams at
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-4">
-          {PARTNER_LOGOS.map((partner) => (
-            <div
-              key={partner.src}
-              className="flex h-16 w-32 items-center justify-center rounded-md bg-white p-3"
-            >
-              <Image
-                src={partner.src}
-                alt={partner.name}
-                width={104}
-                height={40}
-                style={{ width: "auto", height: "auto", maxWidth: "100%", maxHeight: "100%" }}
-              />
-            </div>
-          ))}
-        </div>
+      <div className="w-full max-w-md overflow-hidden rounded-xl">
+        <Image
+          src="/site/hero-boxing.jpg"
+          alt="Never Throw In The Towel"
+          width={953}
+          height={1326}
+          className="h-auto w-full"
+          preload
+        />
       </div>
+
+      {/* Only on the default (non-branded) marketing page -- a company's
+          own co-branded portal shouldn't show a generic partner wall or
+          NTITT's own event/podcast photos. */}
+      {!company && (
+        <>
+          <div className="flex flex-col items-center gap-6">
+            <p className="text-xs font-semibold tracking-widest text-brand-foreground/50 uppercase">
+              Trusted by teams at
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              {PARTNER_LOGOS.map((partner) => (
+                <div
+                  key={partner.src}
+                  className="flex h-16 w-32 items-center justify-center rounded-md bg-white p-3"
+                >
+                  <Image
+                    src={partner.src}
+                    alt={partner.name}
+                    width={104}
+                    height={40}
+                    style={{ width: "auto", height: "auto", maxWidth: "100%", maxHeight: "100%" }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex w-full max-w-3xl flex-col items-center gap-6">
+            <p className="text-xs font-semibold tracking-widest text-brand-foreground/50 uppercase">
+              From our events
+            </p>
+            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="overflow-hidden rounded-xl">
+                <Image
+                  src="/site/community-group.jpg"
+                  alt="Never Throw In The Towel Project community"
+                  width={1200}
+                  height={690}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="overflow-hidden rounded-xl">
+                <Image
+                  src="/site/community-brotherhood.jpg"
+                  alt="Never Throw In The Towel Project community event"
+                  width={1200}
+                  height={793}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex w-full max-w-3xl flex-col items-center gap-6">
+            <p className="text-xs font-semibold tracking-widest text-brand-foreground/50 uppercase">
+              The podcast
+            </p>
+            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="overflow-hidden rounded-xl">
+                <Image
+                  src="/site/podcast-recording.jpg"
+                  alt="Recording the Never Throw In The Towel podcast"
+                  width={1024}
+                  height={1536}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="overflow-hidden rounded-xl">
+                <Image
+                  src="/site/founder-speaking.jpg"
+                  alt="Speaking on Never Throw In The Towel"
+                  width={1200}
+                  height={1486}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </main>
   );
 }

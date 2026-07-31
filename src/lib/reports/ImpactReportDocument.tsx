@@ -142,7 +142,9 @@ export function ImpactReportDocument({ data }: { data: ImpactReportData }) {
         )}
         {data.weeklyParticipation.map((week) => (
           <View style={styles.row} key={week.weekStartDate}>
-            <Text style={styles.label}>Week of {week.weekStartDate}</Text>
+            <Text style={styles.label}>
+              Week {week.weekNumber} ({week.weekStartDate})
+            </Text>
             <Text style={styles.value}>
               Morning {week.morningPercent ?? "—"}% · Night {week.nightPercent ?? "—"}% · Check-ins{" "}
               {week.themedPercent ?? "—"}%

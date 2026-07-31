@@ -21,6 +21,16 @@ type AnySupabaseClient = SupabaseClient<any, any>;
 
 export interface WeeklyParticipation {
   weekStartDate: string;
+  /**
+   * 1-based position of this week among every week the company has any
+   * participation data for -- Week 1 is the company's first-ever recorded
+   * week, not the first week of whatever slice is being displayed. This is
+   * Anthony's suggested corporate vocabulary (Phase 10): "Week 1/4/12"
+   * framing for HR rather than exposing calendar dates or individual-level
+   * day numbers (which are deliberately never shown at all -- see "No day
+   * numbers, per Anthony's direct guidance").
+   */
+  weekNumber: number;
   morningPercent: number | null;
   nightPercent: number | null;
   themedPercent: number | null;
@@ -94,12 +104,19 @@ export async function getWeeklyParticipation(
     target.e += row.eligible_count as number;
   }
 
-  const recentWeeks = Array.from(byWeek.keys()).sort().slice(-weeks);
+  // Sorted ascending over the company's ENTIRE history, not just the
+  // slice being displayed -- weekNumber below is this week's 1-based
+  // position in that full history, so "Week 1" always means the
+  // company's actual first recorded week even when displaying, say, only
+  // the most recent 12.
+  const allWeeksSorted = Array.from(byWeek.keys()).sort();
+  const recentWeeks = allWeeksSorted.slice(-weeks);
 
   return recentWeeks.map((weekStartDate) => {
     const bucket = byWeek.get(weekStartDate)!;
     return {
       weekStartDate,
+      weekNumber: allWeeksSorted.indexOf(weekStartDate) + 1,
       morningPercent: percentage(bucket.morning.c, bucket.morning.e),
       nightPercent: percentage(bucket.night.c, bucket.night.e),
       themedPercent: percentage(bucket.themed.c, bucket.themed.e),
