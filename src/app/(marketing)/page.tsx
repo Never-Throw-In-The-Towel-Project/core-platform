@@ -2,7 +2,6 @@ import { headers } from "next/headers";
 import Image from "next/image";
 import Link from "next/link";
 import { resolveCompanyForHost } from "@/lib/tenant/resolve";
-import logoMark from "../../../public/logo-mark.png";
 
 // "Trusted by" strip -- partner/client logos supplied by Anthony (NTITT
 // Logos/ at repo root). White chips so each logo reads regardless of its
@@ -30,7 +29,7 @@ export default async function MarketingHomePage() {
   return (
     <main className="flex flex-1 flex-col items-center gap-16 px-6 py-24 text-center">
       <div className="flex flex-col items-center gap-6">
-        <Image src={logoMark} alt="Never Throw In The Towel" width={120} height={122} preload />
+        <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={120} height={122} preload />
         <h1 className="text-4xl font-bold tracking-tight">
           {company ? `${company.name} × Never Throw In The Towel` : "Never Throw In The Towel"}
         </h1>
