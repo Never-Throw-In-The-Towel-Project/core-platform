@@ -2,10 +2,9 @@ import type { MetadataRoute } from "next";
 
 // PWA-first per the agreed build order (Spec 3's website-first speed, with
 // v3.1's native-app-shaped UX -- installable, push-capable). Icons are
-// placeholders: /icon-192.png and /icon-512.png don't exist yet in public/
-// pending real NTITT brand assets from Anthony. Replace before shipping --
-// without real icon files the install prompt will be broken, not just
-// unbranded.
+// generated from the real NTITT logomark (NTITT Logos/NTITT-LOGOMARK-OUTLINE-TRANS.png),
+// composited onto the app's #0a0a0a background -- see public/icon-*.png and
+// src/app/apple-icon.png.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Never Throw In The Towel",
