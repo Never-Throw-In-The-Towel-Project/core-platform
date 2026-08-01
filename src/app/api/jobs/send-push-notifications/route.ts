@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { localMinutesSinceMidnight, todayISODate } from "@/lib/routines/dates";
+import { localMinutesSinceMidnight, todayISODate, weekdayNameOrWeekend } from "@/lib/routines/dates";
 import { sendPushToSubscription, type PushSubscriptionTarget } from "@/lib/notifications/sendPush";
 import type { PushNotificationType } from "@/types/database";
 
@@ -72,6 +72,16 @@ export async function GET(request: NextRequest) {
       if (!configuredTime) continue;
 
       const timezone = profile.timezone;
+
+      // "sunday" is a weekly reminder, not a daily one like morning/night --
+      // without this check it would fire every day the loop runs, since
+      // nothing else here is day-aware. Checked in the user's own timezone,
+      // same as every other "what day is it for this user" decision (see
+      // docs/ARCHITECTURE.md "Per-user timezone").
+      if (notificationType === "sunday" && weekdayNameOrWeekend(now, timezone) !== "sunday") {
+        continue;
+      }
+
       const nowMinutes = localMinutesSinceMidnight(now, timezone);
       const [hours, minutes] = configuredTime.split(":").map(Number);
       const configuredMinutes = hours * 60 + minutes;

@@ -246,12 +246,30 @@ export async function verifyTwilioSignature(
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   if (!authToken) return false;
 
-  const { createHmac } = await import("node:crypto");
+  const { createHmac, timingSafeEqual } = await import("node:crypto");
   const sortedKeys = Object.keys(params).sort();
   const data = sortedKeys.reduce((acc, key) => acc + key + params[key], url);
   const expected = createHmac("sha1", authToken).update(data, "utf8").digest("base64");
 
-  return expected === signatureHeader;
+  return constantTimeStringsEqual(expected, signatureHeader, timingSafeEqual);
+}
+
+/**
+ * timingSafeEqual throws on mismatched buffer lengths rather than just
+ * returning false, and a length check ahead of it isn't itself a
+ * meaningful timing leak here -- both compared values are fixed-length
+ * HMAC digests (hex or base64) whose length is public knowledge, not a
+ * secret being guessed byte by byte.
+ */
+function constantTimeStringsEqual(
+  a: string,
+  b: string,
+  timingSafeEqual: (a: Buffer, b: Buffer) => boolean
+): boolean {
+  const bufferA = Buffer.from(a);
+  const bufferB = Buffer.from(b);
+  if (bufferA.length !== bufferB.length) return false;
+  return timingSafeEqual(bufferA, bufferB);
 }
 
 /**
@@ -274,7 +292,9 @@ export async function generateAckToken(requestId: string): Promise<string | null
 
 export async function verifyAckToken(requestId: string, token: string): Promise<boolean> {
   const expected = await generateAckToken(requestId);
-  return expected !== null && expected === token;
+  if (expected === null) return false;
+  const { timingSafeEqual } = await import("node:crypto");
+  return constantTimeStringsEqual(expected, token, timingSafeEqual);
 }
 
 async function buildAckUrl(requestId: string): Promise<string> {
