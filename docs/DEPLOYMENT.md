@@ -9,12 +9,12 @@ a bug or a missing tool), and account/project creation requires an
 interactive login regardless. Everything here has to be run by a human with
 real Supabase/Vercel accounts.
 
-The 5 migrations under `supabase/migrations/` have already been dry-run
+The 11 migrations under `supabase/migrations/` have already been dry-run
 validated end-to-end against a real local Postgres 16 instance (stubbing
 only the parts Supabase's GoTrue normally provides — the `auth` schema,
 `auth.uid()`/`auth.role()`, and the `anon`/`authenticated`/`service_role`
-roles). All 5 apply cleanly in order with zero errors, and the resulting
-schema has Row Level Security enabled on all 21 tables across `public` and
+roles). All 11 apply cleanly in order with zero errors, and the resulting
+schema has Row Level Security enabled on all 23 tables across `public` and
 `private` — this is the real privacy boundary (see "Privacy boundary: how
 it's actually enforced" below in this doc's sibling, `ARCHITECTURE.md`).
 This runbook should not surface any migration errors; if it does, something
@@ -43,11 +43,12 @@ to investigate rather than pushing through.
    - Redirect URLs: add the production URL and any preview/staging URLs you
      want magic links to work from.
    - Confirm signups: `enable_signup` is `false` in `supabase/config.toml` —
-     employees and HR admins are provisioned by company-admin flows, not
-     open self-signup, since every account must be tied to a `company_id`
-     at creation. Mirror that in the dashboard (Authentication → Sign In →
-     disable public sign-ups) once decided how provisioning will actually
-     happen operationally (not yet resolved — see Open items).
+     employees and HR admins are provisioned by an in-app admin-invite flow
+     (`src/lib/actions/invite.ts` — `hr_admin` invites employees to their own
+     company, `ntitt_admin` invites anyone to any company/role), never open
+     self-signup, since every account must be tied to a `company_id` at
+     creation. Mirror that in the dashboard (Authentication → Sign In →
+     disable public sign-ups).
 
 ## 2. Run the migrations
 
@@ -60,7 +61,7 @@ npx supabase link --project-ref <your-project-ref>
 npx supabase db push
 ```
 
-This applies all 5 files in `supabase/migrations/` in filename order:
+This applies all 11 files in `supabase/migrations/` in filename order:
 
 1. `20260730000000_init_schema.sql` — companies, profiles, content library,
    the aggregate tables, and every `private` schema table (journal-style
@@ -75,14 +76,27 @@ This applies all 5 files in `supabase/migrations/` in filename order:
    combined with the migration that uses it.
 5. `20260731030000_phase7_community.sql` — community posts/comments/likes/
    reports and their RLS policies.
+6. `20260731040000_phase9_community_photo_storage.sql` — Storage bucket +
+   policies for real Community photo uploads.
+7. `20260731050000_phase9_profile_timezone.sql` — adds `profiles.timezone`.
+8. `20260731070000_phase9_push_notifications.sql` — push subscriptions and
+   the send-log table.
+9. `20260731080000_account_provisioning.sql` — the `handle_new_user`
+   trigger backing the admin-invite flow.
+10. `20260731090000_fix_handle_new_user_non_blocking.sql` — makes that
+    trigger a no-op instead of aborting account creation when invite
+    metadata isn't attached in time (see `src/lib/actions/invite.ts`, which
+    is the actual reliable mechanism now).
+11. `20260731100000_sunday_notification_default.sql` — default/backfill for
+    `profiles.sunday_notification_time`.
 
 If you don't have `supabase` CLI access from wherever you're running this,
 the fallback is pasting each file's contents into the Supabase Studio SQL
 Editor in the same order and running them one at a time — same result,
 just manual.
 
-**Verify after running:** Table Editor should show 14 tables under `public`
-and 7 under `private` (21 total), and every one should have the RLS toggle
+**Verify after running:** Table Editor should show 16 tables under `public`
+and 7 under `private` (23 total), and every one should have the RLS toggle
 enabled (Supabase's Table Editor shows this directly, or run the query
 below in the SQL Editor):
 
@@ -106,18 +120,26 @@ Studio's SQL Editor. Safe to re-run (`on conflict (slug) do nothing`).
 
 ## 3. One-time manual data setup
 
-Two rows need to exist before Community moderation (`ntitt_admin`) works,
-and neither has an in-app flow (deliberately — this is a one-time
-bootstrap, not a feature):
+Every account after this bootstrap is provisioned through the in-app invite
+flow (`hr_admin`/`ntitt_admin` → "Invite" — see `src/lib/actions/invite.ts`).
+But that flow needs an `ntitt_admin` to already exist to send the very first
+invite, which is the one genuine chicken-and-egg case: nobody can invite the
+first admin, since nobody with invite rights exists yet. This step is that
+one-time exception, not a pattern to repeat for later accounts.
 
 1. In Table Editor, insert a `companies` row for NTITT itself (e.g.
    `name: "NTITT (internal)"`, any unique `slug`) — an `ntitt_admin`
    profile still needs a non-null `company_id` to satisfy the `NOT NULL`
    constraint, even though moderation itself isn't company-scoped.
-2. Have Anthony (or whoever will moderate Community) sign in once via the
-   deployed app so their `profiles` row is created by the normal signup
-   flow, then in Table Editor set that row's `role` to `ntitt_admin` and
-   `company_id` to the row from step 1.
+2. In Authentication → Users, **Add user** (not the same thing as inviting —
+   this creates a confirmed account directly, bypassing `enable_signup`
+   since it's an admin action) for whoever will moderate Community/send the
+   first invites.
+3. In Table Editor, insert a `profiles` row for that user: `id` = the
+   user's UUID from step 2, `company_id` = the row from step 1, `role` =
+   `ntitt_admin`.
+4. From here on, that person can sign in and use `/admin/invite` to invite
+   every other `ntitt_admin`, `hr_admin`, and employee — no more manual SQL.
 
 ## 4. Create the Vercel project
 

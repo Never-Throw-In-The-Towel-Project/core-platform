@@ -1,6 +1,9 @@
--- Run automatically by `supabase db reset`/`supabase db push` after every
--- migration -- the idiomatic Supabase CLI place for reference/starter data
--- that isn't a schema change.
+-- Run automatically by `supabase db reset` (local dev only) -- the
+-- idiomatic Supabase CLI place for reference/starter data that isn't a
+-- schema change. NOT run automatically by `supabase db push` against a
+-- remote project -- see docs/DEPLOYMENT.md step 2, "Also run
+-- supabase/seed.sql", for the separate manual step that's actually needed
+-- there.
 --
 -- Confirmed with the team (Phase 10): of the 8 partner/sponsor logos on the
 -- public marketing page's "Trusted by" strip, Amazon and KP Snacks are the
