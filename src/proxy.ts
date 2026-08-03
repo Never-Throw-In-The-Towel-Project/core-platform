@@ -29,7 +29,11 @@ import { extractTenantSlug } from "@/lib/tenant/resolve";
 // through. /community-guidelines was never a real route either -- the
 // actual page (/community/guidelines) intentionally requires a session,
 // same as the rest of /community.
-const PUBLIC_PATHS = ["/", "/login", "/auth/callback"];
+//
+// /documentary and /podcast are the public marketing site (see
+// src/app/(marketing)/) -- the free "taster" that explicitly must not
+// require signing in, since the actual paid content lives behind /login.
+const PUBLIC_PATHS = ["/", "/login", "/auth/callback", "/documentary", "/podcast"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
