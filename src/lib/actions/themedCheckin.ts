@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { verifySession, getProfile } from "@/lib/auth/dal";
-import { getMondayOfWeek, weekdayNameOrWeekend } from "@/lib/routines/dates";
+import { catchUpEligibleWeekdays, getMondayOfWeek, weekdayNameOrWeekend } from "@/lib/routines/dates";
 import { CHECKIN_CONFIG, type TextCheckinWeekday } from "@/lib/routines/checkinConfig";
 import { type RoutineActionState } from "./routineState";
 
@@ -15,10 +15,15 @@ const TEXT_CHECKIN_WEEKDAYS: readonly TextCheckinWeekday[] = ["monday", "tuesday
  * forms. Workout Wednesday is structurally different (exercise bank + tier
  * picker, not free-text prompts) and has its own action, submitWorkoutWednesday.
  *
- * The server derives "today" itself rather than trusting a client-submitted
- * weekday -- this is what enforces the week-journey accountability rule (see
- * docs/ARCHITECTURE.md): there is no form field for "which day is this", so
- * there is nothing for a client to lie about to backfill a missed day.
+ * Accepts an optional "weekday" field for this-week catch-up (see
+ * docs/ARCHITECTURE.md "Daily core loop") -- revised from the original
+ * no-backfill design, which had no such field at all. The requested weekday
+ * is validated against catchUpEligibleWeekdays, which the server computes
+ * itself from the real clock and the user's own timezone: a client can ask
+ * for any day that's genuinely opened in the current real week, but there
+ * is still nothing to submit that reaches a future day or a different week.
+ * Falls back to today's own weekday when the field is absent, so the
+ * ordinary same-day submission (the vast majority of the time) is unchanged.
  */
 export async function submitThemedCheckin(
   _prevState: RoutineActionState,
@@ -27,9 +32,14 @@ export async function submitThemedCheckin(
   const session = await verifySession();
   const profile = await getProfile();
   const now = new Date();
-  const weekday = weekdayNameOrWeekend(now, profile.timezone);
+  const eligible = catchUpEligibleWeekdays(now, profile.timezone);
+  const requested = formData.get("weekday");
+  const weekday =
+    typeof requested === "string" && requested.length > 0
+      ? requested
+      : weekdayNameOrWeekend(now, profile.timezone);
 
-  if (!TEXT_CHECKIN_WEEKDAYS.includes(weekday as TextCheckinWeekday)) {
+  if (!eligible.includes(weekday as (typeof eligible)[number]) || !TEXT_CHECKIN_WEEKDAYS.includes(weekday as TextCheckinWeekday)) {
     return { status: "error", message: "There's no check-in to complete right now." };
   }
 
@@ -122,8 +132,10 @@ export async function submitWorkoutWednesday(
   const profile = await getProfile();
   const now = new Date();
 
-  if (weekdayNameOrWeekend(now, profile.timezone) !== "wednesday") {
-    return { status: "error", message: "Workout Wednesday isn't today." };
+  // Same this-week catch-up rule as submitThemedCheckin: Wednesday is
+  // reachable any day from Wednesday itself onward in the real current week.
+  if (!catchUpEligibleWeekdays(now, profile.timezone).includes("wednesday")) {
+    return { status: "error", message: "Workout Wednesday isn't available right now." };
   }
 
   const parsed = WorkoutTierSchema.safeParse(formData.get("tier"));

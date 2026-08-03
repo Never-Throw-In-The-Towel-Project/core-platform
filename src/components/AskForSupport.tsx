@@ -10,13 +10,22 @@ const initialState: SupportActionState = { status: "idle" };
  * automatically by any journal answer or score. Must render on every
  * screen inside the platform (see the (app) and (admin) layouts that use
  * this), per the brief's non-negotiable flag.
+ *
+ * `variant` controls the trigger's look, not its behaviour: "floating" (the
+ * original pill button, still used by the HR (admin) dashboard, which has
+ * no bottom nav to sit above) or "inline" (a quiet text rule, meant to sit
+ * directly above a bottom tab bar -- the design reference's own recommended
+ * placement, "always in the same place, reads as part of the furniture, no
+ * urgency implied", over a floating button which "breaks the flat grid").
  */
 export function AskForSupport({
   companyId,
   helplineNumber,
+  variant = "floating",
 }: {
   companyId: string;
   helplineNumber?: string;
+  variant?: "floating" | "inline";
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [state, formAction, isPending] = useActionState(submitSupportRequest, initialState);
@@ -27,7 +36,11 @@ export function AskForSupport({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 z-50 rounded-full bg-brand-accent px-5 py-3 text-sm font-semibold text-brand-accent-foreground shadow-lg"
+        className={
+          variant === "inline"
+            ? "block w-full border-t border-current/10 px-6 py-3 text-left text-sm font-medium text-brand-accent"
+            : "fixed bottom-4 right-4 z-50 rounded-full bg-brand-accent px-5 py-3 text-sm font-semibold text-brand-accent-foreground shadow-lg"
+        }
       >
         I want someone to check in with me
       </button>

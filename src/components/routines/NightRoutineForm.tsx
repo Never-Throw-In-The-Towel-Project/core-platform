@@ -39,7 +39,7 @@ export function NightRoutineForm() {
         ))}
       </fieldset>
 
-      <p className="rounded-lg border border-black/10 p-4 text-sm">
+      <p className="rounded-lg border border-white/10 p-4 text-sm">
         Don&apos;t underestimate a comfy set of pyjamas.
       </p>
 
@@ -48,7 +48,7 @@ export function NightRoutineForm() {
         <textarea
           name="gratitude"
           rows={2}
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
         />
       </label>
 
@@ -57,7 +57,7 @@ export function NightRoutineForm() {
         <textarea
           name="highlight"
           rows={2}
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
         />
       </label>
 
@@ -75,7 +75,7 @@ export function NightRoutineForm() {
                 className="peer sr-only"
                 required
               />
-              <span className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-black/20 text-sm peer-checked:bg-brand-accent peer-checked:text-brand-accent-foreground">
+              <span className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-white/20 text-sm peer-checked:bg-brand-accent peer-checked:text-brand-accent-foreground">
                 {n}
               </span>
             </label>
@@ -89,7 +89,7 @@ export function NightRoutineForm() {
         <textarea
           name="lookingAhead"
           rows={2}
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
         />
       </label>
 
@@ -97,7 +97,7 @@ export function NightRoutineForm() {
         Tomorrow is a new day, rest up and go again.
       </p>
 
-      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-red-400">{state.message}</p>}
 
       <button
         type="submit"
