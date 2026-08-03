@@ -30,7 +30,7 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
   }
 
   return (
-    <div className="rounded-lg border border-white/10 p-4">
+    <div className="rounded-lg border border-black/10 p-4">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold">{post.authorDisplayName}</p>
         <p className="text-xs opacity-50">{new Date(post.created_at).toLocaleDateString()}</p>
@@ -64,7 +64,7 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
       </div>
 
       {showReport && (
-        <div className="mt-3 rounded-md border border-white/10 p-3 text-xs">
+        <div className="mt-3 rounded-md border border-black/10 p-3 text-xs">
           {reportState.status === "success" ? (
             <p className="opacity-70">Thanks -- this has been reported to the NTITT team.</p>
           ) : (
@@ -74,9 +74,9 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
                 name="reason"
                 placeholder="What's wrong with this post? (optional)"
                 rows={2}
-                className="w-full rounded-md border border-white/20 bg-transparent px-2 py-1"
+                className="w-full rounded-md border border-black/20 bg-transparent px-2 py-1"
               />
-              {reportState.status === "error" && <p className="text-red-400">{reportState.message}</p>}
+              {reportState.status === "error" && <p className="text-red-700">{reportState.message}</p>}
               <button
                 type="submit"
                 disabled={reportPending}
@@ -90,7 +90,7 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
       )}
 
       {showComments && (
-        <div className="mt-3 space-y-3 border-t border-white/10 pt-3">
+        <div className="mt-3 space-y-3 border-t border-black/10 pt-3">
           {comments.length === 0 && <p className="text-xs opacity-50">No comments yet.</p>}
           {comments.map((comment) => (
             <p key={comment.id} className="text-xs">
@@ -108,7 +108,7 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
               value={commentBody}
               onChange={(e) => setCommentBody(e.target.value)}
               placeholder="Write a comment…"
-              className="flex-1 rounded-md border border-white/20 bg-transparent px-2 py-1 text-xs"
+              className="flex-1 rounded-md border border-black/20 bg-transparent px-2 py-1 text-xs"
             />
             <button
               type="submit"
@@ -118,7 +118,7 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
               {commentPending ? "…" : "Send"}
             </button>
           </form>
-          {commentState.status === "error" && <p className="text-xs text-red-400">{commentState.message}</p>}
+          {commentState.status === "error" && <p className="text-xs text-red-700">{commentState.message}</p>}
         </div>
       )}
     </div>

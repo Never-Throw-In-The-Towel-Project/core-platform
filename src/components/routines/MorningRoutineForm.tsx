@@ -26,7 +26,7 @@ export function MorningRoutineForm() {
         <p className="opacity-80">Win the morning, win the day.</p>
       </header>
 
-      <p className="rounded-lg border border-white/10 p-4 text-sm">
+      <p className="rounded-lg border border-black/10 p-4 text-sm">
         Stay off your phone for 30 minutes in the morning.
       </p>
 
@@ -44,7 +44,7 @@ export function MorningRoutineForm() {
                 className="peer sr-only"
                 required
               />
-              <span className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-white/20 text-sm peer-checked:bg-brand-accent peer-checked:text-brand-accent-foreground">
+              <span className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-black/20 text-sm peer-checked:bg-brand-accent peer-checked:text-brand-accent-foreground">
                 {n}
               </span>
             </label>
@@ -53,7 +53,7 @@ export function MorningRoutineForm() {
         <p className="mt-1 text-xs opacity-60">Private to you. Never shared or reported.</p>
       </fieldset>
 
-      <p className="rounded-lg border border-white/10 p-4 text-sm">
+      <p className="rounded-lg border border-black/10 p-4 text-sm">
         Have a large glass of water BEFORE your morning coffee.
       </p>
 
@@ -76,11 +76,11 @@ export function MorningRoutineForm() {
         <textarea
           name="powerList"
           rows={4}
-          className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
         />
       </label>
 
-      {state.status === "error" && <p className="text-sm text-red-400">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
 
       <button
         type="submit"

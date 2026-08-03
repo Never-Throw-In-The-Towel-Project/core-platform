@@ -1,15 +1,14 @@
 @import "tailwindcss";
 
 /*
- * Default NTITT brand tokens: black, white, and red -- confirmed directly
- * by Anthony, which supersedes Phase 10's monochrome-only decision (that
- * call was made without his direct input; this one is his own explicit
- * palette guidance). --brand-accent is a strong red so CTA buttons and key
- * accents read clearly against the dark background, paired with a
- * near-white --brand-accent-foreground for legible button text/icons on
- * top of it. #dc2626 is a solid, accessible starting red -- swap for
- * Anthony's exact brand hex if/when he supplies one; nothing else about
- * this token structure needs to change if that value does.
+ * "Modernist" design tokens: a light ink-on-paper ground with a single red
+ * accent, zero corner radius, flat surfaces (no soft shadows) -- adopted
+ * sitewide per Anthony's design pass (see the conversation this shipped
+ * from). This supersedes the earlier all-dark-by-default theme: the app is
+ * now light by default everywhere, with --brand-background/-foreground (the
+ * "ink" dark pair) reserved for screens that deliberately go dark for
+ * emphasis -- Night Routine, the marketing hero/testimonials sections --
+ * rather than being the sitewide default.
  *
  * --brand-accent-foreground is the paired token for content sitting ON TOP
  * of an accent-colored background (button text/icons) -- needed because
@@ -28,13 +27,13 @@
  * "Open items".
  */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --brand-background: #0a0a0a;
-  --brand-foreground: #f5f5f5;
-  --brand-primary: #f5f5f5;
-  --brand-accent: #dc2626;
-  --brand-accent-foreground: #f5f5f5;
+  --background: #f3f2f2;
+  --foreground: #201e1d;
+  --brand-background: #201e1d;
+  --brand-foreground: #f3f2f2;
+  --brand-primary: #f3f2f2;
+  --brand-accent: #ec3013;
+  --brand-accent-foreground: #f3f2f2;
 }
 
 @theme inline {
@@ -45,15 +44,20 @@
   --color-brand-primary: var(--brand-primary);
   --color-brand-accent: var(--brand-accent);
   --color-brand-accent-foreground: var(--brand-accent-foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-archivo);
   --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Zero corner radius everywhere except rounded-full (avatars, pills,
+     tap-scale numbers, radio dots) -- Modernist's flat, architectural look.
+     rounded-full isn't driven by these tokens, so circular elements are
+     unaffected. */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
 }
 
 /*

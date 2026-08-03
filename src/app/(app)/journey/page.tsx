@@ -35,7 +35,7 @@ export default async function JourneyPage() {
       {!hasHistory && <p className="mt-8 text-sm opacity-70">Nothing here yet -- keep going.</p>}
 
       {(periodicReviews as PeriodicReview[] | null)?.map((review) => (
-        <details key={review.id} className="mt-4 rounded-lg border border-white/10 p-4">
+        <details key={review.id} className="mt-4 rounded-lg border border-black/10 p-4">
           <summary className="cursor-pointer text-sm font-medium">
             {review.review_type === "90_day" ? "90-Day Review" : "30-Day Review"} -- {review.period_end}
           </summary>
@@ -53,7 +53,7 @@ export default async function JourneyPage() {
       ))}
 
       {(weeklyReviews as WeeklyReview[] | null)?.map((review) => (
-        <details key={review.id} className="mt-4 rounded-lg border border-white/10 p-4">
+        <details key={review.id} className="mt-4 rounded-lg border border-black/10 p-4">
           <summary className="cursor-pointer text-sm font-medium">
             Weekly Review -- week of {review.week_start_date}
           </summary>

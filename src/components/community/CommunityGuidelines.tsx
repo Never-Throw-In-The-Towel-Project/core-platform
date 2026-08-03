@@ -25,7 +25,7 @@ export function CommunityGuidelines({ showAccept }: { showAccept: boolean }) {
       <h1 className="text-2xl font-bold">Community Guidelines</h1>
       <ul className="space-y-2 text-left text-sm opacity-80">
         {GUIDELINES.map((rule) => (
-          <li key={rule} className="rounded-lg border border-white/10 p-3">
+          <li key={rule} className="rounded-lg border border-black/10 p-3">
             {rule}
           </li>
         ))}

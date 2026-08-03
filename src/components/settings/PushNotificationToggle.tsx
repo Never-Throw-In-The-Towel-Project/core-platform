@@ -94,14 +94,14 @@ export function PushNotificationToggle({ initiallySubscribed }: { initiallySubsc
 
   if (!supported) {
     return (
-      <div className="rounded-lg border border-white/10 p-4 text-sm opacity-60">
+      <div className="rounded-lg border border-black/10 p-4 text-sm opacity-60">
         Push notifications aren&apos;t supported in this browser.
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-white/10 p-4">
+    <div className="rounded-lg border border-black/10 p-4">
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-sm font-medium">Push notifications</p>
@@ -113,12 +113,12 @@ export function PushNotificationToggle({ initiallySubscribed }: { initiallySubsc
           type="button"
           disabled={isPending}
           onClick={subscribed ? handleDisable : handleEnable}
-          className="shrink-0 rounded-md border border-white/20 px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+          className="shrink-0 rounded-md border border-black/20 px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
         >
           {isPending ? "…" : subscribed ? "Enabled ✓" : "Enable"}
         </button>
       </div>
-      {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
+      {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
     </div>
   );
 }

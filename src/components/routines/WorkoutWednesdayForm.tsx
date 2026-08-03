@@ -52,7 +52,7 @@ export function WorkoutWednesdayForm({
                 className="peer sr-only"
                 required
               />
-              <span className="cursor-pointer rounded-full border border-white/20 px-3 py-1.5 text-sm peer-checked:bg-brand-accent peer-checked:text-brand-accent-foreground">
+              <span className="cursor-pointer rounded-full border border-black/20 px-3 py-1.5 text-sm peer-checked:bg-brand-accent peer-checked:text-brand-accent-foreground">
                 {option.label}
               </span>
             </label>
@@ -61,7 +61,7 @@ export function WorkoutWednesdayForm({
       </fieldset>
 
       {!workout || workout.exercises.length === 0 ? (
-        <p className="rounded-lg border border-white/10 p-4 text-sm opacity-80">
+        <p className="rounded-lg border border-black/10 p-4 text-sm opacity-80">
           This week&apos;s workout isn&apos;t loaded yet -- check back soon.
         </p>
       ) : (
@@ -71,7 +71,7 @@ export function WorkoutWednesdayForm({
             return (
               <li
                 key={exercise.exercise_order}
-                className="flex items-center justify-between rounded-lg border border-white/10 p-4 text-sm"
+                className="flex items-center justify-between rounded-lg border border-black/10 p-4 text-sm"
               >
                 <span>
                   {exercise.exercise_order}. {exercise.exercise_name}
@@ -94,7 +94,7 @@ export function WorkoutWednesdayForm({
         </ol>
       )}
 
-      {state.status === "error" && <p className="text-sm text-red-400">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
 
       <button
         type="submit"

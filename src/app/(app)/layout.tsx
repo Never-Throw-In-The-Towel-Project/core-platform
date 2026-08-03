@@ -10,7 +10,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <header className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+      <header className="flex items-center justify-between border-b border-black/10 px-6 py-4">
         <p className="text-sm opacity-70">Signed in as {profile.display_name}</p>
         <nav className="flex gap-4">
           <Link href="/content" className="text-sm underline opacity-80">
