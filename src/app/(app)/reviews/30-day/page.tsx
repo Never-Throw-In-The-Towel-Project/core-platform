@@ -16,7 +16,7 @@ export default async function ThirtyDayReviewPage() {
   }
 
   return (
-    <main className="mx-auto max-w-xl px-6 py-12">
+    <main>
       <PeriodicReviewForm reviewType="30_day" />
     </main>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { submitPeriodicReview } from "@/lib/actions/periodicReview";
 import { initialRoutineState } from "@/lib/actions/routineState";
 import type { ReviewType, SelfAssessment } from "@/types/database";
@@ -14,6 +14,8 @@ const SELF_ASSESSMENT_DIMENSIONS: { key: keyof SelfAssessment; label: string }[]
   { key: "overall", label: "Overall Progress" },
 ];
 
+const RATING_SCALE = Array.from({ length: 10 }, (_, i) => i + 1);
+
 export function PeriodicReviewForm({
   reviewType,
   comparisonSelfAssessment,
@@ -23,9 +25,14 @@ export function PeriodicReviewForm({
   comparisonSelfAssessment?: SelfAssessment | null;
 }) {
   const [state, formAction, isPending] = useActionState(submitPeriodicReview, initialRoutineState);
+  const [ratings, setRatings] = useState<Partial<Record<keyof SelfAssessment, number>>>({});
   const isNinetyDay = reviewType === "90_day";
   const periodLabel = isNinetyDay ? "90" : "30";
   const winCount = isNinetyDay ? 10 : 5;
+  const now = new Date();
+  const today = [now.getDate(), now.getMonth() + 1, now.getFullYear() % 100]
+    .map((n) => String(n).padStart(2, "0"))
+    .join(".");
 
   if (state.status === "success") {
     return (
@@ -37,154 +44,149 @@ export function PeriodicReviewForm({
   }
 
   return (
-    <form action={formAction} className="space-y-8">
+    <form action={formAction}>
       <input type="hidden" name="reviewType" value={reviewType} />
 
-      <header className="space-y-3 text-center">
-        <h1 className="text-2xl font-bold">Congratulations. You&apos;ve completed your {isNinetyDay ? "first 90" : "first 30"} days.</h1>
-        <p className="opacity-80">
-          The hardest part of any journey is getting started and staying consistent when
-          motivation fades. Take a moment to recognise the effort you&apos;ve made so far.
-        </p>
-      </header>
-
-      <div className="space-y-4">
-        <label className="block text-sm">
-          <span className="font-medium">
-            Looking Back -- what am I most proud of from the last {periodLabel} days?
-          </span>
-          <textarea
-            name="mostProudOf"
-            rows={2}
-            className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="font-medium">What habits have I been most consistent with?</span>
-          <textarea
-            name="mostConsistentHabits"
-            rows={2}
-            className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="font-medium">What challenges have I faced?</span>
-          <textarea
-            name="challengesFaced"
-            rows={2}
-            className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="font-medium">What&apos;s working? What habits or behaviours are helping me move forward?</span>
-          <textarea
-            name="whatsWorking"
-            rows={2}
-            className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
-          />
-        </label>
-        <label className="block text-sm">
-          <span className="font-medium">What needs to change? What is holding me back?</span>
-          <textarea
-            name="needsToChange"
-            rows={2}
-            className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
-          />
-        </label>
-      </div>
-
-      {isNinetyDay && (
-        <div className="space-y-4">
-          <label className="block text-sm">
-            <span className="font-medium">What has changed in my life over the last 90 days?</span>
-            <textarea
-              name="lifeChanges"
-              rows={2}
-              className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="font-medium">What do I want the next 90 days to look like?</span>
-            <textarea
-              name="nextPeriodVision"
-              rows={2}
-              className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
-            />
-          </label>
+      <div className="bg-brand-accent px-6 py-10 text-brand-accent-foreground">
+        <div className="mx-auto max-w-xl">
+          <p className="text-xs font-semibold tracking-wide uppercase opacity-90">
+            {isNinetyDay ? "Day 90 · Unlocked today" : "Day 30 · Unlocked today"}
+          </p>
+          <h1 className="mt-2 text-3xl font-extrabold uppercase">
+            Congratulations. You&apos;ve completed your first {periodLabel} days.
+          </h1>
+          <p className="mt-4 opacity-90">
+            The hardest part of any journey is getting started and staying consistent when
+            motivation fades. Take a moment to recognise the effort you&apos;ve made so far.
+          </p>
         </div>
-      )}
-
-      <fieldset className="space-y-2 text-sm">
-        <legend className="mb-1 font-medium">My top {winCount} wins</legend>
-        {Array.from({ length: winCount }, (_, i) => i + 1).map((n) => (
-          <input
-            key={n}
-            name={`win_${n}`}
-            type="text"
-            placeholder={`Win ${n}`}
-            className="w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
-          />
-        ))}
-      </fieldset>
-
-      <fieldset className="space-y-3 text-sm">
-        <legend className="mb-1 font-medium">Self assessment -- rate yourself 1-10</legend>
-        {SELF_ASSESSMENT_DIMENSIONS.map((dimension) => (
-          <label key={dimension.key} className="flex items-center justify-between gap-3">
-            <span>
-              {dimension.label}
-              {isNinetyDay && comparisonSelfAssessment && (
-                <span className="ml-2 text-xs opacity-60">
-                  (30-day: {comparisonSelfAssessment[dimension.key]})
-                </span>
-              )}
-            </span>
-            <input
-              name={dimension.key}
-              type="number"
-              min={1}
-              max={10}
-              required
-              className="w-16 rounded-md border border-black/20 bg-transparent px-2 py-1 text-center"
-            />
-          </label>
-        ))}
-      </fieldset>
-
-      <label className="block text-sm">
-        <span className="font-medium">My focus for the next {periodLabel} days</span>
-        <textarea
-          name="focusNextPeriod"
-          rows={2}
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
-        />
-      </label>
-
-      <div className="space-y-2 rounded-lg border border-black/10 p-4 text-sm">
-        <p className="italic">
-          &ldquo;I have completed {periodLabel} days. I will continue to show up, trust the
-          process, and keep moving forward.&rdquo;
-        </p>
-        <label className="block">
-          <span className="font-medium">Name</span>
-          <input
-            name="commitmentSignedName"
-            type="text"
-            required
-            className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
-          />
-        </label>
       </div>
 
-      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
+      <div className="mx-auto max-w-xl space-y-8 px-6 py-10">
+        <div>
+          <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Looking back</p>
+          <div className="mt-2 space-y-4">
+            <Field
+              name="mostProudOf"
+              label={`What am I most proud of from the last ${periodLabel} days?`}
+            />
+            <Field name="mostConsistentHabits" label="What habits have I been most consistent with?" />
+            <Field name="challengesFaced" label="What challenges have I faced?" />
+            <Field
+              name="whatsWorking"
+              label="What's working? What habits or behaviours are helping me move forward?"
+            />
+            <Field name="needsToChange" label="What needs to change? What is holding me back?" />
+          </div>
+        </div>
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="w-full rounded-md bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
-      >
-        {isPending ? "Saving…" : `Complete ${periodLabel}-Day Review`}
-      </button>
+        {isNinetyDay && (
+          <div>
+            <p className="text-xs font-semibold tracking-wide uppercase opacity-60">The last quarter</p>
+            <div className="mt-2 space-y-4">
+              <Field name="lifeChanges" label="What has changed in my life over the last 90 days?" />
+              <Field name="nextPeriodVision" label="What do I want the next 90 days to look like?" />
+            </div>
+          </div>
+        )}
+
+        <fieldset>
+          <legend className="text-xs font-semibold tracking-wide uppercase opacity-60">My top {winCount} wins</legend>
+          <div className="mt-2">
+            {Array.from({ length: winCount }, (_, i) => i + 1).map((n) => (
+              <div key={n} className="flex items-center gap-3 border-t border-current/10 py-2">
+                <span className="text-sm font-semibold text-brand-accent">{n}</span>
+                <input
+                  name={`win_${n}`}
+                  type="text"
+                  placeholder="Add a win"
+                  className="flex-1 bg-transparent py-1 text-sm outline-none placeholder:opacity-40"
+                />
+              </div>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend className="text-xs font-semibold tracking-wide uppercase opacity-60">Self assessment</legend>
+          <p className="mt-2 text-sm opacity-70">
+            Rate yourself 1–10.{isNinetyDay ? " Compared against your 30-day scores." : " You'll compare these against your 90 day scores."}
+          </p>
+          <div className="mt-3 space-y-3">
+            {SELF_ASSESSMENT_DIMENSIONS.map((dimension) => (
+              <div key={dimension.key} className="flex items-center gap-3">
+                <span className="w-32 shrink-0 text-sm font-medium">
+                  {dimension.label}
+                  {isNinetyDay && comparisonSelfAssessment && (
+                    <span className="block text-xs font-normal opacity-60">
+                      30-day: {comparisonSelfAssessment[dimension.key]}
+                    </span>
+                  )}
+                </span>
+                <div className="flex flex-1 gap-0.5">
+                  {RATING_SCALE.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setRatings((prev) => ({ ...prev, [dimension.key]: n }))}
+                      className={
+                        "h-6 flex-1 " +
+                        ((ratings[dimension.key] ?? 0) >= n ? "bg-brand-accent" : "bg-current/10")
+                      }
+                      aria-label={`${dimension.label}: ${n}`}
+                    />
+                  ))}
+                </div>
+                <span className="w-6 shrink-0 text-right text-sm font-semibold">
+                  {ratings[dimension.key] ?? "–"}
+                </span>
+                <input type="hidden" name={dimension.key} value={ratings[dimension.key] ?? ""} />
+              </div>
+            ))}
+          </div>
+        </fieldset>
+
+        <Field name="focusNextPeriod" label={`My focus for the next ${periodLabel} days`} />
+
+        <div className="border border-current/15 p-4">
+          <p className="italic">
+            &ldquo;I have completed {periodLabel} days. I will continue to show up, trust the
+            process, and keep moving forward.&rdquo;
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+            <label className="block">
+              <span className="text-xs font-semibold tracking-wide uppercase opacity-60">Name</span>
+              <input
+                name="commitmentSignedName"
+                type="text"
+                required
+                className="mt-1 w-full border-b border-current/20 bg-transparent py-1"
+              />
+            </label>
+            <div>
+              <span className="text-xs font-semibold tracking-wide uppercase opacity-60">Date</span>
+              <p className="mt-1 border-b border-current/20 py-1">{today}</p>
+            </div>
+          </div>
+          {state.status === "error" && <p className="mt-3 text-sm text-red-700">{state.message}</p>}
+          <button
+            type="submit"
+            disabled={isPending}
+            className="mt-4 w-full bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+          >
+            {isPending ? "Saving…" : `Sign and save my ${periodLabel} days →`}
+          </button>
+        </div>
+      </div>
     </form>
+  );
+}
+
+function Field({ name, label }: { name: string; label: string }) {
+  return (
+    <label className="block border-t border-current/10 pt-4 text-sm">
+      <span className="font-medium">{label}</span>
+      <textarea name={name} rows={2} className="mt-2 w-full border border-current/15 bg-transparent px-3 py-2" />
+    </label>
   );
 }
