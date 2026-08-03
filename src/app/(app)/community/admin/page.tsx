@@ -36,7 +36,7 @@ export default async function CommunityModerationPage() {
 
   const [{ data: posts }, nameByUser] = await Promise.all([
     supabase.from("community_posts").select("*").in("id", postIds),
-    getDisplayNames(reporterIds),
+    getDisplayNames(supabase, reporterIds),
   ]);
 
   const postById = new Map((posts as CommunityPost[] | null ?? []).map((p) => [p.id, p]));

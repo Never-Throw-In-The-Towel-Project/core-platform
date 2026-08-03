@@ -10,6 +10,7 @@ type AnySupabaseClient = SupabaseClient<any, any>;
 
 export interface PostWithMeta extends CommunityPost {
   authorDisplayName: string;
+  authorCompanyName: string | null;
   likeCount: number;
   likedByViewer: boolean;
   commentCount: number;
@@ -17,6 +18,11 @@ export interface PostWithMeta extends CommunityPost {
 
 export interface CommentWithAuthor extends CommunityComment {
   authorDisplayName: string;
+}
+
+export interface AuthorInfo {
+  displayName: string;
+  companyName: string | null;
 }
 
 /**
@@ -31,18 +37,40 @@ export interface CommentWithAuthor extends CommunityComment {
  * silently return nothing for anyone else's row.
  *
  * This uses the service-role admin client instead, but only ever selects
- * `id, display_name` -- never any other column -- and only ever runs
- * server-side. It doesn't widen what a browser can query; it's the
- * server rendering the one field the RLS model already intends to be
+ * `id, display_name, company_id` -- never any other column -- and only
+ * ever runs server-side. It doesn't widen what a browser can query; it's
+ * the server rendering the one field the RLS model already intends to be
  * visible to any authenticated viewer, for content that same viewer is
  * already independently authorized (via community_posts/_comments RLS) to
- * see.
+ * see. `company_id` isn't itself sensitive (every post already carries
+ * scope/company_id, and `companies` is publicly readable -- see
+ * src/lib/tenant/resolve.ts) -- it's resolved here purely to attach a
+ * company *name* tag next to the author's display name, matching the
+ * design reference's feed cards.
  */
-async function getDisplayNames(userIds: string[]): Promise<Map<string, string>> {
+async function getAuthorInfo(supabase: AnySupabaseClient, userIds: string[]): Promise<Map<string, AuthorInfo>> {
   if (userIds.length === 0) return new Map();
   const admin = createAdminClient();
-  const { data } = await admin.from("profiles").select("id, display_name").in("id", userIds);
-  return new Map((data ?? []).map((p: { id: string; display_name: string }) => [p.id, p.display_name]));
+  const { data: profileRows } = await admin
+    .from("profiles")
+    .select("id, display_name, company_id")
+    .in("id", userIds);
+
+  const companyIds = Array.from(new Set((profileRows ?? []).map((p: { company_id: string }) => p.company_id)));
+  const { data: companyRows } = await supabase.from("companies").select("id, name").in("id", companyIds);
+  const companyNameById = new Map((companyRows ?? []).map((c: { id: string; name: string }) => [c.id, c.name]));
+
+  return new Map(
+    (profileRows ?? []).map((p: { id: string; display_name: string; company_id: string }) => [
+      p.id,
+      { displayName: p.display_name, companyName: companyNameById.get(p.company_id) ?? null },
+    ])
+  );
+}
+
+async function getDisplayNames(supabase: AnySupabaseClient, userIds: string[]): Promise<Map<string, string>> {
+  const authorInfo = await getAuthorInfo(supabase, userIds);
+  return new Map(Array.from(authorInfo.entries()).map(([id, info]) => [id, info.displayName]));
 }
 
 /**
@@ -76,8 +104,8 @@ export async function getPosts(
   const postIds = posts.map((post: CommunityPost) => post.id);
   const userIds = Array.from(new Set(posts.map((post: CommunityPost) => post.user_id)));
 
-  const [nameByUser, { data: likes }, { data: comments }] = await Promise.all([
-    getDisplayNames(userIds),
+  const [authorInfo, { data: likes }, { data: comments }] = await Promise.all([
+    getAuthorInfo(supabase, userIds),
     supabase.from("community_likes").select("post_id, user_id").in("post_id", postIds),
     supabase.from("community_comments").select("post_id").in("post_id", postIds).eq("is_removed", false),
   ]);
@@ -96,7 +124,8 @@ export async function getPosts(
 
   return (posts as CommunityPost[]).map((post) => ({
     ...post,
-    authorDisplayName: nameByUser.get(post.user_id) ?? "Someone",
+    authorDisplayName: authorInfo.get(post.user_id)?.displayName ?? "Someone",
+    authorCompanyName: authorInfo.get(post.user_id)?.companyName ?? null,
     likeCount: likeCounts.get(post.id) ?? 0,
     likedByViewer: likedByViewer.has(post.id),
     commentCount: commentCounts.get(post.id) ?? 0,
@@ -117,7 +146,7 @@ export async function getComments(
   if (!comments || comments.length === 0) return [];
 
   const userIds = Array.from(new Set(comments.map((c: CommunityComment) => c.user_id)));
-  const nameByUser = await getDisplayNames(userIds);
+  const nameByUser = await getDisplayNames(supabase, userIds);
 
   return (comments as CommunityComment[]).map((comment) => ({
     ...comment,
