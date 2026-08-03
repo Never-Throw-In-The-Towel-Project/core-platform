@@ -28,7 +28,7 @@ export default function PodcastPage() {
       </p>
 
       <div className="mt-8 grid grid-cols-1 gap-8 md:grid-cols-2">
-        <div className="space-y-4 text-sm leading-relaxed text-brand-foreground/80">
+        <div className="space-y-4 text-sm leading-relaxed text-foreground/80">
           <p>The Never Throw in the Towel Podcast is all about hope through honesty.</p>
           <p>
             Each episode, we sit down with guests who&apos;ve faced real challenges — whether that&apos;s mental
@@ -55,7 +55,7 @@ export default function PodcastPage() {
 
       <div className="mt-16">
         <h2 className="text-xl font-bold">Guests so far</h2>
-        <p className="mt-2 text-sm text-brand-foreground/70">
+        <p className="mt-2 text-sm text-foreground/70">
           But it&apos;s not just about big names — it&apos;s about real people with real stories that will hit home
           and light a fire in anyone who listens.
         </p>
@@ -63,14 +63,14 @@ export default function PodcastPage() {
           {GUESTS.map((guest) => (
             <li key={guest.name}>
               <p className="font-semibold">{guest.name}</p>
-              <p className="text-sm text-brand-foreground/70">{guest.blurb}</p>
+              <p className="text-sm text-foreground/70">{guest.blurb}</p>
             </li>
           ))}
         </ul>
       </div>
 
-      <div className="mt-16 flex flex-col items-center gap-4 rounded-xl border border-white/10 p-8 text-center">
-        <p className="text-sm leading-relaxed text-brand-foreground/80">
+      <div className="mt-16 flex flex-col items-center gap-4 rounded-xl border border-black/10 p-8 text-center">
+        <p className="text-sm leading-relaxed text-foreground/80">
           Whether you&apos;re struggling, searching for purpose, or simply need a reminder of your own strength —
           this podcast is for you. Because no matter what life throws at you… never throw in the towel.
         </p>
