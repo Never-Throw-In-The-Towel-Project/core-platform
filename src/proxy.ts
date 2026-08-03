@@ -30,10 +30,10 @@ import { extractTenantSlug } from "@/lib/tenant/resolve";
 // actual page (/community/guidelines) intentionally requires a session,
 // same as the rest of /community.
 //
-// /documentary and /podcast are the public marketing site (see
+// /documentary, /podcast, and /what-i-do are the public marketing site (see
 // src/app/(marketing)/) -- the free "taster" that explicitly must not
 // require signing in, since the actual paid content lives behind /login.
-const PUBLIC_PATHS = ["/", "/login", "/auth/callback", "/documentary", "/podcast"];
+const PUBLIC_PATHS = ["/", "/login", "/auth/callback", "/documentary", "/podcast", "/what-i-do"];
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
