@@ -25,6 +25,9 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
           <span className="text-sm font-semibold tracking-wide uppercase">Never Throw In The Towel</span>
         </Link>
         <nav className="flex items-center gap-6 text-sm">
+          <Link href="/what-i-do" className="opacity-70 hover:opacity-100">
+            What I Do
+          </Link>
           <Link href="/documentary" className="opacity-70 hover:opacity-100">
             Documentary
           </Link>

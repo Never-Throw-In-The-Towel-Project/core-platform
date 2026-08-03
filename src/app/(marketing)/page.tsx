@@ -59,6 +59,7 @@ const OFFERINGS = [
     title: "Pop Up Barbershop",
     blurb: "Men need a safe space to talk with no pressure or stigma -- the pop up barbershop does exactly that.",
     image: "/site/community-brotherhood.jpg",
+    href: "/what-i-do/pop-up-barbershop",
   },
   {
     title: "The Never Throw in the Towel Podcast",
@@ -75,6 +76,7 @@ const OFFERINGS = [
     title: "The Thrive Project",
     blurb: "Walk, talk, breathe, and reset with Anthony -- a full day in nature tailored to you.",
     image: "/site/hero-boxing.jpg",
+    href: "/what-i-do/coaching",
   },
   {
     title: "Keynote Speaking",
@@ -203,7 +205,7 @@ export default async function MarketingHomePage() {
         </div>
       </section>
 
-      <section className="bg-brand-background px-6 py-16 text-brand-foreground">
+      <section id="testimonials" className="bg-brand-background px-6 py-16 text-brand-foreground">
         <div className="mx-auto max-w-4xl text-center">
           <h2 className="text-3xl font-bold">What People Are Saying</h2>
           <p className="mx-auto mt-3 max-w-xl text-sm text-brand-foreground/70">
