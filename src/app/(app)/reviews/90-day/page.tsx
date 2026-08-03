@@ -25,7 +25,7 @@ export default async function NinetyDayReviewPage() {
     .maybeSingle();
 
   return (
-    <main className="mx-auto max-w-xl px-6 py-12">
+    <main>
       <PeriodicReviewForm
         reviewType="90_day"
         comparisonSelfAssessment={(thirtyDayReview?.self_assessment as SelfAssessment | null) ?? null}
