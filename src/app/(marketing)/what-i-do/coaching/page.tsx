@@ -6,7 +6,7 @@ import Link from "next/link";
 // screenshots. Two sentences had obvious typos in the source ("get your off
 // were", "been part of the community is") -- lightly cleaned up for
 // grammar/clarity only, no change in meaning or claims.
-const CONTACT_MAILTO = "mailto:hello@ntitt.co.uk";
+const CONTACT_MAILTO = "mailto:a.hutton@ntitt.co.uk";
 
 export default function CoachingPage() {
   return (

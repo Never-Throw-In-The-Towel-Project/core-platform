@@ -10,9 +10,7 @@ import Link from "next/link";
 // guessing at a logo image.
 const TEXT_ONLY_CLIENTS = ["Newcastle United", "Bradford City", "Serco", "Muckle"];
 
-// contact@ is a placeholder pending a confirmed public contact address --
-// flagged to the user, not silently guessed at.
-const CONTACT_MAILTO = "mailto:hello@ntitt.co.uk";
+const CONTACT_MAILTO = "mailto:a.hutton@ntitt.co.uk";
 
 export default function PopUpBarbershopPage() {
   return (
