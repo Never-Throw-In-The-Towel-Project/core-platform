@@ -13,7 +13,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <header className="border-b border-white/10 px-6 py-4">
+      <header className="border-b border-black/10 px-6 py-4">
         <p className="text-sm opacity-70">HR Dashboard — {profile.display_name}</p>
       </header>
       <div className="flex-1">{children}</div>

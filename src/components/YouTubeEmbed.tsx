@@ -36,7 +36,7 @@ export function YouTubeEmbed({ youtubeId, title }: { youtubeId: string; title: s
     <button
       type="button"
       onClick={() => setPlaying(true)}
-      className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-lg border border-white/10"
+      className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-lg border border-black/10"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img

@@ -56,7 +56,7 @@ export function PeriodicReviewForm({
           <textarea
             name="mostProudOf"
             rows={2}
-            className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+            className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
           />
         </label>
         <label className="block text-sm">
@@ -64,7 +64,7 @@ export function PeriodicReviewForm({
           <textarea
             name="mostConsistentHabits"
             rows={2}
-            className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+            className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
           />
         </label>
         <label className="block text-sm">
@@ -72,7 +72,7 @@ export function PeriodicReviewForm({
           <textarea
             name="challengesFaced"
             rows={2}
-            className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+            className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
           />
         </label>
         <label className="block text-sm">
@@ -80,7 +80,7 @@ export function PeriodicReviewForm({
           <textarea
             name="whatsWorking"
             rows={2}
-            className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+            className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
           />
         </label>
         <label className="block text-sm">
@@ -88,7 +88,7 @@ export function PeriodicReviewForm({
           <textarea
             name="needsToChange"
             rows={2}
-            className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+            className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
           />
         </label>
       </div>
@@ -100,7 +100,7 @@ export function PeriodicReviewForm({
             <textarea
               name="lifeChanges"
               rows={2}
-              className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+              className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
             />
           </label>
           <label className="block text-sm">
@@ -108,7 +108,7 @@ export function PeriodicReviewForm({
             <textarea
               name="nextPeriodVision"
               rows={2}
-              className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+              className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
             />
           </label>
         </div>
@@ -122,7 +122,7 @@ export function PeriodicReviewForm({
             name={`win_${n}`}
             type="text"
             placeholder={`Win ${n}`}
-            className="w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+            className="w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
           />
         ))}
       </fieldset>
@@ -145,7 +145,7 @@ export function PeriodicReviewForm({
               min={1}
               max={10}
               required
-              className="w-16 rounded-md border border-white/20 bg-transparent px-2 py-1 text-center"
+              className="w-16 rounded-md border border-black/20 bg-transparent px-2 py-1 text-center"
             />
           </label>
         ))}
@@ -156,11 +156,11 @@ export function PeriodicReviewForm({
         <textarea
           name="focusNextPeriod"
           rows={2}
-          className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
         />
       </label>
 
-      <div className="space-y-2 rounded-lg border border-white/10 p-4 text-sm">
+      <div className="space-y-2 rounded-lg border border-black/10 p-4 text-sm">
         <p className="italic">
           &ldquo;I have completed {periodLabel} days. I will continue to show up, trust the
           process, and keep moving forward.&rdquo;
@@ -171,12 +171,12 @@ export function PeriodicReviewForm({
             name="commitmentSignedName"
             type="text"
             required
-            className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+            className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
           />
         </label>
       </div>
 
-      {state.status === "error" && <p className="text-sm text-red-400">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
 
       <button
         type="submit"

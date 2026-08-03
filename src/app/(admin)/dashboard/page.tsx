@@ -65,7 +65,7 @@ export default async function DashboardPage() {
           Download impact report
         </a>
       </div>
-      <p className="mt-2 text-sm text-brand-foreground/70">
+      <p className="mt-2 text-sm text-foreground/70">
         Aggregate, anonymised data only. No individual answers, names, or scores.
       </p>
 
@@ -83,7 +83,7 @@ export default async function DashboardPage() {
         {["30_day", "90_day"].map((type) => {
           const review = reviewCompletions.find((r) => r.reviewType === type);
           return (
-            <div key={type} className="flex items-center justify-between rounded-lg border border-white/10 p-4 text-sm">
+            <div key={type} className="flex items-center justify-between rounded-lg border border-black/10 p-4 text-sm">
               <span>{REVIEW_LABEL[type]} completed</span>
               <span className="font-semibold">
                 {review ? `${review.completedCount} of ${review.eligibleCount}` : "No data yet"}
@@ -126,7 +126,7 @@ export default async function DashboardPage() {
       ) : (
         <div className="mt-3 space-y-4">
           {weeklyParticipation.map((week) => (
-            <div key={week.weekStartDate} className="rounded-lg border border-white/10 p-4">
+            <div key={week.weekStartDate} className="rounded-lg border border-black/10 p-4">
               <p className="text-sm font-medium">
                 Week {week.weekNumber} <span className="font-normal opacity-50">({week.weekStartDate})</span>
               </p>
@@ -145,7 +145,7 @@ export default async function DashboardPage() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <dl className="rounded-lg border border-white/10 p-6">
+    <dl className="rounded-lg border border-black/10 p-6">
       <dt className="text-sm opacity-70">{label}</dt>
       <dd className="text-2xl font-bold">{value}</dd>
     </dl>
@@ -156,7 +156,7 @@ function Bar({ label, percent }: { label: string; percent: number | null }) {
   return (
     <div className="flex items-center gap-3 text-xs">
       <span className="w-16 shrink-0 opacity-70">{label}</span>
-      <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/10">
+      <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/10">
         <div
           className="h-full rounded-full bg-brand-accent"
           style={{ width: `${percent ?? 0}%` }}

@@ -20,16 +20,16 @@ export function ModerationQueueItem({
   const [reason, setReason] = useState("");
 
   if (removeState.status === "success" || dismissState.status === "success") {
-    return <div className="rounded-lg border border-white/10 p-4 text-sm opacity-50">Handled.</div>;
+    return <div className="rounded-lg border border-black/10 p-4 text-sm opacity-50">Handled.</div>;
   }
 
   return (
-    <div className="rounded-lg border border-white/10 p-4">
+    <div className="rounded-lg border border-black/10 p-4">
       <p className="text-xs opacity-60">
         Reported by {report.reporterDisplayName}
         {report.reason ? `: "${report.reason}"` : ""}
       </p>
-      <div className="mt-2 rounded-md bg-white/5 p-3 text-sm">
+      <div className="mt-2 rounded-md bg-black/5 p-3 text-sm">
         {post ? (
           <>
             {post.is_removed && <p className="text-xs opacity-60">(already removed)</p>}
@@ -49,7 +49,7 @@ export function ModerationQueueItem({
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Removal reason (optional)"
-            className="flex-1 rounded-md border border-white/20 bg-transparent px-2 py-1 text-xs"
+            className="flex-1 rounded-md border border-black/20 bg-transparent px-2 py-1 text-xs"
           />
           <button
             type="submit"
@@ -64,14 +64,14 @@ export function ModerationQueueItem({
           <button
             type="submit"
             disabled={dismissPending}
-            className="rounded-md border border-white/20 px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+            className="rounded-md border border-black/20 px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
           >
             {dismissPending ? "…" : "Dismiss"}
           </button>
         </form>
       </div>
       {(removeState.status === "error" || dismissState.status === "error") && (
-        <p className="mt-2 text-xs text-red-400">
+        <p className="mt-2 text-xs text-red-700">
           {removeState.status === "error" ? removeState.message : dismissState.status === "error" ? dismissState.message : ""}
         </p>
       )}

@@ -49,7 +49,7 @@ export default async function PodcastGuestsPage() {
       ) : (
         <div className="mt-6 space-y-2">
           {guestsWithEmail.map((guest) => (
-            <div key={guest.id} className="rounded-lg border border-white/10 p-4 text-sm">
+            <div key={guest.id} className="rounded-lg border border-black/10 p-4 text-sm">
               <p className="font-semibold">{guest.displayName}</p>
               <p className="opacity-70">
                 {guest.company} · {guest.email ?? "no email on file"}

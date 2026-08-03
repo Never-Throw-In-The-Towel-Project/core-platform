@@ -29,7 +29,7 @@ export function VimeoEmbed({ vimeoId, title }: { vimeoId: string; title: string 
     <button
       type="button"
       onClick={() => setPlaying(true)}
-      className="flex aspect-video w-full items-center justify-center rounded-lg border border-white/10 text-sm font-medium opacity-80 hover:opacity-100"
+      className="flex aspect-video w-full items-center justify-center rounded-lg border border-black/10 text-sm font-medium opacity-80 hover:opacity-100"
     >
       ▶ Watch
     </button>

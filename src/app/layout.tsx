@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Archivo, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
 import { resolveCompanyForHost } from "@/lib/tenant/resolve";
 import { ThemeProvider } from "@/lib/theme/ThemeProvider";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const archivo = Archivo({
+  variable: "--font-archivo",
+  weight: ["400", "600", "800"],
   subsets: ["latin"],
 });
 
@@ -32,9 +33,9 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${archivo.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-brand-background text-brand-foreground">
+      <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider company={company}>{children}</ThemeProvider>
         {/*
          * "Ask for Support" is rendered in the (app) and (admin) layouts,

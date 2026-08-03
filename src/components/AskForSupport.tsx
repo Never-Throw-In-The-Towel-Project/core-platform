@@ -34,7 +34,14 @@ export function AskForSupport({
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center">
-          <div className="w-full max-w-md rounded-t-2xl bg-brand-background p-6 text-brand-foreground sm:rounded-2xl">
+          <div className="w-full max-w-md border-2 border-black/10 bg-background text-foreground">
+            {state.status !== "success" && (
+              <p className="bg-brand-background px-6 py-3 text-sm text-brand-foreground">
+                If this is urgent right now, please call{" "}
+                <span className="font-semibold">{helplineNumber ?? "the helpline"}</span>.
+              </p>
+            )}
+            <div className="p-6">
             {state.status === "success" ? (
               <div className="space-y-4">
                 <h2 className="text-lg font-semibold">Thanks for reaching out.</h2>
@@ -45,7 +52,7 @@ export function AskForSupport({
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="rounded-md bg-brand-primary px-4 py-2 text-sm font-medium text-brand-background"
+                  className="border-2 border-black/20 px-4 py-2 text-sm font-medium"
                 >
                   Close
                 </button>
@@ -72,7 +79,7 @@ export function AskForSupport({
                     <input
                       name="displayName"
                       type="text"
-                      className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+                      className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
                     />
                   </label>
                 )}
@@ -97,16 +104,12 @@ export function AskForSupport({
                     name="contactMethod"
                     type="text"
                     placeholder="Phone, email, whatever's easiest"
-                    className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+                    className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
                   />
                 </label>
 
-                <p className="text-xs opacity-70">
-                  If this is urgent right now, please call {helplineNumber ?? "the helpline"}.
-                </p>
-
                 {state.status === "error" && (
-                  <p className="text-sm text-red-400">{state.message}</p>
+                  <p className="text-sm text-red-700">{state.message}</p>
                 )}
 
                 <div className="flex justify-end gap-2">
@@ -127,6 +130,7 @@ export function AskForSupport({
                 </div>
               </form>
             )}
+            </div>
           </div>
         </div>
       )}

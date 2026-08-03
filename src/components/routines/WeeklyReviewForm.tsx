@@ -39,12 +39,12 @@ export function WeeklyReviewForm() {
           <textarea
             name={field.key}
             rows={2}
-            className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+            className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
           />
         </label>
       ))}
 
-      {state.status === "error" && <p className="text-sm text-red-400">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
 
       <button
         type="submit"

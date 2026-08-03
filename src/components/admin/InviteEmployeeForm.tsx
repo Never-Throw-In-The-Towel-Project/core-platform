@@ -8,7 +8,7 @@ export function InviteEmployeeForm() {
   const [state, formAction, isPending] = useActionState(inviteEmployee, initialRoutineState);
 
   return (
-    <form action={formAction} className="space-y-3 rounded-lg border border-white/10 p-4">
+    <form action={formAction} className="space-y-3 rounded-lg border border-black/10 p-4">
       <div>
         <h2 className="text-sm font-semibold">Invite an employee</h2>
         <p className="mt-1 text-xs opacity-60">
@@ -22,7 +22,7 @@ export function InviteEmployeeForm() {
           type="text"
           required
           maxLength={80}
-          className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
         />
       </label>
       <label className="block text-sm">
@@ -31,10 +31,10 @@ export function InviteEmployeeForm() {
           name="email"
           type="email"
           required
-          className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
         />
       </label>
-      {state.status === "error" && <p className="text-sm text-red-400">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
       {state.status === "success" && (
         <p className="text-sm opacity-60">Invite sent.</p>
       )}

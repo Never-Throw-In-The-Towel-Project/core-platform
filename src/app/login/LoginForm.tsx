@@ -10,7 +10,7 @@ export function LoginForm({ next }: { next?: string }) {
 
   if (state.status === "sent") {
     return (
-      <p className="text-center text-brand-foreground/80">
+      <p className="text-center text-foreground/80">
         Check your email for a sign-in link.
       </p>
     );
@@ -25,10 +25,10 @@ export function LoginForm({ next }: { next?: string }) {
           name="email"
           type="email"
           required
-          className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
         />
       </label>
-      {state.status === "error" && <p className="text-sm text-red-400">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
       <button
         type="submit"
         disabled={isPending}
