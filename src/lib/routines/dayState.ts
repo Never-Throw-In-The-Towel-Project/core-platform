@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { localHour, weekdayNameOrWeekend, type TimeZone } from "./dates";
+import { catchUpEligibleWeekdays, getMondayOfWeek, localHour, weekdayNameOrWeekend, type TimeZone } from "./dates";
 import type { Weekday } from "@/types/database";
 
 // Home-screen phase resolution, per the brief: Morning Routine "at the top
@@ -31,12 +31,11 @@ export function resolveHomePhase(now: Date, timeZone: TimeZone): HomePhase {
  * Active-engagement day count: distinct calendar dates on which the user
  * completed at least a Morning or Night entry, not days since signup. A
  * user who goes quiet for a week doesn't lose their place, but doesn't
- * advance either. Per Anthony's guidance, this number is never shown to the
- * user as a "Day N" counter -- corporate users especially drift in and out
- * with shift patterns/leave, and a visible day count turns that into a
- * feeling of falling behind. It exists purely to drive the automatic
- * 30/90-Day Review trigger (see getPendingPeriodicReview) -- keep this the
- * single source of that number so the two never drift apart.
+ * advance either. Drives the automatic 30/90-Day Review trigger (see
+ * getPendingPeriodicReview) -- keep this the single source of that number
+ * so the two never drift apart. Also now shown to the user directly as
+ * "Day N" on the Rail (see docs/ARCHITECTURE.md "No day numbers" -- revised
+ * to show it after all, alongside the this-week catch-up change below).
  */
 export async function getActiveDayCount(userId: string): Promise<number> {
   const supabase = await createClient("private");
@@ -59,4 +58,45 @@ export async function getActiveDayCount(userId: string): Promise<number> {
   for (const row of nights ?? []) days.add(row.entry_date as string);
 
   return days.size;
+}
+
+/**
+ * Which of this real week's Mon-Fri themed check-ins already have a
+ * `completed_at` -- the single query behind both the Rail's weekly tracker
+ * (every weekday, done or not) and getOutstandingWeekdaysThisWeek below
+ * (done vs. still-open), so a page needing both doesn't query twice.
+ */
+export async function getThemedCheckinCompletionThisWeek(
+  userId: string,
+  now: Date,
+  timeZone: TimeZone
+): Promise<Set<Weekday>> {
+  const supabase = await createClient("private");
+
+  const { data } = await supabase
+    .from("themed_checkins")
+    .select("weekday, completed_at")
+    .eq("user_id", userId)
+    .eq("week_start_date", getMondayOfWeek(now, timeZone));
+
+  return new Set((data ?? []).filter((row) => row.completed_at).map((row) => row.weekday as Weekday));
+}
+
+/**
+ * This real week's Mon-Fri themed check-ins that have opened
+ * (`catchUpEligibleWeekdays`) but have no `completed_at` yet -- what the
+ * Rail offers as optional, non-blocking catch-up (see docs/ARCHITECTURE.md
+ * "Daily core loop" -- revised from the original no-backfill design).
+ * Ordered Monday-first. Today's own weekday is included if not yet done,
+ * same as every earlier day this week -- callers that already show today's
+ * phase as the hero card should filter it out to avoid listing it twice.
+ */
+export async function getOutstandingWeekdaysThisWeek(
+  userId: string,
+  now: Date,
+  timeZone: TimeZone
+): Promise<Weekday[]> {
+  const eligible = catchUpEligibleWeekdays(now, timeZone);
+  const completed = await getThemedCheckinCompletionThisWeek(userId, now, timeZone);
+  return eligible.filter((weekday) => !completed.has(weekday));
 }

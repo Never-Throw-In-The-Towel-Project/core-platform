@@ -414,6 +414,56 @@ registered 90 days ago but barely used the platform, cutting against the
 review's "recognise the effort you've made" framing more than the
 active-engagement trigger does.
 
+## Rail redesign: day numbers shown again, optional this-week catch-up
+
+Both reversed, deliberately, when the "Modernist" design pass introduced the
+Rail-layout Today screen (see the conversation this shipped from) — flagged
+back to Anthony rather than silently implemented either way, since both
+supersede a decision this doc had previously called settled twice over.
+
+**"Day N · Week N" is shown again**, directly superseding "No day numbers"
+above. `getActiveDayCount` is unchanged — same active-engagement count, same
+role as the 30/90-Day trigger's source of truth — it's just rendered on the
+Rail now (`src/app/(app)/home/page.tsx`) instead of suppressed. "Week N" is
+the real ISO calendar week number (`getIsoWeekNumber`), not a
+personal week-since-joining count, consistent with week-journeys already
+being pinned to the real calendar week rather than each user's own start
+date.
+
+**This-week catch-up is now allowed for the five weekday check-ins**,
+reversing the no-backfill design directly above and its reaffirmation in
+"No day numbers". The reasoning behind both earlier calls was specifically
+about *forced* catch-up reading as failure/debt (a visible backlog,
+guilt-inducing framing) — not that missed content had to become permanently
+unreachable. The Rail resolves that by keeping catch-up strictly optional
+and quiet:
+
+- Today's own check-in never blocks on earlier missed days in the same
+  week — completing Friday's doesn't require touching Tuesday's or
+  Wednesday's.
+- Missed days from earlier in the *current real week* stay reachable,
+  worded plainly ("Also open this week: Tuesday's check-in") — no missed
+  count, no streak break, no guilt language.
+- Nothing carries past Sunday. The week-journey boundary is unchanged, only
+  "gone the instant the day ends" is relaxed to "gone at the end of the
+  week" — Monday starts clean regardless of what was left undone.
+
+Mechanically: `catchUpEligibleWeekdays` (`src/lib/routines/dates.ts`)
+computes, from the server clock and the user's own timezone, every Mon-Fri
+weekday that has "opened" in the current real week (Monday through today,
+or the full Mon-Fri set once the weekend arrives). `submitThemedCheckin`
+and `submitWorkoutWednesday` (`src/lib/actions/themedCheckin.ts`) now accept
+an optional `weekday` field and validate it against that same function
+server-side, falling back to today's own weekday when the field is absent —
+so a client can request any day that's genuinely open in the real current
+week, but there is still nothing to submit that reaches a future day or a
+different week. This preserves the original property the no-backfill
+design was protecting (nothing to lie about to fabricate a day) while
+dropping the part that made a missed day unreachable forever.
+`getOutstandingWeekdaysThisWeek`/`getThemedCheckinCompletionThisWeek`
+(`src/lib/routines/dayState.ts`) are the read-side equivalent, driving the
+Rail's catch-up list and weekly tracker from one query.
+
 Individual-purchase product (a numbered physical journal, plus a streak
 counter if a digital version of that product is ever built) is out of
 scope — the current build is the corporate/company platform only.

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  catchUpEligibleWeekdays,
   getIsoWeekNumber,
   getMondayOfWeek,
   getNextMonday,
@@ -67,6 +68,45 @@ describe("isFirstOccurrenceOfWeekdayInMonth", () => {
   it("is false for a different weekday even in the first week", () => {
     const firstTuesday = new Date("2026-08-04T10:00:00Z");
     expect(isFirstOccurrenceOfWeekdayInMonth(firstTuesday, "UTC", "wednesday")).toBe(false);
+  });
+});
+
+describe("catchUpEligibleWeekdays", () => {
+  it("includes only Monday through today when today is a mid-week weekday", () => {
+    // 2026-08-05 is a Wednesday.
+    const wednesday = new Date("2026-08-05T10:00:00Z");
+    expect(catchUpEligibleWeekdays(wednesday, "UTC")).toEqual(["monday", "tuesday", "wednesday"]);
+  });
+
+  it("never includes a day later in the week than today", () => {
+    const monday = new Date("2026-08-03T10:00:00Z");
+    expect(catchUpEligibleWeekdays(monday, "UTC")).toEqual(["monday"]);
+  });
+
+  it("includes the full Mon-Fri set once the weekend arrives, and no further", () => {
+    const saturday = new Date("2026-08-08T10:00:00Z");
+    const sunday = new Date("2026-08-09T10:00:00Z");
+    expect(catchUpEligibleWeekdays(saturday, "UTC")).toEqual([
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+    ]);
+    expect(catchUpEligibleWeekdays(sunday, "UTC")).toEqual([
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+    ]);
+  });
+
+  it("resolves per the caller's timezone, same as weekdayNameOrWeekend", () => {
+    // 2026-08-01 23:30 UTC is Saturday in UTC but already Sunday in Auckland.
+    const instant = new Date("2026-08-01T23:30:00Z");
+    expect(catchUpEligibleWeekdays(instant, "UTC")).toHaveLength(5);
+    expect(catchUpEligibleWeekdays(instant, "Pacific/Auckland")).toHaveLength(5);
   });
 });
 

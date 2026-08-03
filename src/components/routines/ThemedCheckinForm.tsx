@@ -29,6 +29,7 @@ export function ThemedCheckinForm({ weekday, mondayGoals, quote, podcastEpisode 
 
   return (
     <form action={formAction} className="space-y-6">
+      <input type="hidden" name="weekday" value={weekday} />
       <header>
         <h1 className="text-2xl font-bold">{config.title}</h1>
         <p className="opacity-80">{config.subtitle}</p>
