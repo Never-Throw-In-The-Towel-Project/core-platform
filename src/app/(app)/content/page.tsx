@@ -1,33 +1,35 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { escapeFilterValue } from "@/lib/supabase/filterEscape";
-import { VimeoEmbed } from "@/components/VimeoEmbed";
 import type { ContentVideo, VideoCategory } from "@/types/database";
 
-const CATEGORIES: { value: VideoCategory; label: string; blurb: string }[] = [
-  {
-    value: "mental_fitness",
-    label: "Mental Fitness",
-    blurb: "Real stories on real-life topics -- addiction, grief, redundancy, anxiety, and more.",
-  },
-  {
-    value: "physical_fitness",
-    label: "Physical Fitness",
-    blurb: "Workout demos for every tier, plus general movement, stretching, and breathwork.",
-  },
-  {
-    value: "tools_tips",
-    label: "Tools & Tips",
-    blurb: "Short, practical videos for the moment -- coping tools, sleep, hydration, nutrition.",
-  },
+const CATEGORIES: { value: VideoCategory; label: string }[] = [
+  { value: "mental_fitness", label: "Mental Fitness" },
+  { value: "tools_tips", label: "Tools & Tips" },
+  { value: "physical_fitness", label: "Physical Fitness" },
 ];
+
+// The brief's own enumerated Mental Fitness topics ("addiction, divorce,
+// grief, redundancy, identity loss, anxiety, relationships, purpose") --
+// quick shortcuts into the same free-text search every video is already
+// searchable by (title or tags), not a separate filter mechanism. No
+// content has been seeded into content_videos yet, so there's no
+// established tag-casing convention to match against; these are plain
+// human-readable strings, same as a user would type into the search box
+// themselves.
+const TOPICS = ["Addiction", "Divorce", "Grief", "Redundancy", "Identity loss", "Anxiety", "Relationships", "Purpose"];
+
+function formatDuration(seconds: number | null): string | null {
+  if (!seconds) return null;
+  return `${Math.round(seconds / 60)} min`;
+}
 
 /**
  * Content Library -- one shared library, built once, available to every
  * company (see docs/ARCHITECTURE.md "Core platform vs. co-branded
- * portals"). Search is title/tag based so someone in a hard moment can
- * search "divorce" or "addiction" and land directly on relevant content,
- * per the brief.
+ * portals"). Search-first: someone in a hard moment should be able to
+ * search "divorce" or "addiction" and land directly on relevant content
+ * rather than browsing, per the brief.
  */
 export default async function ContentLibraryPage({
   searchParams,
@@ -50,34 +52,42 @@ export default async function ContentLibraryPage({
   const { data } = await query;
   const videos = (data as ContentVideo[] | null) ?? [];
 
-  const grouped = CATEGORIES.map((cat) => ({
-    ...cat,
-    videos: videos.filter((v) => v.category === cat.value),
-  })).filter((cat) => !category || cat.value === category);
-
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-bold">Content Library</h1>
-      <p className="mt-1 opacity-80">Find what you need, whenever you need it.</p>
+    <main className="mx-auto max-w-2xl px-6 py-10">
+      <h1 className="text-3xl font-extrabold uppercase">What do you need right now?</h1>
 
-      <form className="mt-6 flex gap-2" action="/content">
+      <form className="mt-6" action="/content">
         <input
           type="text"
           name="q"
           defaultValue={q}
-          placeholder="Search by topic -- e.g. grief, sleep, breathwork"
-          className="flex-1 rounded-md border border-black/20 bg-transparent px-3 py-2 text-sm"
+          placeholder="Search a topic — divorce, grief, sleep, redundancy…"
+          className="w-full border border-current/20 bg-transparent px-4 py-3 text-sm"
         />
         {category && <input type="hidden" name="category" value={category} />}
-        <button type="submit" className="rounded-md bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accent-foreground">
-          Search
-        </button>
       </form>
 
-      <div className="mt-4 flex flex-wrap gap-2 text-sm">
+      <div className="mt-3 flex flex-wrap gap-2">
+        {TOPICS.map((topic) => (
+          <Link
+            key={topic}
+            href={`/content?q=${encodeURIComponent(topic)}${category ? `&category=${category}` : ""}`}
+            className={
+              "border px-2 py-1 text-xs font-semibold uppercase " +
+              (q?.toLowerCase() === topic.toLowerCase()
+                ? "border-brand-accent bg-brand-accent text-brand-accent-foreground"
+                : "border-brand-accent text-brand-accent")
+            }
+          >
+            {topic}
+          </Link>
+        ))}
+      </div>
+
+      <nav className="mt-6 flex gap-6 border-t border-b border-current/10 py-3 text-sm">
         <Link
-          href="/content"
-          className={`rounded-full border border-black/20 px-3 py-1 ${!category ? "bg-brand-accent text-brand-accent-foreground" : "opacity-70"}`}
+          href={`/content${q ? `?q=${encodeURIComponent(q)}` : ""}`}
+          className={!category ? "font-semibold text-brand-accent" : "opacity-60 hover:opacity-100"}
         >
           All
         </Link>
@@ -85,37 +95,45 @@ export default async function ContentLibraryPage({
           <Link
             key={cat.value}
             href={`/content?category=${cat.value}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
-            className={`rounded-full border border-black/20 px-3 py-1 ${category === cat.value ? "bg-brand-accent text-brand-accent-foreground" : "opacity-70"}`}
+            className={category === cat.value ? "font-semibold text-brand-accent" : "opacity-60 hover:opacity-100"}
           >
             {cat.label}
           </Link>
         ))}
-      </div>
+      </nav>
 
-      {grouped.map((cat) => (
-        <section key={cat.value} className="mt-10">
-          <h2 className="text-lg font-semibold">{cat.label}</h2>
-          <p className="mt-1 text-sm opacity-70">{cat.blurb}</p>
-
-          {cat.videos.length === 0 ? (
-            <p className="mt-4 text-sm opacity-60">
-              {q ? "No matches here." : "Nothing here yet -- check back soon."}
-            </p>
-          ) : (
-            <div className="mt-4 space-y-6">
-              {cat.videos.map((video) => (
-                <div key={video.id} className="space-y-2">
-                  <VimeoEmbed vimeoId={video.vimeo_id} title={video.title} />
-                  <p className="text-sm font-medium">{video.title}</p>
-                  {video.tags.length > 0 && (
-                    <p className="text-xs opacity-60">{video.tags.join(" · ")}</p>
-                  )}
+      <div className="mt-2">
+        {videos.length === 0 && (
+          <p className="py-6 text-sm opacity-60">
+            {q || category ? "No matches here." : "Nothing here yet -- check back soon."}
+          </p>
+        )}
+        {videos.map((video) => {
+          const duration = formatDuration(video.duration_seconds);
+          return (
+            <Link
+              key={video.id}
+              href={`/content/${video.id}`}
+              className="flex gap-4 border-t border-current/10 py-4 hover:opacity-80"
+            >
+              <div className="flex h-20 w-28 shrink-0 items-center justify-center bg-current/10 text-xs uppercase opacity-60">
+                Still
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium">{video.title}</p>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                  {video.tags.map((tag) => (
+                    <span key={tag} className="border border-current/15 px-1.5 py-0.5 uppercase opacity-60">
+                      {tag}
+                    </span>
+                  ))}
+                  {duration && <span className="opacity-60">{duration}</span>}
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
-      ))}
+              </div>
+            </Link>
+          );
+        })}
+      </div>
     </main>
   );
 }

@@ -3,13 +3,13 @@
 import { useState } from "react";
 
 /**
- * Lazy-embedded YouTube player -- same pattern as VimeoEmbed
- * (src/components/VimeoEmbed.tsx): starts as a lightweight thumbnail +
- * play button, only swaps in the real iframe once tapped, so a page with
- * several of these doesn't load every player up front. Used on the public
- * marketing pages (documentary trailer, podcast teaser) where the source
- * video already lives on Anthony's own YouTube channel -- distinct from the
- * paid Content Library, which is Vimeo-hosted (see VimeoEmbed).
+ * Lazy-embedded YouTube player: starts as a lightweight thumbnail + play
+ * button, only swaps in the real iframe once tapped, so a page with several
+ * of these doesn't load every player up front. Used on the public marketing
+ * pages (documentary trailer, podcast teaser) where the source video
+ * already lives on Anthony's own YouTube channel -- distinct from the
+ * Content Library, which is Vimeo-hosted and links out to a dedicated watch
+ * page per video instead (src/app/(app)/content/[id]/page.tsx).
  *
  * Plain <img> rather than next/image for the thumbnail: next.config.ts has
  * no remotePatterns configured for img.youtube.com, and adding one just for
