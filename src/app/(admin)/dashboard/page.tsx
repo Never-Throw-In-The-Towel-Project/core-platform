@@ -1,22 +1,17 @@
 import { requireHrAdmin } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import {
-  computeOverallTrend,
+  computeTrendDelta,
   getReviewCompletions,
   getSupportCount,
-  getWeekdayEngagement,
+  getWeekdayEngagementForWeek,
   getWeeklyParticipation,
 } from "@/lib/dashboard/aggregates";
+import { getMondayOfWeek } from "@/lib/routines/dates";
 import { InviteEmployeeForm } from "@/components/admin/InviteEmployeeForm";
+import type { Weekday } from "@/types/database";
 
-const TREND_LABEL: Record<string, string> = {
-  rising: "Rising",
-  falling: "Falling",
-  steady: "Steady",
-  not_enough_data: "Not enough data yet",
-};
-
-const WEEKDAY_LABEL: Record<string, string> = {
+const WEEKDAY_LABEL: Record<Weekday, string> = {
   monday: "Monday",
   tuesday: "Tuesday",
   wednesday: "Wednesday",
@@ -24,10 +19,12 @@ const WEEKDAY_LABEL: Record<string, string> = {
   friday: "Friday",
 };
 
-const REVIEW_LABEL: Record<string, string> = {
-  "30_day": "30-Day Review",
-  "90_day": "90-Day Review",
-};
+function overallPercent(week: { morningPercent: number | null; nightPercent: number | null; themedPercent: number | null }): number | null {
+  const values = [week.morningPercent, week.nightPercent, week.themedPercent].filter(
+    (v): v is number => v !== null
+  );
+  return values.length > 0 ? Math.round(values.reduce((sum, v) => sum + v, 0) / values.length) : null;
+}
 
 /**
  * Full aggregate reporting per the brief: % completed by day/week, most and
@@ -41,128 +38,135 @@ const REVIEW_LABEL: Record<string, string> = {
 export default async function DashboardPage() {
   const profile = await requireHrAdmin();
   const supabase = await createClient();
+  const currentWeekMonday = getMondayOfWeek(new Date(), "UTC");
 
-  const [supportCount, reviewCompletions, weeklyParticipation, weekdayEngagement] = await Promise.all([
-    getSupportCount(supabase, profile.company_id),
-    getReviewCompletions(supabase, profile.company_id),
-    getWeeklyParticipation(supabase, profile.company_id),
-    getWeekdayEngagement(supabase, profile.company_id),
-  ]);
+  const [{ data: company }, supportCount, reviewCompletions, weeklyParticipation, weekdayThisWeek] =
+    await Promise.all([
+      supabase.from("companies").select("name").eq("id", profile.company_id).maybeSingle(),
+      getSupportCount(supabase, profile.company_id),
+      getReviewCompletions(supabase, profile.company_id),
+      getWeeklyParticipation(supabase, profile.company_id),
+      getWeekdayEngagementForWeek(supabase, profile.company_id, currentWeekMonday),
+    ]);
 
-  const trend = computeOverallTrend(weeklyParticipation);
-  const engaged = weekdayEngagement.filter((w) => w.percent !== null);
-  const mostEngaged = [...engaged].sort((a, b) => (b.percent ?? 0) - (a.percent ?? 0))[0];
-  const leastEngaged = [...engaged].sort((a, b) => (a.percent ?? 0) - (b.percent ?? 0))[0];
+  const latestWeek = weeklyParticipation[weeklyParticipation.length - 1] ?? null;
+  const trendDelta = computeTrendDelta(weeklyParticipation);
+  const thirtyDayReviews = reviewCompletions.find((r) => r.reviewType === "30_day");
+
+  const engagedThisWeek = weekdayThisWeek.filter((w) => w.percent !== null);
+  const mostEngaged = [...engagedThisWeek].sort((a, b) => (b.percent ?? 0) - (a.percent ?? 0))[0];
+  const leastEngaged = [...engagedThisWeek].sort((a, b) => (a.percent ?? 0) - (b.percent ?? 0))[0];
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Company Dashboard</h1>
-        <a
-          href="/api/reports/impact"
-          className="rounded-md bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accent-foreground"
-        >
-          Download impact report
-        </a>
-      </div>
-      <p className="mt-2 text-sm text-foreground/70">
-        Aggregate, anonymised data only. No individual answers, names, or scores.
+    <main className="mx-auto max-w-5xl px-6 py-8">
+      <p className="text-sm opacity-70">
+        HR Admin · {company?.name ?? "Your company"}
+        {latestWeek && ` · ${latestWeek.morningEligible} staff enrolled`}
       </p>
 
-      <div className="mt-8">
-        <InviteEmployeeForm />
+      <div className="mt-4 bg-brand-background px-4 py-3 text-sm text-brand-foreground">
+        You see company-wide numbers only. No names, no answers, no individual scores — by design, and not
+        configurable.
       </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-4">
-        <Stat label="Participation trend" value={TREND_LABEL[trend]} />
-        <Stat label="Ask for Support uses (all time)" value={String(supportCount)} />
+      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Kpi value={latestWeek?.themedPercent != null ? `${latestWeek.themedPercent}%` : "—"} label="Check-in completion this week" />
+        <Kpi
+          value={trendDelta ? `${trendDelta.points > 0 ? "+" : ""}${trendDelta.points}` : "—"}
+          label={trendDelta ? `Points vs Week ${trendDelta.comparedToWeekNumber}` : "Not enough data yet"}
+          accent={trendDelta ? trendDelta.points > 0 : false}
+        />
+        <Kpi value={String(supportCount)} label="Support button uses · count only" />
+        <Kpi value={String(thirtyDayReviews?.completedCount ?? 0)} label="30 day reviews completed" />
       </div>
 
-      <h2 className="mt-10 text-lg font-semibold">Review completion</h2>
-      <div className="mt-3 space-y-2">
-        {["30_day", "90_day"].map((type) => {
-          const review = reviewCompletions.find((r) => r.reviewType === type);
-          return (
-            <div key={type} className="flex items-center justify-between rounded-lg border border-black/10 p-4 text-sm">
-              <span>{REVIEW_LABEL[type]} completed</span>
-              <span className="font-semibold">
-                {review ? `${review.completedCount} of ${review.eligibleCount}` : "No data yet"}
-              </span>
+      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_280px]">
+        <div>
+          <p className="text-xs font-semibold tracking-wide uppercase opacity-60">
+            Participation trend · {weeklyParticipation.length} weeks
+          </p>
+          {weeklyParticipation.length === 0 ? (
+            <p className="mt-4 text-sm opacity-60">Not enough data yet.</p>
+          ) : (
+            <>
+              <div className="mt-3 flex h-32 items-end gap-1">
+                {weeklyParticipation.map((week, i) => (
+                  <div
+                    key={week.weekStartDate}
+                    className={"flex-1 " + (i === weeklyParticipation.length - 1 ? "bg-brand-accent" : "bg-current/20")}
+                    style={{ height: `${overallPercent(week) ?? 0}%` }}
+                  />
+                ))}
+              </div>
+              <div className="mt-1 flex justify-between text-xs opacity-60">
+                <span>Week {weeklyParticipation[0].weekNumber}</span>
+                <span>Week {weeklyParticipation[weeklyParticipation.length - 1].weekNumber}</span>
+              </div>
+            </>
+          )}
+
+          <p className="mt-8 text-xs font-semibold tracking-wide uppercase opacity-60">Completion by day · this week</p>
+          {engagedThisWeek.length === 0 ? (
+            <p className="mt-3 text-sm opacity-60">Not enough data yet.</p>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {weekdayThisWeek.map((day) => (
+                <div key={day.weekday} className="flex items-center gap-3 text-sm">
+                  <span className="w-20 shrink-0">{WEEKDAY_LABEL[day.weekday]}</span>
+                  <div className="h-2 flex-1 bg-current/10">
+                    <div className="h-full bg-brand-accent" style={{ width: `${day.percent ?? 0}%` }} />
+                  </div>
+                  <span className="w-10 shrink-0 text-right font-semibold">{day.percent ?? "—"}%</span>
+                </div>
+              ))}
+              <p className="pt-1 text-xs opacity-60">
+                Most engaged: {mostEngaged ? WEEKDAY_LABEL[mostEngaged.weekday] : "—"}. Least engaged:{" "}
+                {leastEngaged ? WEEKDAY_LABEL[leastEngaged.weekday] : "—"}.
+              </p>
             </div>
-          );
-        })}
-      </div>
+          )}
+        </div>
 
-      <h2 className="mt-10 text-lg font-semibold">Engagement by day</h2>
-      {engaged.length === 0 ? (
-        <p className="mt-3 text-sm opacity-60">Not enough data yet.</p>
-      ) : (
-        <div className="mt-3 space-y-2 text-sm">
-          {mostEngaged && (
-            <p>
-              Most engaged: <span className="font-semibold">{WEEKDAY_LABEL[mostEngaged.weekday]}</span> (
-              {mostEngaged.percent}%)
+        <div className="space-y-6">
+          <div className="border border-current/15 p-4 text-sm">
+            <p className="font-semibold">90 Day Impact Report</p>
+            <p className="mt-1 opacity-70">
+              Board-ready PDF: participation, engagement trend, support usage, review completion. Auto-generates
+              for each employee&apos;s 90-day mark, or download the company&apos;s current figures any time.
             </p>
-          )}
-          {leastEngaged && (
-            <p>
-              Least engaged: <span className="font-semibold">{WEEKDAY_LABEL[leastEngaged.weekday]}</span> (
-              {leastEngaged.percent}%)
-            </p>
-          )}
-          <div className="mt-2 space-y-2">
-            {weekdayEngagement.map((day) => (
-              <Bar key={day.weekday} label={WEEKDAY_LABEL[day.weekday]} percent={day.percent} />
-            ))}
+            <a
+              href="/api/reports/impact"
+              className="mt-3 inline-block bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accent-foreground"
+            >
+              Download impact report
+            </a>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Not available to you</p>
+            <ul className="mt-2 space-y-1 text-sm opacity-60">
+              <li>Individual answers</li>
+              <li>Sleep scores and day ratings</li>
+              <li>Who used the support button</li>
+              <li>Journal and review content</li>
+              <li>Names against any figure</li>
+            </ul>
           </div>
         </div>
-      )}
+      </div>
 
-      <h2 className="mt-10 text-lg font-semibold">
-        Weekly participation (most recent {weeklyParticipation.length} weeks)
-      </h2>
-      {weeklyParticipation.length === 0 ? (
-        <p className="mt-3 text-sm opacity-60">Not enough data yet.</p>
-      ) : (
-        <div className="mt-3 space-y-4">
-          {weeklyParticipation.map((week) => (
-            <div key={week.weekStartDate} className="rounded-lg border border-black/10 p-4">
-              <p className="text-sm font-medium">
-                Week {week.weekNumber} <span className="font-normal opacity-50">({week.weekStartDate})</span>
-              </p>
-              <div className="mt-2 space-y-1.5">
-                <Bar label="Morning" percent={week.morningPercent} />
-                <Bar label="Night" percent={week.nightPercent} />
-                <Bar label="Check-ins" percent={week.themedPercent} />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="mt-10 border-t border-current/10 pt-8">
+        <InviteEmployeeForm />
+      </div>
     </main>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Kpi({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
   return (
-    <dl className="rounded-lg border border-black/10 p-6">
-      <dt className="text-sm opacity-70">{label}</dt>
-      <dd className="text-2xl font-bold">{value}</dd>
-    </dl>
-  );
-}
-
-function Bar({ label, percent }: { label: string; percent: number | null }) {
-  return (
-    <div className="flex items-center gap-3 text-xs">
-      <span className="w-16 shrink-0 opacity-70">{label}</span>
-      <div className="h-2 flex-1 overflow-hidden rounded-full bg-black/10">
-        <div
-          className="h-full rounded-full bg-brand-accent"
-          style={{ width: `${percent ?? 0}%` }}
-        />
-      </div>
-      <span className="w-10 shrink-0 text-right opacity-70">{percent ?? "—"}%</span>
+    <div className="border border-current/15 p-4">
+      <p className={"text-3xl font-extrabold " + (accent ? "text-brand-accent" : "")}>{value}</p>
+      <p className="mt-1 text-xs uppercase opacity-60">{label}</p>
     </div>
   );
 }
