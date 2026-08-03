@@ -1,26 +1,31 @@
 @import "tailwindcss";
 
 /*
- * Default NTITT brand tokens. Confirmed with the team (Phase 10): the real
- * brand is monochrome -- black and white, matching the logomark itself
- * (which carries no color information) -- not a placeholder waiting on a
- * hex value. --brand-accent is white/near-white (matching --brand-foreground)
- * rather than the earlier placeholder red, so CTA buttons read as a light
- * chip against the dark background, the same visual language the logomark
- * and the marketing page's "Trusted by" strip already use.
+ * Default NTITT brand tokens: black, white, and red -- confirmed directly
+ * by Anthony, which supersedes Phase 10's monochrome-only decision (that
+ * call was made without his direct input; this one is his own explicit
+ * palette guidance). --brand-accent is a strong red so CTA buttons and key
+ * accents read clearly against the dark background, paired with a
+ * near-white --brand-accent-foreground for legible button text/icons on
+ * top of it. #dc2626 is a solid, accessible starting red -- swap for
+ * Anthony's exact brand hex if/when he supplies one; nothing else about
+ * this token structure needs to change if that value does.
  *
  * --brand-accent-foreground is the paired token for content sitting ON TOP
  * of an accent-colored background (button text/icons) -- needed because
- * --brand-accent is no longer a fixed dark color that plain white text
- * always contrasts against; every `bg-brand-accent` usage in the codebase
- * now pairs with `text-brand-accent-foreground`, not a hardcoded `text-white`.
+ * --brand-accent is not a fixed color that plain white text always
+ * contrasts against; every `bg-brand-accent` usage in the codebase pairs
+ * with `text-brand-accent-foreground`, not a hardcoded `text-white`.
  *
  * These five --brand-* variables are the entire co-branding mechanism: a
  * company's ThemeProvider override (src/lib/theme/ThemeProvider.tsx) sets
  * new values for the same variable names on a wrapping element, and every
  * component that reads --brand-* rather than a hardcoded color picks up the
  * tenant's branding automatically. Components should never hardcode a color
- * that's meant to be brand-driven -- reference the token instead.
+ * that's meant to be brand-driven -- reference the token instead. Amazon and
+ * KP Snacks have no accent_color of their own set yet, so this default red
+ * is what they see too until/unless that changes -- see docs/ARCHITECTURE.md
+ * "Open items".
  */
 :root {
   --background: #ffffff;
@@ -28,8 +33,8 @@
   --brand-background: #0a0a0a;
   --brand-foreground: #f5f5f5;
   --brand-primary: #f5f5f5;
-  --brand-accent: #f5f5f5;
-  --brand-accent-foreground: #0a0a0a;
+  --brand-accent: #dc2626;
+  --brand-accent-foreground: #f5f5f5;
 }
 
 @theme inline {
