@@ -30,10 +30,20 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
   }
 
   return (
-    <div className="rounded-lg border border-black/10 p-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold">{post.authorDisplayName}</p>
-        <p className="text-xs opacity-50">{new Date(post.created_at).toLocaleDateString()}</p>
+    <div className="border-t border-current/10 py-4">
+      <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center gap-2">
+          <p className="font-semibold">{post.authorDisplayName}</p>
+          {post.authorCompanyName && (
+            <span className="border border-current/15 px-1.5 py-0.5 text-xs uppercase opacity-60">
+              {post.authorCompanyName}
+            </span>
+          )}
+          <p className="text-xs opacity-50">{new Date(post.created_at).toLocaleDateString()}</p>
+        </div>
+        <button type="button" onClick={() => setShowReport((v) => !v)} className="text-xs opacity-60 hover:opacity-100">
+          Report
+        </button>
       </div>
       <p className="mt-2 whitespace-pre-wrap text-sm">{post.body}</p>
       {post.image_url && (
@@ -57,9 +67,6 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
         </button>
         <button type="button" onClick={() => setShowComments((v) => !v)}>
           💬 {post.commentCount}
-        </button>
-        <button type="button" onClick={() => setShowReport((v) => !v)} className="ml-auto">
-          Report
         </button>
       </div>
 

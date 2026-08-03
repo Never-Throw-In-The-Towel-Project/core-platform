@@ -14,7 +14,7 @@ export default async function CompanySpacePage() {
     <CommunityFeedView
       profile={profile}
       scope="company"
-      board="feed"
+      heading="Your company"
       composerPlaceholder="Share something with your colleagues…"
       emptyMessage="Nothing here yet -- be the first from your company to post."
     />

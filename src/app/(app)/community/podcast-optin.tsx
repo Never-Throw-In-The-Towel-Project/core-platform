@@ -14,16 +14,14 @@ export function PodcastOptIn({ optedIn }: { optedIn: boolean }) {
   const [state, formAction, isPending] = useActionState(updatePodcastGuestOptIn, initialRoutineState);
 
   return (
-    <form action={formAction} className="mb-6 flex items-center justify-between rounded-lg border border-black/10 p-4 text-sm">
-      <div>
-        <p className="font-medium">Interested in sharing your story on the podcast?</p>
-        <p className="mt-1 text-xs opacity-60">Private -- only Anthony sees this list, never posted publicly.</p>
-      </div>
+    <form action={formAction} className="space-y-2 text-sm">
+      <p className="font-medium">Tell your story on the podcast</p>
+      <p className="text-xs opacity-60">Private -- only Anthony sees this list, never posted publicly.</p>
       <input type="hidden" name="optIn" value={String(!optedIn)} />
       <button
         type="submit"
         disabled={isPending}
-        className="shrink-0 rounded-md border border-black/20 px-3 py-1.5 text-xs font-semibold"
+        className="border border-current/20 px-3 py-1.5 text-xs font-semibold"
       >
         {isPending ? "…" : optedIn ? "Opted in ✓" : "I'm interested"}
       </button>

@@ -47,3 +47,38 @@ export async function updateTimezone(
   revalidatePath("/home");
   return { status: "success" };
 }
+
+const DisplayNameSchema = z.string().trim().min(1, "Please enter a name.").max(40, "Keep it under 40 characters.");
+
+/**
+ * "Users choose their own display name -- does not have to be their real
+ * name" (brief). Community-facing (see src/lib/community/queries.ts) but
+ * edited from the Community right rail, not a dedicated settings page --
+ * matches where the design reference puts it.
+ */
+export async function updateDisplayName(
+  _prevState: RoutineActionState,
+  formData: FormData
+): Promise<RoutineActionState> {
+  const session = await verifySession();
+
+  const parsed = DisplayNameSchema.safeParse(formData.get("displayName"));
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ display_name: parsed.data })
+    .eq("id", session.userId);
+
+  if (error) {
+    return { status: "error", message: "Something went wrong saving this. Please try again." };
+  }
+
+  revalidatePath("/community");
+  revalidatePath("/community/wins");
+  revalidatePath("/community/company");
+  return { status: "success" };
+}

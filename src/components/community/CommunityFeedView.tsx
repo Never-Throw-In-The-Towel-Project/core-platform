@@ -3,23 +3,27 @@ import { getComments, getPosts } from "@/lib/community/queries";
 import { PostCard } from "./PostCard";
 import { PostComposer } from "./PostComposer";
 import { CommunityGuidelines } from "./CommunityGuidelines";
-import type { CommunityBoard, CommunityScope, Profile } from "@/types/database";
+import { CommunitySidebar } from "./CommunitySidebar";
+import { CommunityRightRail } from "./CommunityRightRail";
+import type { CommunityScope, Profile } from "@/types/database";
 
 /**
- * Shared by /community, /community/wins, and /community/company -- same
- * rendering logic (guidelines gate, composer, post list) three times over
- * with only scope/board/copy differing, not three near-duplicate pages.
+ * Shared by /community and /community/company -- the design reference's
+ * three-column feed shell (Spaces + podcast on the left, the feed itself in
+ * the centre, Guidelines + your display name on the right). The Wins Board
+ * is a deliberately different, sidebar-free layout in the reference (see
+ * src/app/(app)/community/wins/page.tsx), so it doesn't use this.
  */
 export async function CommunityFeedView({
   profile,
   scope,
-  board,
+  heading,
   composerPlaceholder,
   emptyMessage,
 }: {
   profile: Profile;
   scope: CommunityScope;
-  board: CommunityBoard;
+  heading: string;
   composerPlaceholder: string;
   emptyMessage: string;
 }) {
@@ -28,24 +32,43 @@ export async function CommunityFeedView({
   }
 
   const supabase = await createClient();
-  const posts = await getPosts(supabase, {
-    scope,
-    board,
-    companyId: profile.company_id,
-    viewerUserId: profile.id,
-  });
+
+  const [posts, { data: company }, { data: podcastEpisode }] = await Promise.all([
+    getPosts(supabase, { scope, board: "feed", companyId: profile.company_id, viewerUserId: profile.id }),
+    supabase.from("companies").select("name").eq("id", profile.company_id).maybeSingle(),
+    supabase
+      .from("podcast_episodes")
+      .select("title, embed_url")
+      .order("release_date", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
   const commentsByPost = await Promise.all(posts.map((post) => getComments(supabase, post.id)));
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-12">
-      <PostComposer scope={scope} board={board} placeholder={composerPlaceholder} />
-      <div className="mt-6 space-y-4">
-        {posts.length === 0 && <p className="text-sm opacity-60">{emptyMessage}</p>}
-        {posts.map((post, i) => (
-          <PostCard key={post.id} post={post} comments={commentsByPost[i]} />
-        ))}
+    <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 px-6 py-10 lg:grid-cols-[200px_1fr_240px]">
+      <CommunitySidebar
+        active={scope === "company" ? "company" : "feed"}
+        companyName={company?.name ?? null}
+        podcastEpisode={podcastEpisode}
+        podcastOptedIn={profile.podcast_guest_opt_in}
+      />
+
+      <div>
+        <p className="text-xs font-semibold tracking-wide uppercase opacity-60">{heading}</p>
+        <div className="mt-3">
+          <PostComposer scope={scope} board="feed" placeholder={composerPlaceholder} />
+        </div>
+        <div className="mt-2">
+          {posts.length === 0 && <p className="py-6 text-sm opacity-60">{emptyMessage}</p>}
+          {posts.map((post, i) => (
+            <PostCard key={post.id} post={post} comments={commentsByPost[i]} />
+          ))}
+        </div>
       </div>
+
+      <CommunityRightRail displayName={profile.display_name} />
     </div>
   );
 }
