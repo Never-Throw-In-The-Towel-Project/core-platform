@@ -4,8 +4,7 @@ import Link from "next/link";
 import { resolveCompanyForHost } from "@/lib/tenant/resolve";
 
 // "Trusted by" strip -- partner/client logos supplied by Anthony (NTITT
-// Logos/ at repo root). White chips so each logo reads regardless of its
-// own background/format (mix of transparent PNG, opaque PNG, and JPEG).
+// Logos/ at repo root).
 const PARTNER_LOGOS = [
   { src: "/partners/aldi.png", name: "ALDI Australia" },
   { src: "/partners/amazon.png", name: "Amazon" },
@@ -50,29 +49,50 @@ const TESTIMONIALS = [
   },
 ];
 
+// Each offering reuses one of the 5 real event/founder photos supplied by
+// Anthony (public/site/*.jpg) -- matches neverthrowinthetowel.com's actual
+// pattern of a real photo atop every card, not text-only tiles. A couple of
+// images repeat across cards/sections since there are only 5 real photos
+// for 7 slots on this page -- acceptable, real sites do this too.
 const OFFERINGS = [
   {
     title: "Pop Up Barbershop",
     blurb: "Men need a safe space to talk with no pressure or stigma -- the pop up barbershop does exactly that.",
+    image: "/site/community-brotherhood.jpg",
   },
   {
     title: "The Never Throw in the Towel Podcast",
     blurb: "Each episode, we sit down with guests who've faced real challenges.",
+    image: "/site/podcast-recording.jpg",
     href: "/podcast",
   },
   {
     title: "Free Monthly Meet-Ups in Nature",
     blurb: "Every month, we bring people together outdoors for something simple but incredibly powerful: connection.",
+    image: "/site/community-group.jpg",
   },
   {
     title: "The Thrive Project",
     blurb: "Walk, talk, breathe, and reset with Anthony -- a full day in nature tailored to you.",
+    image: "/site/hero-boxing.jpg",
   },
   {
     title: "Keynote Speaking",
     blurb: "Anthony also delivers standalone keynotes, fully tailored to suit your timescale and audience.",
+    image: "/site/founder-speaking.jpg",
+    href: "/documentary",
   },
 ];
+
+const STAND_FOR_POINTS = ["Let's keep talking", "Let's keep showing up", "Let's keep doing the work"];
+
+function CheckBadge() {
+  return (
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-accent text-[10px] font-bold text-brand-accent-foreground">
+      ✓
+    </span>
+  );
+}
 
 // Public landing page -- the free "taster" of a platform whose actual
 // content (daily routines, community, the video library) is subscription-
@@ -80,77 +100,72 @@ const OFFERINGS = [
 // signing up for, built entirely around Anthony's own lived experience and
 // process for overcoming/prioritising men's mental health, and guests'
 // first-hand experience on specific topics -- not a generic wellness pitch.
+//
+// Section backgrounds deliberately alternate light/dark (bg-background vs
+// bg-brand-background), matching neverthrowinthetowel.com's actual layout
+// -- see (marketing)/layout.tsx's comment for why this page can safely
+// invert the app's usual all-dark default.
 export default async function MarketingHomePage() {
   const headerList = await headers();
   const host = headerList.get("host") ?? "";
   const company = await resolveCompanyForHost(host);
 
   return (
-    <main className="flex flex-1 flex-col items-center gap-20 px-6 py-16 text-center">
-      <div className="flex flex-col items-center gap-6">
-        <div className="flex items-center gap-4">
-          <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={80} height={82} preload />
-          {company?.logo_url && (
-            <>
-              <span className="text-2xl opacity-40">×</span>
-              <div className="flex h-16 w-28 items-center justify-center rounded-md bg-white p-3">
-                <Image
-                  src={company.logo_url}
-                  alt={company.name}
-                  width={96}
-                  height={40}
-                  style={{ width: "auto", height: "auto", maxWidth: "100%", maxHeight: "100%" }}
-                />
-              </div>
-            </>
-          )}
+    <main className="flex flex-1 flex-col">
+      <section className="bg-brand-background px-6 py-20 text-center text-brand-foreground">
+        <div className="mx-auto flex max-w-2xl flex-col items-center gap-6">
+          <div className="flex items-center gap-4">
+            <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={96} height={98} preload />
+            {company?.logo_url && (
+              <>
+                <span className="text-2xl opacity-40">×</span>
+                <div className="flex h-16 w-28 items-center justify-center rounded-md bg-white p-3">
+                  <Image
+                    src={company.logo_url}
+                    alt={company.name}
+                    width={96}
+                    height={40}
+                    style={{ width: "auto", height: "auto", maxWidth: "100%", maxHeight: "100%" }}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight uppercase sm:text-5xl">
+            {company ? `${company.name} × Never Throw In The Towel` : "Never Throw In The Towel Project"}
+          </h1>
+          {!company && <p className="text-xl tracking-[0.3em] uppercase opacity-90">Keep on Living</p>}
+          <p className="max-w-md text-brand-foreground/80">
+            {company?.welcome_copy ??
+              "A movement built on resilience, lived experience, and the power of community. From barber chairs to cold water therapy — we're helping people keep going, no matter what life throws their way."}
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/login"
+              className="rounded-md bg-brand-accent px-6 py-3 font-semibold text-brand-accent-foreground"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/documentary"
+              className="rounded-md border border-white/30 px-6 py-3 font-semibold opacity-90 hover:opacity-100"
+            >
+              Watch the Documentary
+            </Link>
+          </div>
         </div>
-        <h1 className="text-4xl font-bold tracking-tight">
-          {company ? `${company.name} × Never Throw In The Towel` : "Never Throw In The Towel"}
-        </h1>
-        <p className="max-w-md text-brand-foreground/80">
-          {company?.welcome_copy ??
-            "Keep on Living. A daily wellbeing framework built around journaling, habit tracking, community, and video content."}
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <Link
-            href="/login"
-            className="rounded-md bg-brand-accent px-6 py-3 font-semibold text-brand-accent-foreground"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/documentary"
-            className="rounded-md border border-white/20 px-6 py-3 font-semibold opacity-90 hover:opacity-100"
-          >
-            Watch the Documentary
-          </Link>
-        </div>
-      </div>
-
-      <div className="w-full max-w-md overflow-hidden rounded-xl">
-        <Image
-          src="/site/hero-boxing.jpg"
-          alt="Never Throw In The Towel"
-          width={953}
-          height={1326}
-          className="h-auto w-full"
-          preload
-        />
-      </div>
+      </section>
 
       {/* Only on the default (non-branded) marketing page -- a company's
           own co-branded portal shouldn't show a generic partner wall. */}
       {!company && (
-        <div className="flex flex-col items-center gap-6">
-          <p className="text-xs font-semibold tracking-widest text-brand-accent uppercase">
-            Trusted by teams at
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-4">
+        <section className="bg-background px-6 py-16 text-center text-foreground">
+          <h2 className="text-xl font-bold">Companies we&apos;ve worked with</h2>
+          <div className="mx-auto mt-8 flex max-w-4xl flex-wrap items-center justify-center gap-4">
             {PARTNER_LOGOS.map((partner) => (
               <div
                 key={partner.src}
-                className="flex h-16 w-32 items-center justify-center rounded-md bg-white p-3"
+                className="flex h-16 w-32 items-center justify-center rounded-md border border-black/10 p-3"
               >
                 <Image
                   src={partner.src}
@@ -162,133 +177,151 @@ export default async function MarketingHomePage() {
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
-      <div className="flex w-full max-w-3xl flex-col items-center gap-8">
-        <div>
-          <p className="text-xs font-semibold tracking-widest text-brand-accent uppercase">About the project</p>
-          <h2 className="mt-2 text-2xl font-bold">Anthony&apos;s own story, not a script</h2>
-        </div>
-        <div className="w-full max-w-sm overflow-hidden rounded-xl">
-          <Image
-            src="/site/founder-speaking.jpg"
-            alt="Anthony Hutton speaking on Never Throw In The Towel"
-            width={1200}
-            height={1486}
-            className="h-auto w-full object-cover"
-          />
-        </div>
-        <div className="space-y-4 text-left text-sm leading-relaxed text-brand-foreground/80">
-          {ABOUT_PARAGRAPHS.map((paragraph) => (
-            <p key={paragraph.slice(0, 24)}>{paragraph}</p>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex w-full max-w-3xl flex-col items-center gap-8">
-        <p className="text-xs font-semibold tracking-widest text-brand-accent uppercase">What people are saying</p>
-        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
-          {TESTIMONIALS.map((testimonial) => (
-            <div key={testimonial.name} className="flex flex-col gap-3 rounded-lg border border-white/10 p-5 text-left">
-              <p className="text-sm text-brand-foreground/80">{testimonial.quote}</p>
-              <div>
-                <p className="text-sm font-semibold">{testimonial.name}</p>
-                <p className="text-brand-accent" aria-label="5 out of 5 stars">
-                  ★★★★★
-                </p>
-              </div>
+      <section className="bg-background px-6 py-16 text-foreground">
+        <div className="mx-auto grid max-w-4xl grid-cols-1 items-center gap-10 md:grid-cols-2">
+          <div>
+            <h2 className="text-3xl font-bold">About the Project</h2>
+            <div className="mt-3 h-1 w-16 bg-brand-accent" />
+            <div className="mt-6 space-y-4 text-sm leading-relaxed text-foreground/80">
+              {ABOUT_PARAGRAPHS.map((paragraph) => (
+                <p key={paragraph.slice(0, 24)}>{paragraph}</p>
+              ))}
             </div>
-          ))}
+          </div>
+          <div className="overflow-hidden rounded-xl">
+            <Image
+              src="/site/founder-speaking.jpg"
+              alt="Anthony Hutton speaking on Never Throw In The Towel"
+              width={1200}
+              height={1486}
+              className="h-full w-full object-cover"
+            />
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div className="flex w-full max-w-3xl flex-col items-center gap-8">
-        <div>
-          <h2 className="text-2xl font-bold">Real Spaces. Real Stories. Real Support.</h2>
-          <p className="mt-2 text-sm text-brand-foreground/70">
+      <section className="bg-brand-background px-6 py-16 text-brand-foreground">
+        <div className="mx-auto max-w-4xl text-center">
+          <h2 className="text-3xl font-bold">What People Are Saying</h2>
+          <p className="mx-auto mt-3 max-w-xl text-sm text-brand-foreground/70">
+            From global brands to local communities, Anthony&apos;s work has left a lasting impact. Here&apos;s how
+            his talks, coaching, and retreats have inspired change, built trust, and opened up life-changing
+            conversations.
+          </p>
+          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {TESTIMONIALS.map((testimonial) => (
+              <div key={testimonial.name} className="flex flex-col gap-3 rounded-lg bg-background p-5 text-left text-foreground">
+                <p className="text-sm text-foreground/80">{testimonial.quote}</p>
+                <div>
+                  <p className="text-sm font-semibold">{testimonial.name}</p>
+                  <p className="text-brand-accent" aria-label="5 out of 5 stars">
+                    ★★★★★
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-background px-6 py-16 text-foreground">
+        <div className="mx-auto max-w-4xl text-center">
+          <h2 className="text-3xl font-bold">Real Spaces. Real Stories. Real Support.</h2>
+          <p className="mx-auto mt-3 max-w-xl text-sm text-foreground/70">
             Not everyone wants to talk — and that&apos;s okay. We&apos;ve created different ways for people to
             connect, reset, and open up in a way that feels natural.
           </p>
+          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {OFFERINGS.map((offering) => (
+              <div key={offering.title} className="flex flex-col overflow-hidden rounded-xl border border-black/10 text-left">
+                <div className="aspect-video w-full overflow-hidden">
+                  <Image
+                    src={offering.image}
+                    alt={offering.title}
+                    width={800}
+                    height={450}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="flex flex-1 flex-col gap-2 p-5">
+                  <p className="font-semibold">{offering.title}</p>
+                  <p className="text-sm text-foreground/70">{offering.blurb}</p>
+                  {offering.href && (
+                    <Link href={offering.href} className="mt-auto text-sm font-medium text-brand-accent underline">
+                      Learn More
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
-          {OFFERINGS.map((offering) => (
-            <div key={offering.title} className="flex flex-col gap-2 rounded-lg border border-white/10 p-5 text-left">
-              <p className="font-semibold">{offering.title}</p>
-              <p className="text-sm text-brand-foreground/70">{offering.blurb}</p>
-              {offering.href && (
-                <Link href={offering.href} className="text-sm font-medium text-brand-accent underline">
-                  Learn More
-                </Link>
-              )}
+      </section>
+
+      <section className="bg-brand-background px-6 py-16 text-brand-foreground">
+        <div className="mx-auto grid max-w-4xl grid-cols-1 items-center gap-10 md:grid-cols-2">
+          <div>
+            <h2 className="text-3xl font-bold">This is What We Stand For</h2>
+            <div className="mt-6 space-y-3 text-sm text-brand-foreground/80">
+              <p>At the core of Never Throw in the Towel is a simple message: keep going.</p>
+              <p>Life can be heavy. But we&apos;re not meant to carry it alone.</p>
+              <p>
+                Whether you join us for a free monthly meet-up, become part of The Thrive Project community, or book
+                a one-to-one day in nature — know this:
+              </p>
+              <p>
+                You&apos;ll be supported. You&apos;ll be heard. And you&apos;ll be reminded that you&apos;re not
+                alone.
+              </p>
             </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex w-full max-w-2xl flex-col items-center gap-4 rounded-xl border border-white/10 p-8">
-        <h2 className="text-xl font-bold">This is What We Stand For</h2>
-        <div className="space-y-3 text-sm text-brand-foreground/80">
-          <p>At the core of Never Throw in the Towel is a simple message: keep going.</p>
-          <p>Life can be heavy. But we&apos;re not meant to carry it alone.</p>
-          <p>
-            Whether you join us for a free monthly meet-up, become part of The Thrive Project community, or book a
-            one-to-one day in nature — know this:
-          </p>
-          <p>You&apos;ll be supported. You&apos;ll be heard. And you&apos;ll be reminded that you&apos;re not alone.</p>
-        </div>
-        <div className="mt-2 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
-          <span>✓ Let&apos;s keep talking</span>
-          <span>✓ Let&apos;s keep showing up</span>
-          <span>✓ Let&apos;s keep doing the work</span>
-        </div>
-      </div>
-
-      {!company && (
-        <>
-          <div className="flex flex-col items-center gap-6">
-            <p className="text-xs font-semibold tracking-widest text-brand-accent uppercase">From our events</p>
-            <div className="grid w-full max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="overflow-hidden rounded-xl">
-                <Image
-                  src="/site/community-group.jpg"
-                  alt="Never Throw In The Towel Project community"
-                  width={1200}
-                  height={690}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="overflow-hidden rounded-xl">
-                <Image
-                  src="/site/community-brotherhood.jpg"
-                  alt="Never Throw In The Towel Project community event"
-                  width={1200}
-                  height={793}
-                  className="h-full w-full object-cover"
-                />
-              </div>
+            <div className="mt-6 flex flex-col gap-3 text-sm">
+              {STAND_FOR_POINTS.map((point) => (
+                <div key={point} className="flex items-center gap-2">
+                  <CheckBadge />
+                  <span>{point}</span>
+                </div>
+              ))}
             </div>
           </div>
+          <div className="overflow-hidden rounded-xl">
+            <Image
+              src="/site/hero-boxing.jpg"
+              alt="Never Throw In The Towel"
+              width={953}
+              height={1326}
+              className="h-full w-full object-cover"
+            />
+          </div>
+        </div>
+      </section>
 
-          <div className="flex w-full max-w-3xl flex-col items-center gap-6">
-            <p className="text-xs font-semibold tracking-widest text-brand-accent uppercase">The podcast</p>
-            <div className="overflow-hidden rounded-xl">
+      {!company && (
+        <section className="bg-background px-6 py-16 text-center text-foreground">
+          <div className="mx-auto max-w-3xl">
+            <h2 className="text-xl font-bold">The Podcast</h2>
+            <div className="mt-8 overflow-hidden rounded-xl">
               <Image
                 src="/site/podcast-recording.jpg"
                 alt="Recording the Never Throw In The Towel podcast"
                 width={1024}
-                height={1536}
+                height={576}
                 className="h-full w-full object-cover"
               />
             </div>
-            <Link href="/podcast" className="rounded-md bg-brand-accent px-6 py-3 font-semibold text-brand-accent-foreground">
+            <Link
+              href="/podcast"
+              className="mt-8 inline-block rounded-md bg-brand-accent px-6 py-3 font-semibold text-brand-accent-foreground"
+            >
               Hear the stories
             </Link>
           </div>
-        </>
+        </section>
       )}
 
-      <footer className="w-full border-t border-white/10 pt-8 pb-4 text-xs text-brand-foreground/50">
+      <footer className="border-t border-black/10 bg-background px-6 py-8 text-center text-xs text-foreground/60">
         <p className="font-semibold tracking-wide uppercase">Never Throw In The Towel — Keep On Living</p>
         <p className="mt-2">© {new Date().getFullYear()} Never Throw In The Towel Project. All rights reserved.</p>
       </footer>

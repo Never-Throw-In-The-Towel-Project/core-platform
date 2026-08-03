@@ -8,20 +8,27 @@ import Image from "next/image";
  * doesn't need one. Kept deliberately small: only real pages with real
  * content link here (no About/Events/Merchandise/Contact yet -- those need
  * source copy from Anthony before they're built, not invented copy).
+ *
+ * Light background here (bg-background/text-foreground), overriding the
+ * root layout's dark bg-brand-background/text-brand-foreground default --
+ * matches neverthrowinthetowel.com's actual look (predominantly white, with
+ * strategic dark sections for emphasis, not all-dark). The logged-in app
+ * ((app)/(admin) layouts) is untouched and stays dark; this override is
+ * scoped to this route group only.
  */
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <header className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+    <div className="flex min-h-full flex-1 flex-col bg-background text-foreground">
+      <header className="flex items-center justify-between border-b border-black/10 bg-background px-6 py-4">
         <Link href="/" className="flex items-center gap-2">
-          <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={32} height={33} />
+          <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={32} height={33} className="invert" />
           <span className="text-sm font-semibold tracking-wide uppercase">Never Throw In The Towel</span>
         </Link>
         <nav className="flex items-center gap-6 text-sm">
-          <Link href="/documentary" className="opacity-80 hover:opacity-100">
+          <Link href="/documentary" className="opacity-70 hover:opacity-100">
             Documentary
           </Link>
-          <Link href="/podcast" className="opacity-80 hover:opacity-100">
+          <Link href="/podcast" className="opacity-70 hover:opacity-100">
             Podcast
           </Link>
           <Link

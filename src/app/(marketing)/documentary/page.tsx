@@ -36,7 +36,7 @@ export default function DocumentaryPage() {
         <div className="space-y-4">
           <h2 className="text-xl font-bold">After the Cameras Stopped</h2>
           <p className="text-sm font-semibold text-brand-accent">The Documentary That Changed the Conversation</p>
-          <p className="text-sm leading-relaxed text-brand-foreground/80">
+          <p className="text-sm leading-relaxed text-foreground/80">
             Few people understand the rise and fall that can come with fame quite like Anthony Hutton. In 2005, at
             just 23 years old, Anthony won Big Brother, catapulting him into the public eye almost overnight. Within
             months he secured a quarter of a million pounds in magazine deals and extended income from TV
@@ -44,13 +44,13 @@ export default function DocumentaryPage() {
             journey from fame to recovery, and eventually to a real headspace, is the heart of this powerful
             documentary.
           </p>
-          <p className="text-sm leading-relaxed text-brand-foreground/80">
+          <p className="text-sm leading-relaxed text-foreground/80">
             This film explores what happened after Anthony&apos;s time in the limelight. It traces the extreme highs
             of addiction, the lows of depression, and loss of identity, and ultimately his recovery to rebuild life
             from the ground up. Alongside Anthony&apos;s lived experience, the documentary features insights from
             other reality TV personalities who reflect on the lasting impact of sudden public exposure.
           </p>
-          <p className="text-sm leading-relaxed text-brand-foreground/80">
+          <p className="text-sm leading-relaxed text-foreground/80">
             More than a personal story, this film lays the foundation for Anthony&apos;s life-changing work around
             men&apos;s mental health, and by the legacy of his grandmother, Anthony founded Never Throw In The Towel
             Project
@@ -60,7 +60,7 @@ export default function DocumentaryPage() {
         </div>
         <div className="space-y-3">
           <YouTubeEmbed youtubeId={DOCUMENTARY_TRAILER_ID} title="Reality TV Broke Us -- Never Throw In The Towel" />
-          <p className="text-center text-xs text-brand-foreground/60">Available to rent or buy on Amazon</p>
+          <p className="text-center text-xs text-foreground/60">Available to rent or buy on Amazon</p>
         </div>
       </div>
 
@@ -77,17 +77,17 @@ export default function DocumentaryPage() {
         <div className="space-y-4">
           <h2 className="text-xl font-bold">Never Throw In The Towel</h2>
           <p className="text-sm font-semibold text-brand-accent">Turning Hardship Into Impact</p>
-          <p className="text-sm leading-relaxed text-brand-foreground/80">
+          <p className="text-sm leading-relaxed text-foreground/80">
             &quot;Never Throw in The Towel&quot; is a movement built on resilience, lived experience, and the power
             of community. From barber chairs to cold water therapy, the project helps people keep going no matter
             what life throws their way.
           </p>
-          <p className="text-sm leading-relaxed text-brand-foreground/80">
+          <p className="text-sm leading-relaxed text-foreground/80">
             After his time in the public eye, Anthony trained as a barber and discovered that the barber chair could
             be a powerful space for men to open up naturally, offering a comfortable and natural environment to talk
             without pressure.
           </p>
-          <p className="text-sm leading-relaxed text-brand-foreground/80">
+          <p className="text-sm leading-relaxed text-foreground/80">
             Today Anthony is a mental health advocate and keynote speaker. His work spans retreats that tackle
             stigma, open honest conversation, all with the central theme that talking is a strength, not a weakness.
           </p>
@@ -96,7 +96,7 @@ export default function DocumentaryPage() {
 
       <div className="mt-16">
         <h2 className="text-xl font-bold">What the Documentary Leads To</h2>
-        <p className="mt-2 text-sm leading-relaxed text-brand-foreground/80">
+        <p className="mt-2 text-sm leading-relaxed text-foreground/80">
           The documentary doesn&apos;t just recount a personal journey. It provides context for why Anthony&apos;s
           message matters now, and how it has translated into real-world impact through:
         </p>
@@ -104,11 +104,11 @@ export default function DocumentaryPage() {
           {DOCUMENTARY_LEADS_TO.map((item) => (
             <li key={item.title}>
               <p className="font-semibold">{item.title}</p>
-              <p className="text-sm text-brand-foreground/70">{item.body}</p>
+              <p className="text-sm text-foreground/70">{item.body}</p>
             </li>
           ))}
         </ul>
-        <p className="mt-8 text-sm leading-relaxed text-brand-foreground/80">
+        <p className="mt-8 text-sm leading-relaxed text-foreground/80">
           This film isn&apos;t just about celebrity or fame. It&apos;s about identity, purpose, community, and the
           courage it takes to keep going when life feels overwhelming. It&apos;s an invitation to watch, reflect, and
           engage with a message that&apos;s helping people across the UK and beyond.
