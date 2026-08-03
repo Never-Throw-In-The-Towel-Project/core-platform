@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getMondayOfWeek } from "@/lib/routines/dates";
+import { getMondayOfWeek, getNextMonday } from "@/lib/routines/dates";
 import type { ReviewType, Weekday } from "@/types/database";
 
 // Every function here takes a Supabase client rather than creating its own,
@@ -34,6 +34,13 @@ export interface WeeklyParticipation {
   morningPercent: number | null;
   nightPercent: number | null;
   themedPercent: number | null;
+  /**
+   * Raw eligible_count for the morning segment that week -- morning/night
+   * routines apply to every enrolled employee every day, so this doubles as
+   * a real, already-aggregate-safe headcount (not a private figure; it's
+   * the same eligible_count already used to compute morningPercent above).
+   */
+  morningEligible: number;
 }
 
 export interface WeekdayEngagement {
@@ -120,6 +127,7 @@ export async function getWeeklyParticipation(
       morningPercent: percentage(bucket.morning.c, bucket.morning.e),
       nightPercent: percentage(bucket.night.c, bucket.night.e),
       themedPercent: percentage(bucket.themed.c, bucket.themed.e),
+      morningEligible: bucket.morning.e,
     };
   });
 }
@@ -150,6 +158,65 @@ export async function getWeekdayEngagement(
     const bucket = byWeekday.get(weekday);
     return { weekday, percent: bucket ? percentage(bucket.c, bucket.e) : null };
   });
+}
+
+/**
+ * Same shape as getWeekdayEngagement, but scoped to one real week
+ * (weekStartDate's Monday through Friday) rather than the company's entire
+ * history -- what the design reference's "Completion by day · this week"
+ * actually means, as distinct from the all-time weekday breakdown above.
+ */
+export async function getWeekdayEngagementForWeek(
+  supabase: AnySupabaseClient,
+  companyId: string,
+  weekStartDate: string
+): Promise<WeekdayEngagement[]> {
+  const weekEndExclusive = getNextMonday(new Date(`${weekStartDate}T00:00:00Z`), "UTC");
+
+  const { data } = await supabase
+    .from("company_daily_participation")
+    .select("weekday, completed_count, eligible_count")
+    .eq("company_id", companyId)
+    .eq("segment", "themed_checkin")
+    .gte("entry_date", weekStartDate)
+    .lt("entry_date", weekEndExclusive);
+
+  const byWeekday = new Map<Weekday, { c: number; e: number }>();
+  for (const row of data ?? []) {
+    const weekday = row.weekday as Weekday | null;
+    if (!weekday) continue;
+    if (!byWeekday.has(weekday)) byWeekday.set(weekday, { c: 0, e: 0 });
+    const bucket = byWeekday.get(weekday)!;
+    bucket.c += row.completed_count as number;
+    bucket.e += row.eligible_count as number;
+  }
+
+  return WEEKDAY_ORDER.map((weekday) => {
+    const bucket = byWeekday.get(weekday);
+    return { weekday, percent: bucket ? percentage(bucket.c, bucket.e) : null };
+  });
+}
+
+export interface TrendDelta {
+  points: number;
+  comparedToWeekNumber: number;
+}
+
+/**
+ * The signed point difference between the latest displayed week's overall
+ * completion rate and the earliest one -- "+9 points vs Week 8" in the
+ * design reference, generalised: whatever range of weeks is being shown,
+ * not a hardcoded 4-week lookback.
+ */
+export function computeTrendDelta(weeks: WeeklyParticipation[]): TrendDelta | null {
+  if (weeks.length < 2) return null;
+
+  const overallByWeek = weeks.map((week) => average([week.morningPercent, week.nightPercent, week.themedPercent]));
+  const last = overallByWeek[overallByWeek.length - 1];
+  const first = overallByWeek[0];
+  if (last === null || first === null) return null;
+
+  return { points: Math.round(last - first), comparedToWeekNumber: weeks[0].weekNumber };
 }
 
 /**
