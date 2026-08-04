@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { verifySession } from "@/lib/auth/dal";
 import { DisplayNameSchema } from "./settings";
@@ -18,6 +19,17 @@ const TimeSchema = z
  * There's no separate "step 4" screen: the reference's own step-3 button
  * ("Finish setup") links straight to the Today screen, so landing there
  * *is* the fourth step.
+ *
+ * Redirects itself (rather than returning "success" for the client to
+ * router.push) -- redirecting here was previously left to the client via
+ * useEffect, but this action's own revalidatePath("/home") call makes
+ * Next.js re-render /onboarding (the route the action was invoked from) in
+ * the same response, and that re-render now sees onboarding_completed=true
+ * and throws its own redirect("/home") from the page component -- racing
+ * the client's router.push and crashing. Calling redirect() here instead
+ * is the documented pattern (node_modules/next/dist/docs/.../redirect.md's
+ * own Server Action example) and it's the only code path that runs, so the
+ * race can't happen.
  */
 export async function finishOnboarding(
   _prevState: RoutineActionState,
@@ -59,10 +71,9 @@ export async function finishOnboarding(
     return { status: "error", message: "Something went wrong saving this. Please try again." };
   }
 
-  revalidatePath("/home");
   revalidatePath("/settings");
   revalidatePath("/community");
   revalidatePath("/community/wins");
   revalidatePath("/community/company");
-  return { status: "success" };
+  redirect("/home");
 }
