@@ -9,13 +9,15 @@ export async function GET(request: NextRequest) {
   const next = requestedNext && isSafeRedirectPath(requestedNext) ? requestedNext : "/home";
 
   if (code) {
-    const supabase = await createClient();
-    // Wrapped in try/catch: auth-js (node_modules/@supabase/auth-js) only
-    // returns a failure as `{ error }` when it recognizes it as an
-    // AuthError -- anything else is re-thrown, which would otherwise crash
-    // this route instead of falling through to the existing /login?error=auth
-    // redirect below.
+    // Wrapped in try/catch: createClient() throws synchronously if the
+    // URL/key are missing or malformed (node_modules/@supabase/ssr/dist/
+    // main/createServerClient.js), and auth-js (node_modules/@supabase/
+    // auth-js) only returns a failure as `{ error }` when it recognizes it
+    // as an AuthError -- anything else is re-thrown. Either would otherwise
+    // crash this route instead of falling through to the existing
+    // /login?error=auth redirect below.
     try {
+      const supabase = await createClient();
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (!error) {
         return NextResponse.redirect(`${origin}${next}`);

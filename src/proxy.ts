@@ -48,41 +48,44 @@ export async function proxy(request: NextRequest) {
 
   let response = NextResponse.next({ request: { headers: requestHeaders } });
 
-  // Standard Supabase SSR proxy/middleware pattern: create a client bound to
-  // this request's cookies, call getUser() (revalidates against Supabase
-  // Auth, not just an optimistic cookie-presence check), and propagate any
-  // refreshed session cookies onto the response.
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          for (const { name, value } of cookiesToSet) {
-            request.cookies.set(name, value);
-          }
-          response = NextResponse.next({ request: { headers: requestHeaders } });
-          for (const { name, value, options } of cookiesToSet) {
-            response.cookies.set(name, value, options);
-          }
-        },
-      },
-    }
-  );
-
-  // Wrapped in try/catch: auth-js only resolves getUser() normally when it
-  // recognizes a failure as an AuthError, and re-throws anything it
-  // doesn't (see lib/auth/dal.ts's verifySession(), which has the same
-  // guard for the identical reason). Unwrapped here, an unrecognized
-  // failure crashed to Next's generic error page on every single protected
-  // route, since this runs on nearly every request via the matcher below --
-  // not just the one page a user happened to be on. Treated the same as no
-  // session: redirect to /login rather than propagate the exception.
+  // Wrapped in try/catch: createServerClient() throws synchronously if the
+  // URL/key are missing or malformed
+  // (node_modules/@supabase/ssr/dist/main/createServerClient.js), and
+  // auth-js's getUser() only resolves normally when it recognizes a failure
+  // as an AuthError, re-throwing anything it doesn't (see lib/auth/dal.ts's
+  // verifySession(), which has the same guard for the identical reason).
+  // Unwrapped, either crashed to Next's generic error page on every single
+  // protected route, since this runs on nearly every request via the
+  // matcher below -- not just the one page a user happened to be on.
+  // Treated the same as no session: redirect to /login rather than
+  // propagate the exception.
   let user;
   try {
+    // Standard Supabase SSR proxy/middleware pattern: create a client bound
+    // to this request's cookies, call getUser() (revalidates against
+    // Supabase Auth, not just an optimistic cookie-presence check), and
+    // propagate any refreshed session cookies onto the response.
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            for (const { name, value } of cookiesToSet) {
+              request.cookies.set(name, value);
+            }
+            response = NextResponse.next({ request: { headers: requestHeaders } });
+            for (const { name, value, options } of cookiesToSet) {
+              response.cookies.set(name, value, options);
+            }
+          },
+        },
+      }
+    );
+
     const {
       data: { user: authUser },
     } = await supabase.auth.getUser();
