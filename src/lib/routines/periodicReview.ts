@@ -53,19 +53,29 @@ export async function getPendingPeriodicReview(
   userId: string,
   activeDayCount: number
 ): Promise<ReviewType | null> {
-  const supabase = await createClient("private");
+  // See dayState.ts's getActiveDayCount comment: createClient() can throw
+  // synchronously, and this runs in /home's render path, the universal
+  // post-login/post-onboarding landing page. Degrading to "no review due"
+  // is the safe direction -- it defers the review prompt to the next
+  // successful load rather than blocking the whole home screen on a
+  // transient failure.
+  try {
+    const supabase = await createClient("private");
 
-  const { data: completed } = await supabase
-    .from("periodic_reviews")
-    .select("review_type")
-    .eq("user_id", userId)
-    .not("completed_at", "is", null);
+    const { data: completed } = await supabase
+      .from("periodic_reviews")
+      .select("review_type")
+      .eq("user_id", userId)
+      .not("completed_at", "is", null);
 
-  const done = new Set((completed ?? []).map((r) => r.review_type as ReviewType));
+    const done = new Set((completed ?? []).map((r) => r.review_type as ReviewType));
 
-  if (activeDayCount >= THRESHOLDS["90_day"] && !done.has("90_day")) return "90_day";
-  if (activeDayCount >= THRESHOLDS["30_day"] && !done.has("30_day")) return "30_day";
-  return null;
+    if (activeDayCount >= THRESHOLDS["90_day"] && !done.has("90_day")) return "90_day";
+    if (activeDayCount >= THRESHOLDS["30_day"] && !done.has("30_day")) return "30_day";
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getHabitSummary(
