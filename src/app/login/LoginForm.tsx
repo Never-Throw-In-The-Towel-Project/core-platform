@@ -1,12 +1,28 @@
 "use client";
 
-import { useActionState } from "react";
-import { signInWithMagicLink, type MagicLinkState } from "@/lib/actions/auth";
+import { useActionState, useState } from "react";
+import {
+  signInWithMagicLink,
+  signInWithPassword,
+  type MagicLinkState,
+  type PasswordLoginState,
+} from "@/lib/actions/auth";
 
-const initialState: MagicLinkState = { status: "idle" };
+const initialMagicLinkState: MagicLinkState = { status: "idle" };
+const initialPasswordState: PasswordLoginState = { status: "idle" };
 
 export function LoginForm({ next }: { next?: string }) {
-  const [state, formAction, isPending] = useActionState(signInWithMagicLink, initialState);
+  const [mode, setMode] = useState<"magic-link" | "password">("magic-link");
+
+  return mode === "magic-link" ? (
+    <MagicLinkForm next={next} onUsePassword={() => setMode("password")} />
+  ) : (
+    <PasswordForm next={next} onUseMagicLink={() => setMode("magic-link")} />
+  );
+}
+
+function MagicLinkForm({ next, onUsePassword }: { next?: string; onUsePassword: () => void }) {
+  const [state, formAction, isPending] = useActionState(signInWithMagicLink, initialMagicLinkState);
 
   if (state.status === "sent") {
     return (
@@ -35,6 +51,48 @@ export function LoginForm({ next }: { next?: string }) {
         className="rounded-md bg-brand-accent px-4 py-2 font-semibold text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Sending…" : "Send sign-in link"}
+      </button>
+      <button type="button" onClick={onUsePassword} className="text-sm opacity-70 underline">
+        Sign in with a password instead
+      </button>
+    </form>
+  );
+}
+
+function PasswordForm({ next, onUseMagicLink }: { next?: string; onUseMagicLink: () => void }) {
+  const [state, formAction, isPending] = useActionState(signInWithPassword, initialPasswordState);
+
+  return (
+    <form action={formAction} className="flex w-full max-w-sm flex-col gap-3">
+      {next && <input type="hidden" name="next" value={next} />}
+      <label className="text-sm">
+        Email
+        <input
+          name="email"
+          type="email"
+          required
+          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+        />
+      </label>
+      <label className="text-sm">
+        Password
+        <input
+          name="password"
+          type="password"
+          required
+          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+        />
+      </label>
+      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
+      <button
+        type="submit"
+        disabled={isPending}
+        className="rounded-md bg-brand-accent px-4 py-2 font-semibold text-brand-accent-foreground disabled:opacity-50"
+      >
+        {isPending ? "Signing in…" : "Sign in"}
+      </button>
+      <button type="button" onClick={onUseMagicLink} className="text-sm opacity-70 underline">
+        Use a sign-in link instead
       </button>
     </form>
   );

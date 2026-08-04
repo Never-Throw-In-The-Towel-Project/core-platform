@@ -3,10 +3,11 @@
 import { useActionState, useState } from "react";
 import Image from "next/image";
 import { finishOnboarding } from "@/lib/actions/onboarding";
+import { setPassword, type SetPasswordState } from "@/lib/actions/auth";
 import { initialRoutineState } from "@/lib/actions/routineState";
 import type { Profile } from "@/types/database";
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 /** Postgres `time` comes back as "HH:MM:SS" -- <input type="time"> wants "HH:MM". */
 function toHHMM(value: string | null, fallback: string) {
@@ -26,10 +27,11 @@ function ProgressBar({ step, inverted }: { step: number; inverted: boolean }) {
 }
 
 /**
- * Three interactive screens, not four: design reference frame 1j's own
+ * Four interactive screens, not five: design reference frame 1j's own
  * "Finish setup" button links straight to the Today screen (frame 1a), so
- * step 4 is landing there -- not a separate confirmation screen. Step 1
- * (welcome) has no design reference frame; it's new copy for this build.
+ * step 5 is landing there -- not a separate confirmation screen. Steps 1
+ * (welcome) and 3 (password) have no design reference frame; they're new
+ * for this build.
  */
 export function OnboardingFlow({ profile }: { profile: Profile }) {
   const [step, setStep] = useState(1);
@@ -61,7 +63,7 @@ export function OnboardingFlow({ profile }: { profile: Profile }) {
       <main className="flex min-h-full flex-1 flex-col bg-brand-accent text-brand-accent-foreground">
         <ProgressBar step={2} inverted={true} />
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col px-6 py-8">
-          <p className="text-xs font-semibold tracking-wide uppercase opacity-75">Step 2 of 4</p>
+          <p className="text-xs font-semibold tracking-wide uppercase opacity-75">Step 2 of 5</p>
           <h1 className="mt-5 text-4xl leading-tight font-extrabold uppercase">
             What you write here is yours.
           </h1>
@@ -91,7 +93,88 @@ export function OnboardingFlow({ profile }: { profile: Profile }) {
     );
   }
 
+  if (step === 3) {
+    return <PasswordStep onContinue={() => setStep(4)} />;
+  }
+
   return <ScheduleStep profile={profile} />;
+}
+
+const initialSetPasswordState: SetPasswordState = { status: "idle" };
+
+/**
+ * Optional -- accounts are provisioned via magic link (see
+ * lib/actions/auth.ts), so this only adds a faster path for next time. Users
+ * can skip it and keep signing in with a magic link indefinitely.
+ */
+function PasswordStep({ onContinue }: { onContinue: () => void }) {
+  const [state, formAction, isPending] = useActionState(setPassword, initialSetPasswordState);
+
+  return (
+    <main className="flex min-h-full flex-1 flex-col">
+      <ProgressBar step={3} inverted={false} />
+      <div className="mx-auto flex w-full max-w-sm flex-1 flex-col px-6 py-8">
+        <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Step 3 of 5</p>
+        <h1 className="mt-4 text-3xl font-extrabold uppercase">Set a password</h1>
+        <p className="mt-2 text-sm opacity-70">
+          Optional. Add one so you can sign in without waiting on an email link next time.
+        </p>
+
+        {state.status === "success" ? (
+          <div className="mt-6 flex flex-1 flex-col">
+            <p className="text-sm text-green-700">Password set.</p>
+            <button
+              type="button"
+              onClick={onContinue}
+              className="mt-auto w-full bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground"
+            >
+              Continue
+            </button>
+          </div>
+        ) : (
+          <form action={formAction} className="mt-6 flex flex-1 flex-col gap-4">
+            <label className="text-sm">
+              Password
+              <input
+                name="password"
+                type="password"
+                required
+                minLength={8}
+                autoComplete="new-password"
+                className="mt-1 w-full border border-black/20 bg-transparent px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="text-sm">
+              Confirm password
+              <input
+                name="confirmPassword"
+                type="password"
+                required
+                minLength={8}
+                autoComplete="new-password"
+                className="mt-1 w-full border border-black/20 bg-transparent px-3 py-2 text-sm"
+              />
+            </label>
+
+            {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
+
+            <div className="mt-auto flex flex-col gap-2 pt-4">
+              <button
+                type="submit"
+                disabled={isPending}
+                className="w-full bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+              >
+                {isPending ? "Saving…" : "Set password"}
+              </button>
+              <button type="button" onClick={onContinue} className="text-sm opacity-60 underline">
+                Skip for now
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </main>
+  );
 }
 
 function ScheduleStep({ profile }: { profile: Profile }) {
@@ -101,9 +184,9 @@ function ScheduleStep({ profile }: { profile: Profile }) {
 
   return (
     <main className="flex min-h-full flex-1 flex-col">
-      <ProgressBar step={3} inverted={false} />
+      <ProgressBar step={4} inverted={false} />
       <div className="mx-auto w-full max-w-sm flex-1 px-6 py-8">
-        <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Step 3 of 4</p>
+        <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Step 4 of 5</p>
         <h1 className="mt-4 text-3xl font-extrabold uppercase">Set your own times</h1>
         <p className="mt-2 text-sm opacity-70">
           You choose when the platform speaks to you. Your company does not.
