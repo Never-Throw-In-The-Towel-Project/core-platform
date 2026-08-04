@@ -1,5 +1,12 @@
 import { requireNtittAdmin } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { PodcastGuestAnonymityPreference } from "@/types/database";
+
+const ANONYMITY_LABEL: Record<PodcastGuestAnonymityPreference, string> = {
+  full_name: "Full name",
+  first_name_only: "First name only",
+  anonymous: "Anonymous",
+};
 
 /**
  * "Podcast guest opt-in... feeds into a private list for Anthony to
@@ -16,7 +23,7 @@ export default async function PodcastGuestsPage() {
 
   const { data: guests } = await supabase
     .from("profiles")
-    .select("id, display_name, company_id")
+    .select("id, display_name, company_id, podcast_guest_anonymity_preference, podcast_guest_consented_at")
     .eq("podcast_guest_opt_in", true);
 
   const companyIds = Array.from(new Set((guests ?? []).map((g) => g.company_id as string)));
@@ -33,6 +40,9 @@ export default async function PodcastGuestsPage() {
         displayName: guest.display_name as string,
         company: companyName.get(guest.company_id as string) ?? "Unknown",
         email: data?.user?.email ?? null,
+        anonymityPreference:
+          guest.podcast_guest_anonymity_preference as PodcastGuestAnonymityPreference | null,
+        consentedAt: guest.podcast_guest_consented_at as string | null,
       };
     })
   );
@@ -41,7 +51,8 @@ export default async function PodcastGuestsPage() {
     <main className="mx-auto max-w-2xl px-6 py-12">
       <h1 className="text-2xl font-bold">Podcast Guest Interest</h1>
       <p className="mt-1 text-sm opacity-70">
-        Private list -- never shown publicly. Reach out directly to follow up.
+        Private list -- never shown publicly. Reach out directly to follow up. Each person&apos;s credit
+        choice is what they agreed to when they opted in -- honour it when producing and publishing.
       </p>
 
       {guestsWithEmail.length === 0 ? (
@@ -53,6 +64,12 @@ export default async function PodcastGuestsPage() {
               <p className="font-semibold">{guest.displayName}</p>
               <p className="opacity-70">
                 {guest.company} · {guest.email ?? "no email on file"}
+              </p>
+              <p className="mt-1 text-xs opacity-60">
+                Credit as:{" "}
+                {guest.anonymityPreference ? ANONYMITY_LABEL[guest.anonymityPreference] : "not recorded"}
+                {guest.consentedAt &&
+                  ` · consented ${new Date(guest.consentedAt).toLocaleDateString("en-GB")}`}
               </p>
             </div>
           ))}

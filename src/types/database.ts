@@ -30,6 +30,8 @@ export interface Company {
   created_at: string;
 }
 
+export type PodcastGuestAnonymityPreference = "full_name" | "first_name_only" | "anonymous";
+
 export interface Profile {
   id: string;
   company_id: string;
@@ -38,6 +40,8 @@ export interface Profile {
   onboarding_completed: boolean;
   community_opt_in: boolean;
   podcast_guest_opt_in: boolean;
+  podcast_guest_anonymity_preference: PodcastGuestAnonymityPreference | null;
+  podcast_guest_consented_at: string | null;
   morning_notification_time: string | null;
   night_notification_time: string | null;
   sunday_notification_time: string | null;

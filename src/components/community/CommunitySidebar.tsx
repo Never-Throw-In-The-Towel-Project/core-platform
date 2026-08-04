@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PodcastOptIn } from "@/app/(app)/community/podcast-optin";
+import type { PodcastGuestAnonymityPreference } from "@/types/database";
 
 const SPACE_LINKS = [
   { key: "feed", href: "/community", label: "Everyone on NTITT" },
@@ -18,11 +19,13 @@ export function CommunitySidebar({
   companyName,
   podcastEpisode,
   podcastOptedIn,
+  podcastAnonymityPreference,
 }: {
   active: "feed" | "company";
   companyName: string | null;
   podcastEpisode: { title: string; embed_url: string } | null;
   podcastOptedIn: boolean;
+  podcastAnonymityPreference: PodcastGuestAnonymityPreference | null;
 }) {
   return (
     <aside className="space-y-6 text-sm">
@@ -60,7 +63,7 @@ export function CommunitySidebar({
       )}
 
       <div className="border border-current/10 p-3">
-        <PodcastOptIn optedIn={podcastOptedIn} />
+        <PodcastOptIn optedIn={podcastOptedIn} anonymityPreference={podcastAnonymityPreference} />
       </div>
     </aside>
   );
