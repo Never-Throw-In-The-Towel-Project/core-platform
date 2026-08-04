@@ -38,26 +38,39 @@ export function resolveHomePhase(now: Date, timeZone: TimeZone): HomePhase {
  * to show it after all, alongside the this-week catch-up change below).
  */
 export async function getActiveDayCount(userId: string): Promise<number> {
-  const supabase = await createClient("private");
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed (node_modules/@supabase/ssr/dist/main/
+  // createServerClient.js) -- same gap already closed on the auth-critical
+  // path (lib/auth/dal.ts, proxy.ts, lib/actions/auth.ts). This function is
+  // in the call chain of /home, the universal post-login/post-onboarding
+  // landing page, so a throw here took down that page for everyone.
+  // Degrading to 0 (a brand-new user's actual count) is a safe fallback --
+  // it never advances a real streak, just under-counts on a transient
+  // failure.
+  try {
+    const supabase = await createClient("private");
 
-  const [{ data: mornings }, { data: nights }] = await Promise.all([
-    supabase
-      .from("morning_entries")
-      .select("entry_date")
-      .eq("user_id", userId)
-      .not("completed_at", "is", null),
-    supabase
-      .from("night_entries")
-      .select("entry_date")
-      .eq("user_id", userId)
-      .not("completed_at", "is", null),
-  ]);
+    const [{ data: mornings }, { data: nights }] = await Promise.all([
+      supabase
+        .from("morning_entries")
+        .select("entry_date")
+        .eq("user_id", userId)
+        .not("completed_at", "is", null),
+      supabase
+        .from("night_entries")
+        .select("entry_date")
+        .eq("user_id", userId)
+        .not("completed_at", "is", null),
+    ]);
 
-  const days = new Set<string>();
-  for (const row of mornings ?? []) days.add(row.entry_date as string);
-  for (const row of nights ?? []) days.add(row.entry_date as string);
+    const days = new Set<string>();
+    for (const row of mornings ?? []) days.add(row.entry_date as string);
+    for (const row of nights ?? []) days.add(row.entry_date as string);
 
-  return days.size;
+    return days.size;
+  } catch {
+    return 0;
+  }
 }
 
 /**
@@ -71,15 +84,22 @@ export async function getThemedCheckinCompletionThisWeek(
   now: Date,
   timeZone: TimeZone
 ): Promise<Set<Weekday>> {
-  const supabase = await createClient("private");
+  // See getActiveDayCount's comment above -- same guard, same reasoning.
+  // Degrading to an empty set just shows nothing as done yet this week,
+  // which is always a safe (if pessimistic) fallback.
+  try {
+    const supabase = await createClient("private");
 
-  const { data } = await supabase
-    .from("themed_checkins")
-    .select("weekday, completed_at")
-    .eq("user_id", userId)
-    .eq("week_start_date", getMondayOfWeek(now, timeZone));
+    const { data } = await supabase
+      .from("themed_checkins")
+      .select("weekday, completed_at")
+      .eq("user_id", userId)
+      .eq("week_start_date", getMondayOfWeek(now, timeZone));
 
-  return new Set((data ?? []).filter((row) => row.completed_at).map((row) => row.weekday as Weekday));
+    return new Set((data ?? []).filter((row) => row.completed_at).map((row) => row.weekday as Weekday));
+  } catch {
+    return new Set();
+  }
 }
 
 /**

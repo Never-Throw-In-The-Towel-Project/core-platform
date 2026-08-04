@@ -70,27 +70,44 @@ export default async function HomePage() {
   const isWeekday = todayWeekday !== "saturday" && todayWeekday !== "sunday";
   const weeklyReviewOpen = todayWeekday === "friday" || todayWeekday === "saturday" || todayWeekday === "sunday";
 
-  const privateClient = await createClient("private");
   const todayISO = todayISODate(now, profile.timezone);
 
-  const [{ data: morningEntry }, { data: nightEntry }, completedWeekdays, mondayGoalsRow] = await Promise.all([
-    privateClient.from("morning_entries").select("completed_at").eq("user_id", profile.id).eq("entry_date", todayISO).maybeSingle(),
-    privateClient.from("night_entries").select("completed_at").eq("user_id", profile.id).eq("entry_date", todayISO).maybeSingle(),
-    getThemedCheckinCompletionThisWeek(profile.id, now, profile.timezone),
-    isWeekday
-      ? privateClient
-          .from("themed_checkins")
-          .select("goals")
-          .eq("user_id", profile.id)
-          .eq("week_start_date", getMondayOfWeek(now, profile.timezone))
-          .eq("weekday", "monday")
-          .maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed (node_modules/@supabase/ssr/dist/main/
+  // createServerClient.js) -- same gap already closed on the auth-critical
+  // path (lib/auth/dal.ts, proxy.ts, lib/actions/auth.ts) and in
+  // lib/routines/dayState.ts and periodicReview.ts above, which this page
+  // also calls into. /home is the universal post-login/post-onboarding
+  // landing page, so a throw here took down that page for everyone.
+  // Degrading to "nothing done yet, no goals" is a safe, if pessimistic,
+  // fallback rather than crashing the whole Rail.
+  let morningDone = false;
+  let nightDone = false;
+  let mondayGoalCount = 0;
+  try {
+    const privateClient = await createClient("private");
+    const [{ data: morningEntry }, { data: nightEntry }, mondayGoalsRow] = await Promise.all([
+      privateClient.from("morning_entries").select("completed_at").eq("user_id", profile.id).eq("entry_date", todayISO).maybeSingle(),
+      privateClient.from("night_entries").select("completed_at").eq("user_id", profile.id).eq("entry_date", todayISO).maybeSingle(),
+      isWeekday
+        ? privateClient
+            .from("themed_checkins")
+            .select("goals")
+            .eq("user_id", profile.id)
+            .eq("week_start_date", getMondayOfWeek(now, profile.timezone))
+            .eq("weekday", "monday")
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
 
-  const morningDone = Boolean(morningEntry?.completed_at);
-  const nightDone = Boolean(nightEntry?.completed_at);
-  const mondayGoalCount = ((mondayGoalsRow?.data?.goals as { goals?: string[] } | null)?.goals ?? []).length;
+    morningDone = Boolean(morningEntry?.completed_at);
+    nightDone = Boolean(nightEntry?.completed_at);
+    mondayGoalCount = ((mondayGoalsRow?.data?.goals as { goals?: string[] } | null)?.goals ?? []).length;
+  } catch {
+    // fall through with the safe defaults above
+  }
+
+  const completedWeekdays = await getThemedCheckinCompletionThisWeek(profile.id, now, profile.timezone);
 
   const catchUp = isWeekday
     ? (await getOutstandingWeekdaysThisWeek(profile.id, now, profile.timezone)).filter((w) => w !== todayWeekday)
