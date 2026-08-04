@@ -8,7 +8,7 @@ import { verifySession } from "@/lib/auth/dal";
 import { DisplayNameSchema } from "./settings";
 import { type RoutineActionState } from "./routineState";
 
-const TimeSchema = z
+export const TimeSchema = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Please choose a valid time.");
 

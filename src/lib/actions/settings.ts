@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { verifySession } from "@/lib/auth/dal";
 import { type RoutineActionState } from "./routineState";
+import { TimeSchema } from "./onboarding";
 
 /**
  * Validates against the runtime's actual IANA tzdata (Intl.DateTimeFormat
@@ -37,6 +38,54 @@ export async function updateTimezone(
   const { error } = await supabase
     .from("profiles")
     .update({ timezone: parsed.data })
+    .eq("id", session.userId);
+
+  if (error) {
+    return { status: "error", message: "Something went wrong saving this. Please try again." };
+  }
+
+  revalidatePath("/settings");
+  revalidatePath("/home");
+  return { status: "success" };
+}
+
+/**
+ * Onboarding writes these three columns once (lib/actions/onboarding.ts);
+ * this is the only way to change them afterwards -- without it, a user who
+ * picked the wrong time (or whose shift changed) had no path back to it
+ * short of re-running onboarding, which the (app) layout gate only offers
+ * while onboarding_completed is still false.
+ */
+export async function updateNotificationTimes(
+  _prevState: RoutineActionState,
+  formData: FormData
+): Promise<RoutineActionState> {
+  const session = await verifySession();
+
+  const parsed = z
+    .object({
+      morningTime: TimeSchema,
+      nightTime: TimeSchema,
+      sundayTime: TimeSchema,
+    })
+    .safeParse({
+      morningTime: formData.get("morningTime"),
+      nightTime: formData.get("nightTime"),
+      sundayTime: formData.get("sundayTime"),
+    });
+
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      morning_notification_time: parsed.data.morningTime,
+      night_notification_time: parsed.data.nightTime,
+      sunday_notification_time: parsed.data.sundayTime,
+    })
     .eq("id", session.userId);
 
   if (error) {

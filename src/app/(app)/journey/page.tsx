@@ -18,6 +18,9 @@ const REVIEW_FIELDS: { key: keyof WeeklyReview; label: string }[] = [
 
 const REVIEW_THRESHOLDS: Record<ReviewType, number> = { "30_day": 30, "90_day": 90 };
 const REVIEW_ROUTES: Record<ReviewType, string> = { "30_day": "/reviews/30-day/summary", "90_day": "/reviews/90-day/summary" };
+// Same routes home's own pending-review redirect uses (src/app/(app)/home/page.tsx)
+// to land someone on the fill-out form, not the read-back summary.
+const REVIEW_START_ROUTES: Record<ReviewType, string> = { "30_day": "/reviews/30-day", "90_day": "/reviews/90-day" };
 const REVIEW_LABEL: Record<ReviewType, string> = { "30_day": "30 Day Review", "90_day": "90 Day Review" };
 
 /** Picks one non-empty field from a week's review to highlight, rotating through REVIEW_FIELDS by position so the same field isn't shown every single week. */
@@ -233,7 +236,13 @@ function MilestoneCard({
   return (
     <div className="bg-brand-background p-4 text-sm text-brand-foreground">
       <p className="font-semibold">{REVIEW_LABEL[type]}</p>
-      <p className="mt-1 opacity-80">{remaining === 0 ? "Ready to complete" : `${remaining} more active day${remaining === 1 ? "" : "s"} to go`}</p>
+      {remaining === 0 ? (
+        <Link href={REVIEW_START_ROUTES[type]} className="mt-1 inline-block underline opacity-80">
+          Ready to complete →
+        </Link>
+      ) : (
+        <p className="mt-1 opacity-80">{`${remaining} more active day${remaining === 1 ? "" : "s"} to go`}</p>
+      )}
       <div className="mt-3 h-1.5 bg-brand-foreground/20">
         <div className="h-full bg-brand-accent" style={{ width: `${progress * 100}%` }} />
       </div>

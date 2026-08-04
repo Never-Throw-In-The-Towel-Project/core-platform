@@ -41,24 +41,26 @@ export function ModerationQueueItem({
       </div>
 
       <div className="mt-3 flex items-center gap-2">
-        <form action={removeAction} className="flex flex-1 items-center gap-2">
-          <input type="hidden" name="postId" value={report.post_id} />
-          <input type="hidden" name="reportId" value={report.id} />
-          <input
-            name="reason"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Removal reason (optional)"
-            className="flex-1 rounded-md border border-black/20 bg-transparent px-2 py-1 text-xs"
-          />
-          <button
-            type="submit"
-            disabled={removePending}
-            className="shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-          >
-            {removePending ? "…" : "Remove post"}
-          </button>
-        </form>
+        {post && (
+          <form action={removeAction} className="flex flex-1 items-center gap-2">
+            <input type="hidden" name="postId" value={report.post_id} />
+            <input type="hidden" name="reportId" value={report.id} />
+            <input
+              name="reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Removal reason (optional)"
+              className="flex-1 rounded-md border border-black/20 bg-transparent px-2 py-1 text-xs"
+            />
+            <button
+              type="submit"
+              disabled={removePending}
+              className="shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+            >
+              {removePending ? "…" : "Remove post"}
+            </button>
+          </form>
+        )}
         <form action={dismissAction}>
           <input type="hidden" name="reportId" value={report.id} />
           <button
