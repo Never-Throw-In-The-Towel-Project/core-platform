@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState, useState } from "react";
 import Image from "next/image";
 import { finishOnboarding } from "@/lib/actions/onboarding";
 import { initialRoutineState } from "@/lib/actions/routineState";
@@ -96,14 +95,9 @@ export function OnboardingFlow({ profile }: { profile: Profile }) {
 }
 
 function ScheduleStep({ profile }: { profile: Profile }) {
-  const router = useRouter();
+  // finishOnboarding redirects itself on success (see its own doc comment
+  // for why) -- this only ever needs to render the error case.
   const [state, formAction, isPending] = useActionState(finishOnboarding, initialRoutineState);
-
-  useEffect(() => {
-    if (state.status === "success") {
-      router.push("/home");
-    }
-  }, [state.status, router]);
 
   return (
     <main className="flex min-h-full flex-1 flex-col">
