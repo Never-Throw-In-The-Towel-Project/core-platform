@@ -15,9 +15,24 @@ import type { Profile } from "@/types/database";
  */
 export const verifySession = cache(async () => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+
+  // Wrapped in try/catch, not just the `{ error }`/`{ data: { user: null } }`
+  // return Supabase's own typings promise: auth-js's own source
+  // (node_modules/@supabase/auth-js) only resolves getUser() normally when
+  // it recognizes a failure as an AuthError -- anything it doesn't
+  // recognize is re-thrown. Unwrapped, that crashed to Next's generic error
+  // page on every protected page load (this runs via proxy.ts on nearly
+  // every route), not just here -- see the identical fix already applied to
+  // every supabase.auth.* call in lib/actions/auth.ts.
+  let user;
+  try {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+    user = authUser;
+  } catch {
+    user = null;
+  }
 
   if (!user) {
     redirect("/login");

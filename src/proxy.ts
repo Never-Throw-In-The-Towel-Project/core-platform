@@ -73,9 +73,23 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Wrapped in try/catch: auth-js only resolves getUser() normally when it
+  // recognizes a failure as an AuthError, and re-throws anything it
+  // doesn't (see lib/auth/dal.ts's verifySession(), which has the same
+  // guard for the identical reason). Unwrapped here, an unrecognized
+  // failure crashed to Next's generic error page on every single protected
+  // route, since this runs on nearly every request via the matcher below --
+  // not just the one page a user happened to be on. Treated the same as no
+  // session: redirect to /login rather than propagate the exception.
+  let user;
+  try {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+    user = authUser;
+  } catch {
+    user = null;
+  }
 
   const pathname = request.nextUrl.pathname;
 
