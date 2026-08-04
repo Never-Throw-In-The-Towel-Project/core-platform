@@ -1,14 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { inviteEmployee } from "@/lib/actions/invite";
 import { initialRoutineState } from "@/lib/actions/routineState";
 
 export function InviteEmployeeForm() {
   const [state, formAction, isPending] = useActionState(inviteEmployee, initialRoutineState);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (state.status === "success") formRef.current?.reset();
+  }, [state]);
 
   return (
-    <form action={formAction} className="space-y-3 rounded-lg border border-black/10 p-4">
+    <form ref={formRef} action={formAction} className="space-y-3 rounded-lg border border-black/10 p-4">
       <div>
         <h2 className="text-sm font-semibold">Invite an employee</h2>
         <p className="mt-1 text-xs opacity-60">

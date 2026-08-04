@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { inviteStaffMember } from "@/lib/actions/invite";
 import { initialRoutineState } from "@/lib/actions/routineState";
 import type { Company } from "@/types/database";
@@ -13,9 +13,14 @@ const ROLE_LABEL: Record<string, string> = {
 
 export function InviteStaffForm({ companies }: { companies: Pick<Company, "id" | "name">[] }) {
   const [state, formAction, isPending] = useActionState(inviteStaffMember, initialRoutineState);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (state.status === "success") formRef.current?.reset();
+  }, [state]);
 
   return (
-    <form action={formAction} className="space-y-3 rounded-lg border border-black/10 p-4">
+    <form ref={formRef} action={formAction} className="space-y-3 rounded-lg border border-black/10 p-4">
       <div>
         <h2 className="text-sm font-semibold">Invite someone</h2>
         <p className="mt-1 text-xs opacity-60">

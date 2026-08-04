@@ -48,7 +48,7 @@ export const requireHrAdmin = cache(async (): Promise<Profile> => {
   const profile = await getProfile();
 
   if (profile.role !== "hr_admin") {
-    redirect("/");
+    redirect("/home");
   }
 
   return profile;
@@ -65,7 +65,7 @@ export const requireNtittAdmin = cache(async (): Promise<Profile> => {
   const profile = await getProfile();
 
   if (profile.role !== "ntitt_admin") {
-    redirect("/");
+    redirect("/home");
   }
 
   return profile;

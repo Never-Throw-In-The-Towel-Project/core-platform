@@ -7,7 +7,7 @@ import { setPassword, type SetPasswordState } from "@/lib/actions/auth";
 import { initialRoutineState } from "@/lib/actions/routineState";
 import type { Profile } from "@/types/database";
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 4;
 
 /** Postgres `time` comes back as "HH:MM:SS" -- <input type="time"> wants "HH:MM". */
 function toHHMM(value: string | null, fallback: string) {
@@ -27,11 +27,11 @@ function ProgressBar({ step, inverted }: { step: number; inverted: boolean }) {
 }
 
 /**
- * Four interactive screens, not five: design reference frame 1j's own
- * "Finish setup" button links straight to the Today screen (frame 1a), so
- * step 5 is landing there -- not a separate confirmation screen. Steps 1
- * (welcome) and 3 (password) have no design reference frame; they're new
- * for this build.
+ * Four interactive screens: design reference frame 1j's own "Finish setup"
+ * button links straight to the Today screen (frame 1a), so arriving there
+ * isn't a separate numbered step -- the progress bar completes on step 4.
+ * Steps 1 (welcome) and 3 (password) have no design reference frame;
+ * they're new for this build.
  */
 export function OnboardingFlow({ profile }: { profile: Profile }) {
   const [step, setStep] = useState(1);
@@ -63,7 +63,7 @@ export function OnboardingFlow({ profile }: { profile: Profile }) {
       <main className="flex min-h-full flex-1 flex-col bg-brand-accent text-brand-accent-foreground">
         <ProgressBar step={2} inverted={true} />
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col px-6 py-8">
-          <p className="text-xs font-semibold tracking-wide uppercase opacity-75">Step 2 of 5</p>
+          <p className="text-xs font-semibold tracking-wide uppercase opacity-75">Step 2 of 4</p>
           <h1 className="mt-5 text-4xl leading-tight font-extrabold uppercase">
             What you write here is yours.
           </h1>
@@ -114,7 +114,7 @@ function PasswordStep({ onContinue }: { onContinue: () => void }) {
     <main className="flex min-h-full flex-1 flex-col">
       <ProgressBar step={3} inverted={false} />
       <div className="mx-auto flex w-full max-w-sm flex-1 flex-col px-6 py-8">
-        <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Step 3 of 5</p>
+        <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Step 3 of 4</p>
         <h1 className="mt-4 text-3xl font-extrabold uppercase">Set a password</h1>
         <p className="mt-2 text-sm opacity-70">
           Optional. Add one so you can sign in without waiting on an email link next time.
@@ -186,7 +186,7 @@ function ScheduleStep({ profile }: { profile: Profile }) {
     <main className="flex min-h-full flex-1 flex-col">
       <ProgressBar step={4} inverted={false} />
       <div className="mx-auto w-full max-w-sm flex-1 px-6 py-8">
-        <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Step 4 of 5</p>
+        <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Step 4 of 4</p>
         <h1 className="mt-4 text-3xl font-extrabold uppercase">Set your own times</h1>
         <p className="mt-2 text-sm opacity-70">
           You choose when the platform speaks to you. Your company does not.
