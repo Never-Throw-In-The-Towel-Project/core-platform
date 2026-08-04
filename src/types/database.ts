@@ -35,6 +35,7 @@ export interface Profile {
   company_id: string;
   role: UserRole;
   display_name: string;
+  onboarding_completed: boolean;
   community_opt_in: boolean;
   podcast_guest_opt_in: boolean;
   morning_notification_time: string | null;
