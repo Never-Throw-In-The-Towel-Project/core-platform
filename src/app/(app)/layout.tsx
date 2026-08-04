@@ -26,10 +26,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="flex items-center justify-between border-b border-black/10 px-6 py-3 text-sm">
         <p className="opacity-70">Signed in as {profile.display_name}</p>
         <nav className="flex gap-4">
+          {profile.role === "hr_admin" && (
+            <Link href="/dashboard" className="underline opacity-80">
+              HR Dashboard
+            </Link>
+          )}
           {profile.role === "ntitt_admin" && (
             <>
               <Link href="/community/admin" className="underline opacity-80">
                 Moderation
+              </Link>
+              <Link href="/community/admin/podcast-guests" className="underline opacity-80">
+                Podcast Guests
               </Link>
               <Link href="/admin/invite" className="underline opacity-80">
                 Invite

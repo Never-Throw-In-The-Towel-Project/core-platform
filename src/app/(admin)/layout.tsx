@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireHrAdmin } from "@/lib/auth/dal";
 import { AskForSupport } from "@/components/AskForSupport";
 import { resolveHelplineNumber } from "@/lib/support/helpline";
@@ -14,8 +15,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <header className="border-b border-black/10 px-6 py-4">
+      <header className="flex items-center justify-between border-b border-black/10 px-6 py-4">
         <p className="text-sm opacity-70">HR Dashboard — {profile.display_name}</p>
+        <Link href="/home" className="text-sm underline opacity-80">
+          My Today screen
+        </Link>
       </header>
       <div className="flex-1">{children}</div>
       <AskForSupport companyId={profile.company_id} helplineNumber={resolveHelplineNumber()} />
