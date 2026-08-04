@@ -52,25 +52,45 @@ export async function resolveCompanyForHost(host: string): Promise<Company | nul
     return null; // bare root/app domain -- default NTITT branding
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  // Wrapped in try/catch: createClient() (here, the base @supabase/
+  // supabase-js one, not lib/supabase/server.ts's SSR wrapper) throws
+  // synchronously if the URL/key are missing or malformed -- same failure
+  // mode already guarded on the auth-critical path (lib/auth/dal.ts,
+  // proxy.ts, lib/actions/auth.ts, lib/routines/*). This one is far more
+  // universal than any of those: it runs unconditionally in the ROOT
+  // layout (src/app/layout.tsx) on every single request, including the
+  // public marketing homepage and /login, before any auth check even
+  // happens. A throw here also isn't caught by error.tsx -- error
+  // boundaries don't wrap the layout they're defined alongside, only
+  // global-error.tsx catches a root layout failure (node_modules/next/
+  // dist/docs/.../error.md). Degrading to null (default NTITT branding,
+  // the same fallback already used for the bare root/app domain case
+  // above) is the safe direction: a company's custom theme failing to load
+  // should never take down the entire site for everyone.
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
 
-  // hostname/slug are derived from the request's Host header -- external
-  // input. Quoted (PostgREST's escape mechanism for .or() filter values) so
-  // a crafted Host header containing a comma or parenthesis can't inject an
-  // extra filter condition instead of just failing to match a company.
-  const escapedHostname = escapeFilterValue(hostname);
-  const orFilter = slug
-    ? `custom_domain.eq."${escapedHostname}",slug.eq."${escapeFilterValue(slug)}"`
-    : `custom_domain.eq."${escapedHostname}"`;
+    // hostname/slug are derived from the request's Host header -- external
+    // input. Quoted (PostgREST's escape mechanism for .or() filter values)
+    // so a crafted Host header containing a comma or parenthesis can't
+    // inject an extra filter condition instead of just failing to match a
+    // company.
+    const escapedHostname = escapeFilterValue(hostname);
+    const orFilter = slug
+      ? `custom_domain.eq."${escapedHostname}",slug.eq."${escapeFilterValue(slug)}"`
+      : `custom_domain.eq."${escapedHostname}"`;
 
-  const { data } = await supabase
-    .from("companies")
-    .select("*")
-    .or(orFilter)
-    .maybeSingle();
+    const { data } = await supabase
+      .from("companies")
+      .select("*")
+      .or(orFilter)
+      .maybeSingle();
 
-  return (data as Company) ?? null;
+    return (data as Company) ?? null;
+  } catch {
+    return null;
+  }
 }
