@@ -1018,3 +1018,55 @@ so left out rather than assumed to be fair game for the public site.
   9) have been dry-run validated end-to-end against a real local Postgres 16
   every time one was added — schema has RLS enabled on every table across
   `public`/`private`, matching what's documented here.
+
+## Full brief review: two safety-critical gaps found and fixed
+
+A line-by-line audit of the codebase against the original NTITT Full
+Platform Build Brief v3.1 and Website Full Spec (the two source documents
+this file paraphrases throughout) found the build matches the brief closely
+overall, but two real gaps in the one feature the brief calls a failure
+condition if it's wrong:
+
+- **The Ask for Support helpline number was never actually configured.**
+  `AskForSupport`'s `helplineNumber` prop existed but neither `(app)/layout.tsx`
+  nor `(admin)/layout.tsx` ever passed it, so every user saw the literal
+  placeholder text "the helpline" with no real number. Fixed by
+  `src/lib/support/helpline.ts`'s `resolveHelplineNumber()` — reads an
+  optional `HELPLINE_NUMBER` env var, defaulting to Samaritans (116 123,
+  free, 24/7), the correct baseline for this platform's UK deployment
+  (every seeded/testimonial company is UK-based). This is a national crisis
+  line, deliberately separate from `companies.support_contact_*` (the
+  company's own designated contact who gets the SMS/email alert) — the
+  brief's "if this is urgent right now, please call [helpline]" is a single
+  always-available fallback, not a per-company setting.
+- **The podcast guest consent process didn't exist.** The brief requires,
+  "before recording": a written explanation of what's recorded/shared, an
+  anonymity choice (full name / first name only / anonymous), and a
+  standing right to withdraw at any time including after publication —
+  "this protects the guest and protects the platform legally." The build
+  had only a bare `podcast_guest_opt_in` boolean with none of that. Fixed:
+  `profiles.podcast_guest_anonymity_preference` and
+  `.podcast_guest_consented_at` (migration
+  `20260731120000_podcast_guest_consent.sql`) give the consent a durable,
+  provable record — re-stamped every time someone opts in, including
+  re-opting-in after a withdrawal, since the explanation is re-shown and
+  re-agreed to each time. `PodcastOptIn`
+  (`src/app/(app)/community/podcast-optin.tsx`) now shows the written
+  explanation and collects the anonymity choice before opt-in, and offers
+  a one-tap "Withdraw" once opted in. The right to review an episode before
+  it airs is stated as a promise here, not faked as an in-app step — there
+  is no recording/editing pipeline in this codebase to attach a real review
+  gate to; that half of the obligation is a production-process commitment
+  Anthony has to keep, not something software can enforce. The admin guest
+  list (`community/admin/podcast-guests`) now shows each guest's actual
+  credit choice and consent date, so producing an episode has something
+  concrete to honour.
+
+Also found in the same review, not yet fixed (see conversation history /
+task tracker for the full punch list): Ask for Support doesn't render on
+`/onboarding` or `/login`; the HR dashboard doesn't show the 90-day review
+completion count on-screen (only 30-day) and its weekly participation view
+only covers the current week; the user's own 90-day summary "PDF export" is
+actually the browser print dialog; nutrition education content, buddy
+pairing, and the full monthly-podcast episode structure (from the Website
+Spec's Section 6) don't exist at all.

@@ -53,6 +53,7 @@ export async function CommunityFeedView({
         companyName={company?.name ?? null}
         podcastEpisode={podcastEpisode}
         podcastOptedIn={profile.podcast_guest_opt_in}
+        podcastAnonymityPreference={profile.podcast_guest_anonymity_preference}
       />
 
       <div>

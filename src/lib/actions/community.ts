@@ -194,28 +194,67 @@ export async function acceptCommunityGuidelines(): Promise<{ ok: boolean }> {
   return { ok: !error };
 }
 
-const PodcastOptInSchema = z.object({ optIn: z.enum(["true", "false"]) });
+const PodcastOptInSchema = z.discriminatedUnion("optIn", [
+  z.object({
+    optIn: z.literal("true"),
+    // Required on opt-in, per the brief's consent process -- "option to
+    // remain anonymous or use first name only" isn't optional metadata,
+    // it's the choice the written explanation exists to collect.
+    anonymityPreference: z.enum(["full_name", "first_name_only", "anonymous"]),
+  }),
+  z.object({ optIn: z.literal("false") }),
+]);
 
 /**
  * "Podcast guest opt-in -- a way for users to express interest... feeds
  * into a private list for Anthony to review, not a public sign-up" -- see
  * src/app/(app)/community/admin/podcast-guests for that list.
+ *
+ * Consent process (found missing in a full-brief review): the brief
+ * requires a written explanation of what's recorded/shared, an anonymity
+ * choice, and a recorded right to withdraw at any time, "to protect the
+ * guest and protect the platform legally" -- none of that had any schema
+ * backing before. `podcast_guest_consented_at` is re-stamped every time
+ * someone opts in (the explanation in PodcastOptIn is re-shown and
+ * re-agreed to each time, including re-opting-in after a withdrawal), so
+ * it's a durable proof-of-consent record, not just a UI nicety. Withdrawal
+ * (optIn=false) intentionally leaves the last-recorded anonymity
+ * preference and consent timestamp in place rather than clearing them --
+ * that history matters if an episode was already recorded before the
+ * withdrawal.
  */
 export async function updatePodcastGuestOptIn(
   _prevState: RoutineActionState,
   formData: FormData
 ): Promise<RoutineActionState> {
   const session = await verifySession();
-  const parsed = PodcastOptInSchema.safeParse({ optIn: formData.get("optIn") });
+  const parsed = PodcastOptInSchema.safeParse({
+    optIn: formData.get("optIn"),
+    anonymityPreference: formData.get("anonymityPreference") || undefined,
+  });
 
   if (!parsed.success) {
-    return { status: "error", message: "Something went wrong. Please try again." };
+    return {
+      status: "error",
+      message:
+        formData.get("optIn") === "true"
+          ? "Please choose how you'd like to be credited before opting in."
+          : "Something went wrong. Please try again.",
+    };
   }
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("profiles")
-    .update({ podcast_guest_opt_in: parsed.data.optIn === "true" })
+    .update(
+      parsed.data.optIn === "true"
+        ? {
+            podcast_guest_opt_in: true,
+            podcast_guest_anonymity_preference: parsed.data.anonymityPreference,
+            podcast_guest_consented_at: new Date().toISOString(),
+          }
+        : { podcast_guest_opt_in: false }
+    )
     .eq("id", session.userId);
 
   if (error) {

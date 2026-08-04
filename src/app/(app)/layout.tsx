@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth/dal";
 import { AskForSupport } from "@/components/AskForSupport";
 import { BottomNav } from "@/components/BottomNav";
+import { resolveHelplineNumber } from "@/lib/support/helpline";
 
 // Everything under (app) requires a session -- enforced here via
 // getProfile()/verifySession() (the hard boundary; proxy.ts's redirect is
@@ -41,7 +42,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </nav>
       </header>
       <div className="flex-1">{children}</div>
-      <AskForSupport companyId={profile.company_id} variant="inline" />
+      <AskForSupport
+        companyId={profile.company_id}
+        helplineNumber={resolveHelplineNumber()}
+        variant="inline"
+      />
       <BottomNav />
     </div>
   );
