@@ -41,14 +41,25 @@ export async function signInWithMagicLink(
   if (next) callbackUrl.searchParams.set("next", next);
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email: parsed.data,
-    options: {
-      emailRedirectTo: callbackUrl.toString(),
-    },
-  });
 
-  if (error) {
+  // Wrapped in try/catch, not just the `{ error }` return Supabase's own
+  // typings promise: auth-js's own source (node_modules/@supabase/auth-js)
+  // only converts a failure into that return value when it recognizes the
+  // failure as an AuthError -- anything it doesn't recognize is re-thrown,
+  // which would otherwise surface as an unhandled exception here and crash
+  // to Next's generic error page instead of this form's own inline message.
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: parsed.data,
+      options: {
+        emailRedirectTo: callbackUrl.toString(),
+      },
+    });
+
+    if (error) {
+      return { status: "error", message: "Couldn't send the sign-in link. Please try again." };
+    }
+  } catch {
     return { status: "error", message: "Couldn't send the sign-in link. Please try again." };
   }
 
@@ -86,9 +97,18 @@ export async function signInWithPassword(
     typeof requestedNext === "string" && isSafeRedirectPath(requestedNext) ? requestedNext : null;
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
 
-  if (error) {
+  // See signInWithMagicLink's comment above on why this is wrapped in
+  // try/catch rather than trusting the `{ error }` return alone. redirect()
+  // deliberately stays outside this block -- per node_modules/next/dist/docs
+  // .../redirect.md, it works by throwing, so it must never be caught.
+  try {
+    const { error } = await supabase.auth.signInWithPassword(parsed.data);
+
+    if (error) {
+      return { status: "error", message: "Incorrect email or password." };
+    }
+  } catch {
     return { status: "error", message: "Incorrect email or password." };
   }
 
@@ -131,9 +151,18 @@ export async function setPassword(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
 
-  if (error) {
+  // See signInWithMagicLink's comment above: auth-js re-throws any failure
+  // it doesn't recognize as an AuthError instead of returning it as
+  // `{ error }`, which -- unwrapped -- crashed this exact step to Next's
+  // generic error page instead of the friendly message below.
+  try {
+    const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+
+    if (error) {
+      return { status: "error", message: "Couldn't set your password. Please try again." };
+    }
+  } catch {
     return { status: "error", message: "Couldn't set your password. Please try again." };
   }
 

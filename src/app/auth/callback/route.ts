@@ -10,9 +10,18 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
+    // Wrapped in try/catch: auth-js (node_modules/@supabase/auth-js) only
+    // returns a failure as `{ error }` when it recognizes it as an
+    // AuthError -- anything else is re-thrown, which would otherwise crash
+    // this route instead of falling through to the existing /login?error=auth
+    // redirect below.
+    try {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (!error) {
+        return NextResponse.redirect(`${origin}${next}`);
+      }
+    } catch {
+      // falls through to the /login?error=auth redirect below
     }
   }
 

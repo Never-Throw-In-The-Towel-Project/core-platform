@@ -5,6 +5,7 @@ import Image from "next/image";
 import { finishOnboarding } from "@/lib/actions/onboarding";
 import { setPassword, type SetPasswordState } from "@/lib/actions/auth";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import { AskForSupport } from "@/components/AskForSupport";
 import type { Profile } from "@/types/database";
 
 const TOTAL_STEPS = 4;
@@ -32,12 +33,30 @@ function ProgressBar({ step, inverted }: { step: number; inverted: boolean }) {
  * isn't a separate numbered step -- the progress bar completes on step 4.
  * Steps 1 (welcome) and 3 (password) have no design reference frame;
  * they're new for this build.
+ *
+ * AskForSupport renders here too, alongside every step: the design
+ * reference's "no BottomNav/AskForSupport chrome" note (see the /onboarding
+ * page's own comment) was about the full-bleed frames, not an exemption
+ * from the brief's own "must render on every screen inside the platform"
+ * flag on AskForSupport -- onboarding is post-auth, so it's in scope. Kept
+ * as one wrapper here rather than duplicated across all four step
+ * components below. `helplineNumber` is resolved server-side by the
+ * /onboarding page (resolveHelplineNumber() is server-only) and passed down,
+ * same as the (app)/(admin) layouts do for their own AskForSupport.
  */
-export function OnboardingFlow({ profile }: { profile: Profile }) {
+export function OnboardingFlow({
+  profile,
+  helplineNumber,
+}: {
+  profile: Profile;
+  helplineNumber: string;
+}) {
   const [step, setStep] = useState(1);
 
+  let stepContent: React.ReactNode;
+
   if (step === 1) {
-    return (
+    stepContent = (
       <main className="flex min-h-full flex-1 flex-col">
         <ProgressBar step={1} inverted={false} />
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col items-center justify-center px-6 py-12 text-center">
@@ -56,10 +75,8 @@ export function OnboardingFlow({ profile }: { profile: Profile }) {
         </div>
       </main>
     );
-  }
-
-  if (step === 2) {
-    return (
+  } else if (step === 2) {
+    stepContent = (
       <main className="flex min-h-full flex-1 flex-col bg-brand-accent text-brand-accent-foreground">
         <ProgressBar step={2} inverted={true} />
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col px-6 py-8">
@@ -91,13 +108,18 @@ export function OnboardingFlow({ profile }: { profile: Profile }) {
         </div>
       </main>
     );
+  } else if (step === 3) {
+    stepContent = <PasswordStep onContinue={() => setStep(4)} />;
+  } else {
+    stepContent = <ScheduleStep profile={profile} />;
   }
 
-  if (step === 3) {
-    return <PasswordStep onContinue={() => setStep(4)} />;
-  }
-
-  return <ScheduleStep profile={profile} />;
+  return (
+    <>
+      {stepContent}
+      <AskForSupport companyId={profile.company_id} helplineNumber={helplineNumber} variant="inline" />
+    </>
+  );
 }
 
 const initialSetPasswordState: SetPasswordState = { status: "idle" };
