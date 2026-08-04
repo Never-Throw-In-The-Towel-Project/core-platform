@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth/dal";
 import { AskForSupport } from "@/components/AskForSupport";
 import { BottomNav } from "@/components/BottomNav";
@@ -12,6 +13,12 @@ import { BottomNav } from "@/components/BottomNav";
 // reference's Rail mockups show as every member screen's shared furniture.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const profile = await getProfile();
+
+  // First-run gate: /onboarding lives outside (app) precisely so it isn't
+  // itself caught by this redirect.
+  if (!profile.onboarding_completed) {
+    redirect("/onboarding");
+  }
 
   return (
     <div className="flex min-h-full flex-1 flex-col">

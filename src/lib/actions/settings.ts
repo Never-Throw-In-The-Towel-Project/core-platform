@@ -48,7 +48,11 @@ export async function updateTimezone(
   return { status: "success" };
 }
 
-const DisplayNameSchema = z.string().trim().min(1, "Please enter a name.").max(40, "Keep it under 40 characters.");
+export const DisplayNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Please enter a name.")
+  .max(40, "Keep it under 40 characters.");
 
 /**
  * "Users choose their own display name -- does not have to be their real
