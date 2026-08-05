@@ -73,9 +73,15 @@ export async function finishOnboarding(
       .eq("id", session.userId);
 
     if (error) {
+      // Logged (not just swallowed): the generic message is all the user
+      // sees, but without this, a real Postgrest rejection (RLS denial,
+      // constraint violation, bad column) leaves no trace anywhere -- this
+      // is the one line standing between "still broken" and knowing why.
+      console.error("finishOnboarding: profiles update failed", error);
       return { status: "error", message: "Something went wrong saving this. Please try again." };
     }
-  } catch {
+  } catch (err) {
+    console.error("finishOnboarding: unexpected error", err);
     return { status: "error", message: "Something went wrong saving this. Please try again." };
   }
 
