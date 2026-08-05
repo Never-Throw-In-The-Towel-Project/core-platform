@@ -55,19 +55,31 @@ export async function finishOnboarding(
     return { status: "error", message: parsed.error.issues[0].message };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      display_name: parsed.data.displayName,
-      morning_notification_time: parsed.data.morningTime,
-      night_notification_time: parsed.data.nightTime,
-      sunday_notification_time: parsed.data.sundayTime,
-      onboarding_completed: true,
-    })
-    .eq("id", session.userId);
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed (node_modules/@supabase/ssr/dist/main/
+  // createServerClient.js), the same gap already closed on every other
+  // read in the auth-critical path (lib/auth/dal.ts, lib/actions/auth.ts,
+  // /home's render chain) but missed here -- this is the one write that
+  // finishes onboarding, so an unrecognized failure took the user to
+  // Next's error boundary one tap from the end of the flow instead of
+  // this form's own retryable message.
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        display_name: parsed.data.displayName,
+        morning_notification_time: parsed.data.morningTime,
+        night_notification_time: parsed.data.nightTime,
+        sunday_notification_time: parsed.data.sundayTime,
+        onboarding_completed: true,
+      })
+      .eq("id", session.userId);
 
-  if (error) {
+    if (error) {
+      return { status: "error", message: "Something went wrong saving this. Please try again." };
+    }
+  } catch {
     return { status: "error", message: "Something went wrong saving this. Please try again." };
   }
 
