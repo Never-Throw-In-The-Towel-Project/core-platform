@@ -5,12 +5,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { verifySession } from "@/lib/auth/dal";
-import { DisplayNameSchema } from "./settings";
 import { type RoutineActionState } from "./routineState";
-
-export const TimeSchema = z
-  .string()
-  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Please choose a valid time.");
+import { TimeSchema, DisplayNameSchema } from "./schemas";
 
 /**
  * Last step of onboarding (design reference frame 1j: "notification times

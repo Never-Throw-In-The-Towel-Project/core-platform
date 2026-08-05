@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { verifySession } from "@/lib/auth/dal";
 import { type RoutineActionState } from "./routineState";
-import { TimeSchema } from "./onboarding";
+import { TimeSchema, DisplayNameSchema } from "./schemas";
 
 /**
  * Validates against the runtime's actual IANA tzdata (Intl.DateTimeFormat
@@ -96,12 +96,6 @@ export async function updateNotificationTimes(
   revalidatePath("/home");
   return { status: "success" };
 }
-
-export const DisplayNameSchema = z
-  .string()
-  .trim()
-  .min(1, "Please enter a name.")
-  .max(40, "Keep it under 40 characters.");
 
 /**
  * "Users choose their own display name -- does not have to be their real
