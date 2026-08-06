@@ -14,15 +14,25 @@ import type { PeriodicReview } from "@/types/database";
  */
 export default async function NinetyDaySummaryPage() {
   const profile = await getProfile();
-  const supabase = await createClient("private");
 
-  const { data: review } = await supabase
-    .from("periodic_reviews")
-    .select("*")
-    .eq("user_id", profile.id)
-    .eq("review_type", "90_day")
-    .not("completed_at", "is", null)
-    .maybeSingle();
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  // Treated the same as "no review" below, since either way there's
+  // nothing to safely render on this read-back page.
+  let review: PeriodicReview | null = null;
+  try {
+    const supabase = await createClient("private");
+    const { data } = await supabase
+      .from("periodic_reviews")
+      .select("*")
+      .eq("user_id", profile.id)
+      .eq("review_type", "90_day")
+      .not("completed_at", "is", null)
+      .maybeSingle();
+    review = data;
+  } catch {
+    review = null;
+  }
 
   if (!review) {
     redirect("/home");

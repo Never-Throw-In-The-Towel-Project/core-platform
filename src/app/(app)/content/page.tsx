@@ -37,20 +37,30 @@ export default async function ContentLibraryPage({
   searchParams: Promise<{ q?: string; category?: string }>;
 }) {
   const { q, category } = await searchParams;
-  const supabase = await createClient();
 
-  let query = supabase.from("content_videos").select("*").order("created_at", { ascending: false });
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  // Degrading to an empty result is the same "Nothing here yet" state this
+  // page already renders for a genuinely empty library.
+  let videos: ContentVideo[] = [];
+  try {
+    const supabase = await createClient();
 
-  if (category) {
-    query = query.eq("category", category);
+    let query = supabase.from("content_videos").select("*").order("created_at", { ascending: false });
+
+    if (category) {
+      query = query.eq("category", category);
+    }
+    if (q) {
+      const escaped = escapeFilterValue(q);
+      query = query.or(`title.ilike."%${escaped}%",tags.cs.{"${escaped}"}`);
+    }
+
+    const { data } = await query;
+    videos = (data as ContentVideo[] | null) ?? [];
+  } catch {
+    videos = [];
   }
-  if (q) {
-    const escaped = escapeFilterValue(q);
-    query = query.or(`title.ilike."%${escaped}%",tags.cs.{"${escaped}"}`);
-  }
-
-  const { data } = await query;
-  const videos = (data as ContentVideo[] | null) ?? [];
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-10">

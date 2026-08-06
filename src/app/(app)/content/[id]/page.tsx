@@ -16,10 +16,19 @@ function formatDuration(seconds: number | null): string | null {
  */
 export default async function ContentVideoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
 
-  const { data } = await supabase.from("content_videos").select("*").eq("id", id).maybeSingle();
-  const video = data as ContentVideo | null;
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  // Treated the same as "video not found" below, since either way there's
+  // nothing to safely render on this watch page.
+  let video: ContentVideo | null = null;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.from("content_videos").select("*").eq("id", id).maybeSingle();
+    video = data;
+  } catch {
+    video = null;
+  }
 
   if (!video) {
     notFound();

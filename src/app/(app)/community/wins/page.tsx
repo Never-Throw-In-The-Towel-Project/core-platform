@@ -31,8 +31,17 @@ export default async function WinsBoardPage() {
     return <CommunityGuidelines showAccept />;
   }
 
-  const supabase = await createClient();
-  const posts = await getPosts(supabase, { scope: "global", board: "wins", viewerUserId: profile.id });
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  // Degrading to an empty board is the same "Be the first to share a win"
+  // state this page already renders for a genuinely empty week.
+  let posts: Awaited<ReturnType<typeof getPosts>> = [];
+  try {
+    const supabase = await createClient();
+    posts = await getPosts(supabase, { scope: "global", board: "wins", viewerUserId: profile.id });
+  } catch {
+    posts = [];
+  }
 
   const now = new Date();
   const weekStart = getMondayOfWeek(now, "UTC");

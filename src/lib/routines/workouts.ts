@@ -36,84 +36,98 @@ const TIER_COLUMNS = {
  * ops hasn't run, not an error).
  */
 export async function getWorkoutForWeek(now: Date = new Date()): Promise<WeekWorkout | null> {
-  const supabase = await createClient();
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  // Returning null on failure is the same "content not seeded yet" fallback
+  // this already returns for a genuinely empty bank, not a distinct case
+  // the checkin page needs to tell apart.
+  try {
+    const supabase = await createClient();
 
-  const { count } = await supabase
-    .from("workout_weeks")
-    .select("id", { count: "exact", head: true });
+    const { count } = await supabase
+      .from("workout_weeks")
+      .select("id", { count: "exact", head: true });
 
-  if (!count) return null;
+    if (!count) return null;
 
-  const bankPosition = resolveBankPosition(getIsoWeekNumber(now, "UTC"), count);
+    const bankPosition = resolveBankPosition(getIsoWeekNumber(now, "UTC"), count);
 
-  const { data: week } = await supabase
-    .from("workout_weeks")
-    .select("id, bank_position")
-    .eq("bank_position", bankPosition)
-    .maybeSingle();
+    const { data: week } = await supabase
+      .from("workout_weeks")
+      .select("id, bank_position")
+      .eq("bank_position", bankPosition)
+      .maybeSingle();
 
-  if (!week) return null;
+    if (!week) return null;
 
-  const { data: exercises } = await supabase
-    .from("workout_week_exercises")
-    .select("*")
-    .eq("workout_week_id", week.id)
-    .order("exercise_order");
+    const { data: exercises } = await supabase
+      .from("workout_week_exercises")
+      .select("*")
+      .eq("workout_week_id", week.id)
+      .order("exercise_order");
 
-  if (!exercises || exercises.length === 0) {
-    return { bankPosition, exercises: [] };
-  }
-
-  const videoIds = new Set<string>();
-  for (const exercise of exercises) {
-    for (const tier of Object.keys(TIER_COLUMNS) as WorkoutTier[]) {
-      const id = exercise[TIER_COLUMNS[tier]] as string | null;
-      if (id) videoIds.add(id);
+    if (!exercises || exercises.length === 0) {
+      return { bankPosition, exercises: [] };
     }
-  }
 
-  const { data: videos } = videoIds.size
-    ? await supabase
-        .from("content_videos")
-        .select("id, vimeo_id, title")
-        .in("id", Array.from(videoIds))
-    : { data: [] as VideoSummary[] };
-
-  const videoById = new Map((videos ?? []).map((v) => [v.id, v]));
-
-  const resolvedExercises: WorkoutExercise[] = exercises.map((exercise) => {
-    const videos = {} as Record<WorkoutTier, VideoSummary | null>;
-    for (const tier of Object.keys(TIER_COLUMNS) as WorkoutTier[]) {
-      const videoId = exercise[TIER_COLUMNS[tier]] as string | null;
-      videos[tier] = videoId ? videoById.get(videoId) ?? null : null;
+    const videoIds = new Set<string>();
+    for (const exercise of exercises) {
+      for (const tier of Object.keys(TIER_COLUMNS) as WorkoutTier[]) {
+        const id = exercise[TIER_COLUMNS[tier]] as string | null;
+        if (id) videoIds.add(id);
+      }
     }
-    return {
-      exercise_order: exercise.exercise_order,
-      exercise_name: exercise.exercise_name,
-      videos,
-    };
-  });
 
-  return { bankPosition, exercises: resolvedExercises };
+    const { data: videos } = videoIds.size
+      ? await supabase
+          .from("content_videos")
+          .select("id, vimeo_id, title")
+          .in("id", Array.from(videoIds))
+      : { data: [] as VideoSummary[] };
+
+    const videoById = new Map((videos ?? []).map((v) => [v.id, v]));
+
+    const resolvedExercises: WorkoutExercise[] = exercises.map((exercise) => {
+      const videos = {} as Record<WorkoutTier, VideoSummary | null>;
+      for (const tier of Object.keys(TIER_COLUMNS) as WorkoutTier[]) {
+        const videoId = exercise[TIER_COLUMNS[tier]] as string | null;
+        videos[tier] = videoId ? videoById.get(videoId) ?? null : null;
+      }
+      return {
+        exercise_order: exercise.exercise_order,
+        exercise_name: exercise.exercise_name,
+        videos,
+      };
+    });
+
+    return { bankPosition, exercises: resolvedExercises };
+  } catch {
+    return null;
+  }
 }
 
 /** Same "shared content, same real week for everyone" reasoning as getWorkoutForWeek -- deliberately UTC. */
 export async function getDailyQuote(now: Date = new Date()) {
-  const supabase = await createClient();
+  // Wrapped in try/catch, same reasoning as getWorkoutForWeek above.
+  try {
+    const supabase = await createClient();
 
-  const { count } = await supabase
-    .from("daily_quotes")
-    .select("id", { count: "exact", head: true });
+    const { count } = await supabase
+      .from("daily_quotes")
+      .select("id", { count: "exact", head: true });
 
-  if (!count) return null;
+    if (!count) return null;
 
-  const bankPosition = resolveBankPosition(getIsoWeekNumber(now, "UTC"), count);
+    const bankPosition = resolveBankPosition(getIsoWeekNumber(now, "UTC"), count);
 
-  const { data } = await supabase
-    .from("daily_quotes")
-    .select("quote_text, author")
-    .eq("bank_position", bankPosition)
-    .maybeSingle();
+    const { data } = await supabase
+      .from("daily_quotes")
+      .select("quote_text, author")
+      .eq("bank_position", bankPosition)
+      .maybeSingle();
 
-  return data;
+    return data;
+  } catch {
+    return null;
+  }
 }

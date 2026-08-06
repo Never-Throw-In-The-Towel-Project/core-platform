@@ -2,7 +2,7 @@ import { requireNtittAdmin } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { getDisplayNames } from "@/lib/community/queries";
 import { ModerationQueueItem } from "@/components/community/ModerationQueueItem";
-import type { CommunityPost } from "@/types/database";
+import type { CommunityPost, CommunityReport } from "@/types/database";
 
 /**
  * "Basic moderation tools for the NTITT admin... so flagged posts can be
@@ -14,13 +14,41 @@ import type { CommunityPost } from "@/types/database";
  */
 export default async function CommunityModerationPage() {
   await requireNtittAdmin();
-  const supabase = await createClient();
 
-  const { data: reports } = await supabase
-    .from("community_reports")
-    .select("*")
-    .eq("resolved", false)
-    .order("created_at", { ascending: true });
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  // Treated the same as "no open reports" below -- there's nothing safe
+  // to show an admin here beyond that, and it's a transient-failure retry
+  // (reload the page), not silent data loss.
+  let reports: CommunityReport[] | null = null;
+  let posts: CommunityPost[] | null = null;
+  let nameByUser = new Map<string, string>();
+  try {
+    const supabase = await createClient();
+
+    const { data: reportsData } = await supabase
+      .from("community_reports")
+      .select("*")
+      .eq("resolved", false)
+      .order("created_at", { ascending: true });
+    reports = reportsData as CommunityReport[] | null;
+
+    if (reports && reports.length > 0) {
+      const postIds = Array.from(new Set(reports.map((r) => r.post_id as string)));
+      const reporterIds = Array.from(new Set(reports.map((r) => r.reporter_user_id as string)));
+
+      const [postsResult, nameByUserResult] = await Promise.all([
+        supabase.from("community_posts").select("*").in("id", postIds),
+        getDisplayNames(supabase, reporterIds),
+      ]);
+      posts = postsResult.data as CommunityPost[] | null;
+      nameByUser = nameByUserResult;
+    }
+  } catch {
+    reports = null;
+    posts = null;
+    nameByUser = new Map();
+  }
 
   if (!reports || reports.length === 0) {
     return (
@@ -31,15 +59,7 @@ export default async function CommunityModerationPage() {
     );
   }
 
-  const postIds = Array.from(new Set(reports.map((r) => r.post_id as string)));
-  const reporterIds = Array.from(new Set(reports.map((r) => r.reporter_user_id as string)));
-
-  const [{ data: posts }, nameByUser] = await Promise.all([
-    supabase.from("community_posts").select("*").in("id", postIds),
-    getDisplayNames(supabase, reporterIds),
-  ]);
-
-  const postById = new Map((posts as CommunityPost[] | null ?? []).map((p) => [p.id, p]));
+  const postById = new Map((posts ?? []).map((p) => [p.id, p]));
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">

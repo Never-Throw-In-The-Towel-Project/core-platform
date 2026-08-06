@@ -52,22 +52,36 @@ function formatWeekRange(weekStartDate: string): string {
 export default async function JourneyPage() {
   const profile = await getProfile();
   const activeDayCount = await getActiveDayCount(profile.id);
-  const supabase = await createClient("private");
 
-  const [{ data: weeklyReviews }, { data: periodicReviews }, stats] = await Promise.all([
-    supabase
-      .from("weekly_reviews")
-      .select("*")
-      .eq("user_id", profile.id)
-      .not("completed_at", "is", null)
-      .order("week_start_date", { ascending: false }),
-    supabase
-      .from("periodic_reviews")
-      .select("*")
-      .eq("user_id", profile.id)
-      .not("completed_at", "is", null),
-    getJourneyStats(profile.id, activeDayCount),
-  ]);
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  // Degrading to empty history is the same safe direction this page
+  // already takes for a genuinely new user ("Nothing here yet -- keep
+  // going."), not a distinct case worth crashing this read-only page over.
+  let weeklyReviews: WeeklyReview[] | null = null;
+  let periodicReviews: PeriodicReview[] | null = null;
+  try {
+    const supabase = await createClient("private");
+    const [weeklyResult, periodicResult] = await Promise.all([
+      supabase
+        .from("weekly_reviews")
+        .select("*")
+        .eq("user_id", profile.id)
+        .not("completed_at", "is", null)
+        .order("week_start_date", { ascending: false }),
+      supabase
+        .from("periodic_reviews")
+        .select("*")
+        .eq("user_id", profile.id)
+        .not("completed_at", "is", null),
+    ]);
+    weeklyReviews = weeklyResult.data as WeeklyReview[] | null;
+    periodicReviews = periodicResult.data as PeriodicReview[] | null;
+  } catch {
+    weeklyReviews = null;
+    periodicReviews = null;
+  }
+  const stats = await getJourneyStats(profile.id, activeDayCount);
 
   const reviews = (weeklyReviews as WeeklyReview[] | null) ?? [];
   const recentReviews = reviews.slice(0, 5);

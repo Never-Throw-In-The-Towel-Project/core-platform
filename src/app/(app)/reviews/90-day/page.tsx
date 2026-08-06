@@ -15,14 +15,25 @@ export default async function NinetyDayReviewPage() {
     redirect("/home");
   }
 
-  const supabase = await createClient("private");
-  const { data: thirtyDayReview } = await supabase
-    .from("periodic_reviews")
-    .select("self_assessment")
-    .eq("user_id", profile.id)
-    .eq("review_type", "30_day")
-    .not("completed_at", "is", null)
-    .maybeSingle();
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  // A null comparison score just means the form renders without the
+  // 30-day comparison column, same as a user who has no 30-day review to
+  // compare against, not a crash on this milestone screen.
+  let thirtyDayReview: { self_assessment: SelfAssessment | null } | null = null;
+  try {
+    const supabase = await createClient("private");
+    const { data } = await supabase
+      .from("periodic_reviews")
+      .select("self_assessment")
+      .eq("user_id", profile.id)
+      .eq("review_type", "30_day")
+      .not("completed_at", "is", null)
+      .maybeSingle();
+    thirtyDayReview = data;
+  } catch {
+    thirtyDayReview = null;
+  }
 
   return (
     <main>

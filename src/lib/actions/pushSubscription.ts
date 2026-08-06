@@ -17,43 +17,63 @@ type SubscriptionPayload = {
  */
 export async function subscribeToPush(payload: SubscriptionPayload): Promise<{ ok: boolean }> {
   const session = await verifySession();
-  const supabase = await createClient();
 
-  const { error } = await supabase.from("push_subscriptions").upsert(
-    {
-      user_id: session.userId,
-      endpoint: payload.endpoint,
-      p256dh: payload.keys.p256dh,
-      auth: payload.keys.auth,
-    },
-    { onConflict: "endpoint" }
-  );
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("push_subscriptions").upsert(
+      {
+        user_id: session.userId,
+        endpoint: payload.endpoint,
+        p256dh: payload.keys.p256dh,
+        auth: payload.keys.auth,
+      },
+      { onConflict: "endpoint" }
+    );
 
-  return { ok: !error };
+    return { ok: !error };
+  } catch {
+    return { ok: false };
+  }
 }
 
 export async function unsubscribeFromPush(endpoint: string): Promise<{ ok: boolean }> {
   const session = await verifySession();
-  const supabase = await createClient();
 
-  const { error } = await supabase
-    .from("push_subscriptions")
-    .delete()
-    .eq("user_id", session.userId)
-    .eq("endpoint", endpoint);
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("push_subscriptions")
+      .delete()
+      .eq("user_id", session.userId)
+      .eq("endpoint", endpoint);
 
-  return { ok: !error };
+    return { ok: !error };
+  } catch {
+    return { ok: false };
+  }
 }
 
 /** Whether the current user has any active push subscription, for /settings to render the right toggle state. */
 export async function getPushSubscriptionStatus(): Promise<boolean> {
   const session = await verifySession();
-  const supabase = await createClient();
 
-  const { count } = await supabase
-    .from("push_subscriptions")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", session.userId);
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  // false is the same "no subscription" default this already returns for
+  // a genuinely empty count.
+  try {
+    const supabase = await createClient();
+    const { count } = await supabase
+      .from("push_subscriptions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", session.userId);
 
-  return (count ?? 0) > 0;
+    return (count ?? 0) > 0;
+  } catch {
+    return false;
+  }
 }

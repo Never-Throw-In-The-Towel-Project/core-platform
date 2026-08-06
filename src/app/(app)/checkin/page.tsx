@@ -41,7 +41,17 @@ export default async function CheckinPage({
     redirect("/home");
   }
 
-  const privateClient = await createClient("private");
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  // Falling back to null lets renderCheckin degrade to the form's own
+  // empty-defaults state (no last-picked tier, no Monday goals to show)
+  // rather than crashing this page.
+  let privateClient: Awaited<ReturnType<typeof createClient>> | null = null;
+  try {
+    privateClient = await createClient("private");
+  } catch {
+    privateClient = null;
+  }
 
   return (
     <main className="mx-auto max-w-xl px-6 py-12">
@@ -58,17 +68,19 @@ async function renderCheckin(
   userId: string,
   timezone: string,
   now: Date,
-  privateClient: Awaited<ReturnType<typeof createClient>>
+  privateClient: Awaited<ReturnType<typeof createClient>> | null
 ) {
   if (weekday === "wednesday") {
-    const { data: lastWednesday } = await privateClient
-      .from("themed_checkins")
-      .select("answers")
-      .eq("user_id", userId)
-      .eq("weekday", "wednesday")
-      .order("week_start_date", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data: lastWednesday } = privateClient
+      ? await privateClient
+          .from("themed_checkins")
+          .select("answers")
+          .eq("user_id", userId)
+          .eq("weekday", "wednesday")
+          .order("week_start_date", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : { data: null };
 
     const defaultTier = ((lastWednesday?.answers as { tier?: string } | null)?.tier ?? null) as
       | WorkoutTier
@@ -84,13 +96,15 @@ async function renderCheckin(
   }
 
   if (weekday === "friday") {
-    const { data: mondayRow } = await privateClient
-      .from("themed_checkins")
-      .select("goals")
-      .eq("user_id", userId)
-      .eq("week_start_date", getMondayOfWeek(now, timezone))
-      .eq("weekday", "monday")
-      .maybeSingle();
+    const { data: mondayRow } = privateClient
+      ? await privateClient
+          .from("themed_checkins")
+          .select("goals")
+          .eq("user_id", userId)
+          .eq("week_start_date", getMondayOfWeek(now, timezone))
+          .eq("weekday", "monday")
+          .maybeSingle()
+      : { data: null };
 
     const mondayGoals = (mondayRow?.goals as { goals?: string[] } | null)?.goals ?? [];
 
@@ -100,14 +114,18 @@ async function renderCheckin(
   if (weekday === "tuesday") {
     let podcastEpisode = null;
     if (isFirstOccurrenceOfWeekdayInMonth(now, timezone, "tuesday")) {
-      const publicClient = await createClient();
-      const { data } = await publicClient
-        .from("podcast_episodes")
-        .select("title, embed_url")
-        .order("release_date", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      podcastEpisode = data;
+      try {
+        const publicClient = await createClient();
+        const { data } = await publicClient
+          .from("podcast_episodes")
+          .select("title, embed_url")
+          .order("release_date", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        podcastEpisode = data;
+      } catch {
+        podcastEpisode = null;
+      }
     }
 
     return <ThemedCheckinForm weekday="tuesday" podcastEpisode={podcastEpisode} />;
