@@ -14,12 +14,20 @@ export type MagicLinkState =
 const EmailSchema = z.email();
 
 /**
- * Employees/HR admins are provisioned by a company onboarding flow, not
- * open self-signup (see supabase/config.toml: enable_signup = false) -- so
- * this stays the entry point for anyone who hasn't set a password yet, or
- * who'd rather not. Onboarding offers an optional "set a password" step
- * (setPassword below) so returning users who set one can use
- * signInWithPassword instead; both sign in the same admin-provisioned
+ * Sign-in only -- never creates an account. `shouldCreateUser: false` is
+ * load-bearing now that enable_signup is true (supabase/config.toml, for
+ * src/lib/actions/signup.ts's self-service flow): without it, an unknown
+ * email typed into this form would silently create a new auth.users row
+ * with no company_id in its metadata, landing on handle_new_user's no-op
+ * fallback (supabase/migrations/20260731090000_fix_handle_new_user_non_blocking.sql)
+ * -- a real account with no profiles row at all, which getProfile() then
+ * treats as "no such profile" and bounces back to /login with no
+ * explanation. Real self-service account creation belongs to
+ * src/app/signup/, not this form.
+ *
+ * Onboarding offers an optional "set a password" step (setPassword below)
+ * so a magic-link- or invite-provisioned user who sets one can use
+ * signInWithPassword instead; both sign in the same already-provisioned
  * account, this just avoids waiting on an email round-trip.
  */
 export async function signInWithMagicLink(
@@ -55,6 +63,7 @@ export async function signInWithMagicLink(
       email: parsed.data,
       options: {
         emailRedirectTo: callbackUrl.toString(),
+        shouldCreateUser: false,
       },
     });
 

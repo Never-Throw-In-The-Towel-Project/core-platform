@@ -30,6 +30,12 @@ enabled = true
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["https://app.ntitt.co.uk"]
 jwt_expiry = 3600
-enable_signup = false
-# Employees and HR admins are provisioned by NTITT/company admin flows, not
-# open self-signup, since every account must be tied to a company at creation.
+enable_signup = true
+# Public/direct signups (src/lib/actions/signup.ts) are self-service and
+# land in the shared "NTITT Direct" company (see
+# supabase/migrations/20260807000000_direct_company_seed.sql). Partner
+# co-branded companies stay invite-only -- src/app/signup/page.tsx and
+# signUp() both refuse to provision an account on a partner subdomain,
+# resolved via resolveCompanyForHost. Employees/HR admins at a partner
+# company are still provisioned by NTITT/company admin invite flows only
+# (src/lib/actions/invite.ts).

@@ -23,19 +23,25 @@ import { extractTenantSlug } from "@/lib/tenant/resolve";
 // Phase 1's Twilio webhook. If a future /api route ever needs a real user
 // session, gate it explicitly inside that route (verifySession()), not by
 // removing this exclusion -- proxy is for browser-facing pages.
-// No public /signup: enable_signup is false (supabase/config.toml) --
-// accounts are provisioned by admin invite only (see
-// src/lib/actions/invite.ts), so there is no self-service page to allow
-// through. /community-guidelines was never a real route either -- the
-// actual page (/community/guidelines) intentionally requires a session,
-// same as the rest of /community.
+// /signup is public on every host at this layer, deliberately -- proxy has
+// no DB access, so it can't tell a partner subdomain from the direct
+// platform without one (and a plain hostname/slug check here still
+// couldn't see a flagship client's custom_domain, which is company data,
+// not a hostname pattern). The real "no self-service signup on a partner
+// company" enforcement is DB-backed (resolveCompanyForHost) and lives in
+// src/app/signup/page.tsx + src/lib/actions/signup.ts's signUp() itself.
+// Don't "fix" this into a host check here -- it would either miss custom
+// domains or duplicate a DB round-trip proxy.ts otherwise never makes.
+// /community-guidelines was never a real route either -- the actual page
+// (/community/guidelines) intentionally requires a session, same as the
+// rest of /community.
 //
 // /documentary, /podcast, and /what-i-do are the public marketing site (see
 // src/app/(marketing)/) -- the free "taster" that explicitly must not
 // require signing in, since the actual paid content lives behind /login.
-const PUBLIC_PATHS = ["/", "/login", "/auth/callback", "/documentary", "/podcast", "/what-i-do"];
+export const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth/callback", "/documentary", "/podcast", "/what-i-do"];
 
-function isPublicPath(pathname: string): boolean {
+export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 

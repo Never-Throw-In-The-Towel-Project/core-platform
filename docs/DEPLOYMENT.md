@@ -42,13 +42,20 @@ to investigate rather than pushing through.
    - Site URL: the real production URL (e.g. `https://app.ntitt.co.uk`).
    - Redirect URLs: add the production URL and any preview/staging URLs you
      want magic links to work from.
-   - Confirm signups: `enable_signup` is `false` in `supabase/config.toml` —
-     employees and HR admins are provisioned by an in-app admin-invite flow
-     (`src/lib/actions/invite.ts` — `hr_admin` invites employees to their own
-     company, `ntitt_admin` invites anyone to any company/role), never open
-     self-signup, since every account must be tied to a `company_id` at
-     creation. Mirror that in the dashboard (Authentication → Sign In →
-     disable public sign-ups).
+   - Confirm signups: `enable_signup` is `true` in `supabase/config.toml` —
+     the direct/public platform now has self-service signup
+     (`src/lib/actions/signup.ts`, `/signup`), landing every public account
+     in the shared "NTITT Direct" company seeded by
+     `20260807000000_direct_company_seed.sql`. Partner co-branded companies
+     stay invite-only — employees and HR admins there are still provisioned
+     only by the in-app admin-invite flow (`src/lib/actions/invite.ts` —
+     `hr_admin` invites employees to their own company, `ntitt_admin`
+     invites anyone to any company/role); `/signup` and `signUp()` both
+     refuse to run when the request resolves to a partner company. Mirror
+     the `true` setting in the dashboard (Authentication → Sign In → enable
+     public sign-ups) — this is a live, separate setting from
+     `config.toml`, so it needs to be flipped there too, not inferred from
+     this repo alone.
 
 ## 2. Run the migrations
 
@@ -61,7 +68,7 @@ npx supabase link --project-ref <your-project-ref>
 npx supabase db push
 ```
 
-This applies all 11 files in `supabase/migrations/` in filename order:
+This applies all 12 files in `supabase/migrations/` in filename order:
 
 1. `20260730000000_init_schema.sql` — companies, profiles, content library,
    the aggregate tables, and every `private` schema table (journal-style
@@ -89,6 +96,11 @@ This applies all 11 files in `supabase/migrations/` in filename order:
     is the actual reliable mechanism now).
 11. `20260731100000_sunday_notification_default.sql` — default/backfill for
     `profiles.sunday_notification_time`.
+12. `20260807000000_direct_company_seed.sql` — seeds the shared "NTITT
+    Direct" `companies` row every self-service `/signup` account is
+    assigned to. Unlike `supabase/seed.sql` below, this is a real migration
+    file, so `supabase db push` applies it automatically — no separate
+    manual step needed for this one.
 
 If you don't have `supabase` CLI access from wherever you're running this,
 the fallback is pasting each file's contents into the Supabase Studio SQL
@@ -120,21 +132,24 @@ Studio's SQL Editor. Safe to re-run (`on conflict (slug) do nothing`).
 
 ## 3. One-time manual data setup
 
-Every account after this bootstrap is provisioned through the in-app invite
-flow (`hr_admin`/`ntitt_admin` → "Invite" — see `src/lib/actions/invite.ts`).
-But that flow needs an `ntitt_admin` to already exist to send the very first
-invite, which is the one genuine chicken-and-egg case: nobody can invite the
-first admin, since nobody with invite rights exists yet. This step is that
-one-time exception, not a pattern to repeat for later accounts.
+Every account at a partner co-branded company is provisioned through the
+in-app invite flow (`hr_admin`/`ntitt_admin` → "Invite" — see
+`src/lib/actions/invite.ts`); direct/public accounts self-provision via
+`/signup` into the shared "NTITT Direct" company instead (see step 2's
+migration 12). But the invite flow needs an `ntitt_admin` to already exist
+to send the very first invite, which is the one genuine chicken-and-egg
+case: nobody can invite the first admin, since nobody with invite rights
+exists yet. This step is that one-time exception, not a pattern to repeat
+for later accounts.
 
 1. In Table Editor, insert a `companies` row for NTITT itself (e.g.
    `name: "NTITT (internal)"`, any unique `slug`) — an `ntitt_admin`
    profile still needs a non-null `company_id` to satisfy the `NOT NULL`
    constraint, even though moderation itself isn't company-scoped.
 2. In Authentication → Users, **Add user** (not the same thing as inviting —
-   this creates a confirmed account directly, bypassing `enable_signup`
-   since it's an admin action) for whoever will moderate Community/send the
-   first invites.
+   this creates a confirmed account directly, as an admin action, without
+   going through `/signup` or the invite flow) for whoever will moderate
+   Community/send the first invites.
 3. In Table Editor, insert a `profiles` row for that user: `id` = the
    user's UUID from step 2, `company_id` = the row from step 1, `role` =
    `ntitt_admin`.
@@ -165,6 +180,10 @@ one-time exception, not a pattern to repeat for later accounts.
    upgraded to Pro.
 5. Deploy. Once live, smoke-test:
    - Sign in via magic link end-to-end.
+   - Create an account via `/signup` on the production root domain
+     end-to-end, confirm the resulting profile lands in the "NTITT Direct"
+     company, and confirm `/signup` redirects to `/login` on a partner
+     subdomain instead of rendering the form.
    - Trigger the Twilio webhook path (`/api/webhooks/twilio-status`) and
      confirm it's reachable without a session (it authenticates itself
      independently — see `src/proxy.ts`'s matcher, which excludes `api/`
