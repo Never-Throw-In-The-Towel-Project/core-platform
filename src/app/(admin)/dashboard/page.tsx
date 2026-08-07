@@ -92,7 +92,7 @@ export default async function DashboardPage() {
         configurable.
       </div>
 
-      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi value={latestWeek?.themedPercent != null ? `${latestWeek.themedPercent}%` : "—"} label="Check-in completion this week" />
         <Kpi
           value={trendDelta ? `${trendDelta.points > 0 ? "+" : ""}${trendDelta.points}` : "—"}

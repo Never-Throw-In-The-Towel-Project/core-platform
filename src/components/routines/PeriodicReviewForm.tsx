@@ -114,8 +114,11 @@ export function PeriodicReviewForm({
           </p>
           <div className="mt-3 space-y-3">
             {SELF_ASSESSMENT_DIMENSIONS.map((dimension) => (
-              <div key={dimension.key} className="flex items-center gap-3">
-                <span className="w-32 shrink-0 text-sm font-medium">
+              <div
+                key={dimension.key}
+                className="flex flex-col gap-2 border-t border-current/10 py-3 first:border-t-0 sm:flex-row sm:items-center sm:gap-3 sm:border-t-0 sm:py-0"
+              >
+                <span className="text-sm font-medium sm:w-32 sm:shrink-0">
                   {dimension.label}
                   {isNinetyDay && comparisonSelfAssessment && (
                     <span className="block text-xs font-normal opacity-60">
@@ -123,23 +126,25 @@ export function PeriodicReviewForm({
                     </span>
                   )}
                 </span>
-                <div className="flex flex-1 gap-0.5">
-                  {RATING_SCALE.map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setRatings((prev) => ({ ...prev, [dimension.key]: n }))}
-                      className={
-                        "h-6 flex-1 " +
-                        ((ratings[dimension.key] ?? 0) >= n ? "bg-brand-accent" : "bg-current/10")
-                      }
-                      aria-label={`${dimension.label}: ${n}`}
-                    />
-                  ))}
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-1 gap-1">
+                    {RATING_SCALE.map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setRatings((prev) => ({ ...prev, [dimension.key]: n }))}
+                        className={
+                          "h-8 flex-1 sm:h-6 " +
+                          ((ratings[dimension.key] ?? 0) >= n ? "bg-brand-accent" : "bg-current/10")
+                        }
+                        aria-label={`${dimension.label}: ${n}`}
+                      />
+                    ))}
+                  </div>
+                  <span className="w-6 shrink-0 text-right text-sm font-semibold">
+                    {ratings[dimension.key] ?? "–"}
+                  </span>
                 </div>
-                <span className="w-6 shrink-0 text-right text-sm font-semibold">
-                  {ratings[dimension.key] ?? "–"}
-                </span>
                 <input type="hidden" name={dimension.key} value={ratings[dimension.key] ?? ""} />
               </div>
             ))}
@@ -153,7 +158,7 @@ export function PeriodicReviewForm({
             &ldquo;I have completed {periodLabel} days. I will continue to show up, trust the
             process, and keep moving forward.&rdquo;
           </p>
-          <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+          <div className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
             <label className="block">
               <span className="text-xs font-semibold tracking-wide uppercase opacity-60">Name</span>
               <input
