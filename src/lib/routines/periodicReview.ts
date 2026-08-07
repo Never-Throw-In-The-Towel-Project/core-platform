@@ -15,30 +15,38 @@ const THRESHOLDS: Record<ReviewType, number> = { "30_day": 30, "90_day": 90 };
  * reached.
  */
 export async function getFirstActiveDate(userId: string): Promise<string | null> {
-  const supabase = await createClient("private");
+  // Wrapped in try/catch, same reasoning as getPendingPeriodicReview below:
+  // createClient() can throw synchronously, and null here just means the
+  // caller falls back to today's date as period_start (see periodicReview.ts's
+  // action) rather than crashing the review submission on a transient failure.
+  try {
+    const supabase = await createClient("private");
 
-  const [{ data: morning }, { data: night }] = await Promise.all([
-    supabase
-      .from("morning_entries")
-      .select("entry_date")
-      .eq("user_id", userId)
-      .not("completed_at", "is", null)
-      .order("entry_date", { ascending: true })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("night_entries")
-      .select("entry_date")
-      .eq("user_id", userId)
-      .not("completed_at", "is", null)
-      .order("entry_date", { ascending: true })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+    const [{ data: morning }, { data: night }] = await Promise.all([
+      supabase
+        .from("morning_entries")
+        .select("entry_date")
+        .eq("user_id", userId)
+        .not("completed_at", "is", null)
+        .order("entry_date", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("night_entries")
+        .select("entry_date")
+        .eq("user_id", userId)
+        .not("completed_at", "is", null)
+        .order("entry_date", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-  const dates = [morning?.entry_date, night?.entry_date].filter(Boolean) as string[];
-  if (dates.length === 0) return null;
-  return dates.sort()[0];
+    const dates = [morning?.entry_date, night?.entry_date].filter(Boolean) as string[];
+    if (dates.length === 0) return null;
+    return dates.sort()[0];
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -83,51 +91,67 @@ export async function getHabitSummary(
   periodStart: string,
   periodEnd: string
 ): Promise<HabitSummary> {
-  const supabase = await createClient("private");
-
-  const [{ count: morningCompleted }, { count: nightCompleted }, { count: themedCompleted }] =
-    await Promise.all([
-      supabase
-        .from("morning_entries")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .not("completed_at", "is", null)
-        .gte("entry_date", periodStart)
-        .lte("entry_date", periodEnd),
-      supabase
-        .from("night_entries")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .not("completed_at", "is", null)
-        .gte("entry_date", periodStart)
-        .lte("entry_date", periodEnd),
-      // week_start_date is always a Monday, but periodStart (the user's
-      // actual first active day) can be any weekday -- widening to that
-      // week's Monday avoids undercounting a themed check-in completed
-      // earlier in the same week periodStart falls in. periodStart is
-      // already a resolved plain calendar-date string (no zone attached),
-      // so interpreting it as UTC midnight here is just how a floating
-      // date is read back, not a timezone choice.
-      supabase
-        .from("themed_checkins")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .not("completed_at", "is", null)
-        .gte("week_start_date", getMondayOfWeek(new Date(periodStart + "T00:00:00Z"), "UTC"))
-        .lte("week_start_date", periodEnd),
-    ]);
-
   const eligibleDays = daysBetween(periodStart, periodEnd);
   const eligibleWeekdays = Math.floor((eligibleDays / 7) * 5);
 
-  return {
-    morning_completed: morningCompleted ?? 0,
-    morning_eligible: eligibleDays,
-    night_completed: nightCompleted ?? 0,
-    night_eligible: eligibleDays,
-    themed_completed: themedCompleted ?? 0,
-    themed_eligible: eligibleWeekdays,
-  };
+  // Wrapped in try/catch, same reasoning as getFirstActiveDate above:
+  // createClient() can throw synchronously. Degrading to zero counts (with
+  // the eligible totals still correct, since those don't need the DB) is
+  // the same safe direction the rest of this file already takes -- a
+  // pessimistic summary, not a crashed review submission.
+  try {
+    const supabase = await createClient("private");
+
+    const [{ count: morningCompleted }, { count: nightCompleted }, { count: themedCompleted }] =
+      await Promise.all([
+        supabase
+          .from("morning_entries")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .not("completed_at", "is", null)
+          .gte("entry_date", periodStart)
+          .lte("entry_date", periodEnd),
+        supabase
+          .from("night_entries")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .not("completed_at", "is", null)
+          .gte("entry_date", periodStart)
+          .lte("entry_date", periodEnd),
+        // week_start_date is always a Monday, but periodStart (the user's
+        // actual first active day) can be any weekday -- widening to that
+        // week's Monday avoids undercounting a themed check-in completed
+        // earlier in the same week periodStart falls in. periodStart is
+        // already a resolved plain calendar-date string (no zone attached),
+        // so interpreting it as UTC midnight here is just how a floating
+        // date is read back, not a timezone choice.
+        supabase
+          .from("themed_checkins")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .not("completed_at", "is", null)
+          .gte("week_start_date", getMondayOfWeek(new Date(periodStart + "T00:00:00Z"), "UTC"))
+          .lte("week_start_date", periodEnd),
+      ]);
+
+    return {
+      morning_completed: morningCompleted ?? 0,
+      morning_eligible: eligibleDays,
+      night_completed: nightCompleted ?? 0,
+      night_eligible: eligibleDays,
+      themed_completed: themedCompleted ?? 0,
+      themed_eligible: eligibleWeekdays,
+    };
+  } catch {
+    return {
+      morning_completed: 0,
+      morning_eligible: eligibleDays,
+      night_completed: 0,
+      night_eligible: eligibleDays,
+      themed_completed: 0,
+      themed_eligible: eligibleWeekdays,
+    };
+  }
 }
 
 function daysBetween(start: string, end: string): number {

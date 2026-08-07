@@ -34,20 +34,26 @@ export async function submitSundaySetup(
     return { status: "error", message: "Please check the form and try again." };
   }
 
-  const supabase = await createClient("private");
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient("private");
 
-  const { error } = await supabase.from("sunday_setups").upsert(
-    {
-      user_id: session.userId,
-      week_start_date: getNextMonday(new Date(), profile.timezone),
-      prep_notes: parsed.data.prepNotes ?? null,
-      intention: parsed.data.intention ?? null,
-      completed_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,week_start_date" }
-  );
+    const { error } = await supabase.from("sunday_setups").upsert(
+      {
+        user_id: session.userId,
+        week_start_date: getNextMonday(new Date(), profile.timezone),
+        prep_notes: parsed.data.prepNotes ?? null,
+        intention: parsed.data.intention ?? null,
+        completed_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,week_start_date" }
+    );
 
-  if (error) {
+    if (error) {
+      return { status: "error", message: "Something went wrong saving this. Please try again." };
+    }
+  } catch {
     return { status: "error", message: "Something went wrong saving this. Please try again." };
   }
 

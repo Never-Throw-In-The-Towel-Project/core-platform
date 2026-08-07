@@ -34,13 +34,19 @@ export async function updateTimezone(
     return { status: "error", message: "Please choose a valid timezone." };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("profiles")
-    .update({ timezone: parsed.data })
-    .eq("id", session.userId);
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("profiles")
+      .update({ timezone: parsed.data })
+      .eq("id", session.userId);
 
-  if (error) {
+    if (error) {
+      return { status: "error", message: "Something went wrong saving this. Please try again." };
+    }
+  } catch {
     return { status: "error", message: "Something went wrong saving this. Please try again." };
   }
 
@@ -78,17 +84,23 @@ export async function updateNotificationTimes(
     return { status: "error", message: parsed.error.issues[0].message };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      morning_notification_time: parsed.data.morningTime,
-      night_notification_time: parsed.data.nightTime,
-      sunday_notification_time: parsed.data.sundayTime,
-    })
-    .eq("id", session.userId);
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        morning_notification_time: parsed.data.morningTime,
+        night_notification_time: parsed.data.nightTime,
+        sunday_notification_time: parsed.data.sundayTime,
+      })
+      .eq("id", session.userId);
 
-  if (error) {
+    if (error) {
+      return { status: "error", message: "Something went wrong saving this. Please try again." };
+    }
+  } catch {
     return { status: "error", message: "Something went wrong saving this. Please try again." };
   }
 
@@ -114,13 +126,19 @@ export async function updateDisplayName(
     return { status: "error", message: parsed.error.issues[0].message };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("profiles")
-    .update({ display_name: parsed.data })
-    .eq("id", session.userId);
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("profiles")
+      .update({ display_name: parsed.data })
+      .eq("id", session.userId);
 
-  if (error) {
+    if (error) {
+      return { status: "error", message: "Something went wrong saving this. Please try again." };
+    }
+  } catch {
     return { status: "error", message: "Something went wrong saving this. Please try again." };
   }
 

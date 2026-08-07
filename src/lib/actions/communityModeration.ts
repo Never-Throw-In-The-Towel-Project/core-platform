@@ -35,27 +35,33 @@ export async function removeCommunityPost(
     return { status: "error", message: "Something went wrong. Please try again." };
   }
 
-  const supabase = await createClient();
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient();
 
-  const { error } = await supabase
-    .from("community_posts")
-    .update({
-      is_removed: true,
-      removed_by: session.userId,
-      removed_at: new Date().toISOString(),
-      removal_reason: parsed.data.reason ?? null,
-    })
-    .eq("id", parsed.data.postId);
+    const { error } = await supabase
+      .from("community_posts")
+      .update({
+        is_removed: true,
+        removed_by: session.userId,
+        removed_at: new Date().toISOString(),
+        removal_reason: parsed.data.reason ?? null,
+      })
+      .eq("id", parsed.data.postId);
 
-  if (error) {
+    if (error) {
+      return { status: "error", message: "Something went wrong removing this post." };
+    }
+
+    if (parsed.data.reportId) {
+      await supabase
+        .from("community_reports")
+        .update({ resolved: true, resolved_by: session.userId, resolved_at: new Date().toISOString() })
+        .eq("id", parsed.data.reportId);
+    }
+  } catch {
     return { status: "error", message: "Something went wrong removing this post." };
-  }
-
-  if (parsed.data.reportId) {
-    await supabase
-      .from("community_reports")
-      .update({ resolved: true, resolved_by: session.userId, resolved_at: new Date().toISOString() })
-      .eq("id", parsed.data.reportId);
   }
 
   revalidatePath("/community", "layout");
@@ -77,13 +83,19 @@ export async function dismissCommunityReport(
     return { status: "error", message: "Something went wrong. Please try again." };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("community_reports")
-    .update({ resolved: true, resolved_by: session.userId, resolved_at: new Date().toISOString() })
-    .eq("id", parsed.data.reportId);
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("community_reports")
+      .update({ resolved: true, resolved_by: session.userId, resolved_at: new Date().toISOString() })
+      .eq("id", parsed.data.reportId);
 
-  if (error) {
+    if (error) {
+      return { status: "error", message: "Something went wrong. Please try again." };
+    }
+  } catch {
     return { status: "error", message: "Something went wrong. Please try again." };
   }
 

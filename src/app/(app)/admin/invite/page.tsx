@@ -11,12 +11,22 @@ import { InviteStaffForm } from "@/components/admin/InviteStaffForm";
  */
 export default async function InviteStaffPage() {
   await requireNtittAdmin();
-  const supabase = await createClient();
 
-  const { data: companies } = await supabase
-    .from("companies")
-    .select("id, name")
-    .order("name", { ascending: true });
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  // Falling back to an empty list is the same shape `companies ?? []`
+  // already handles below, not a distinct case worth crashing this page.
+  let companies: { id: string; name: string }[] | null = null;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("companies")
+      .select("id, name")
+      .order("name", { ascending: true });
+    companies = data;
+  } catch {
+    companies = null;
+  }
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">

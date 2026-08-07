@@ -35,25 +35,31 @@ export async function submitNightEntry(
     return { status: "error", message: "Please check the form and try again." };
   }
 
-  const supabase = await createClient("private");
   const { noPhoneBeforeBed, hotBathOrShower, gratitude, highlight, dayRating, lookingAhead } = parsed.data;
 
-  const { error } = await supabase.from("night_entries").upsert(
-    {
-      user_id: session.userId,
-      entry_date: todayISODate(new Date(), profile.timezone),
-      no_phone_before_bed: noPhoneBeforeBed,
-      hot_bath_or_shower: hotBathOrShower,
-      gratitude: gratitude ?? null,
-      highlight: highlight ?? null,
-      day_rating: dayRating,
-      looking_ahead: lookingAhead ?? null,
-      completed_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,entry_date" }
-  );
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient("private");
+    const { error } = await supabase.from("night_entries").upsert(
+      {
+        user_id: session.userId,
+        entry_date: todayISODate(new Date(), profile.timezone),
+        no_phone_before_bed: noPhoneBeforeBed,
+        hot_bath_or_shower: hotBathOrShower,
+        gratitude: gratitude ?? null,
+        highlight: highlight ?? null,
+        day_rating: dayRating,
+        looking_ahead: lookingAhead ?? null,
+        completed_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,entry_date" }
+    );
 
-  if (error) {
+    if (error) {
+      return { status: "error", message: "Something went wrong saving this. Please try again." };
+    }
+  } catch {
     return { status: "error", message: "Something went wrong saving this. Please try again." };
   }
 

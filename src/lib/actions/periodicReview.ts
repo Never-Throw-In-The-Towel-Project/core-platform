@@ -99,51 +99,62 @@ export async function submitPeriodicReview(
   const periodStart = (await getFirstActiveDate(session.userId)) ?? todayISODate(new Date(), profile.timezone);
   const periodEnd = todayISODate(new Date(), profile.timezone);
 
-  let extra: PeriodicReviewExtra = {};
-  if (reviewType === "90_day") {
-    const habitSummary = await getHabitSummary(session.userId, periodStart, periodEnd);
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  // Both createClient() calls (the 90-day comparison lookup and the final
+  // upsert) are covered by the same block since either failing should
+  // surface the same retryable message, not a crash on this milestone
+  // screen specifically (see home/page.tsx's comment on why this screen
+  // takes over the home render entirely until completed).
+  try {
+    let extra: PeriodicReviewExtra = {};
+    if (reviewType === "90_day") {
+      const habitSummary = await getHabitSummary(session.userId, periodStart, periodEnd);
+
+      const comparisonClient = await createClient("private");
+      const { data: thirtyDayReview } = await comparisonClient
+        .from("periodic_reviews")
+        .select("self_assessment")
+        .eq("user_id", session.userId)
+        .eq("review_type", "30_day")
+        .not("completed_at", "is", null)
+        .maybeSingle();
+
+      extra = {
+        life_changes: parsed.data.lifeChanges,
+        next_period_vision: parsed.data.nextPeriodVision,
+        habit_summary: habitSummary,
+        comparison_self_assessment: (thirtyDayReview?.self_assessment as SelfAssessment | null) ?? undefined,
+      };
+    }
 
     const supabase = await createClient("private");
-    const { data: thirtyDayReview } = await supabase
-      .from("periodic_reviews")
-      .select("self_assessment")
-      .eq("user_id", session.userId)
-      .eq("review_type", "30_day")
-      .not("completed_at", "is", null)
-      .maybeSingle();
+    const { error } = await supabase.from("periodic_reviews").upsert(
+      {
+        user_id: session.userId,
+        review_type: reviewType satisfies ReviewType,
+        period_start: periodStart,
+        period_end: periodEnd,
+        most_proud_of: parsed.data.mostProudOf ?? null,
+        most_consistent_habits: parsed.data.mostConsistentHabits ?? null,
+        challenges_faced: parsed.data.challengesFaced ?? null,
+        whats_working: parsed.data.whatsWorking ?? null,
+        needs_to_change: parsed.data.needsToChange ?? null,
+        top_wins: topWins,
+        self_assessment: selfAssessmentParsed.data,
+        focus_next_period: parsed.data.focusNextPeriod ?? null,
+        commitment_signed_name: parsed.data.commitmentSignedName ?? null,
+        commitment_signed_date: todayISODate(new Date(), profile.timezone),
+        extra,
+        completed_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,review_type,period_start" }
+    );
 
-    extra = {
-      life_changes: parsed.data.lifeChanges,
-      next_period_vision: parsed.data.nextPeriodVision,
-      habit_summary: habitSummary,
-      comparison_self_assessment: (thirtyDayReview?.self_assessment as SelfAssessment | null) ?? undefined,
-    };
-  }
-
-  const supabase = await createClient("private");
-  const { error } = await supabase.from("periodic_reviews").upsert(
-    {
-      user_id: session.userId,
-      review_type: reviewType satisfies ReviewType,
-      period_start: periodStart,
-      period_end: periodEnd,
-      most_proud_of: parsed.data.mostProudOf ?? null,
-      most_consistent_habits: parsed.data.mostConsistentHabits ?? null,
-      challenges_faced: parsed.data.challengesFaced ?? null,
-      whats_working: parsed.data.whatsWorking ?? null,
-      needs_to_change: parsed.data.needsToChange ?? null,
-      top_wins: topWins,
-      self_assessment: selfAssessmentParsed.data,
-      focus_next_period: parsed.data.focusNextPeriod ?? null,
-      commitment_signed_name: parsed.data.commitmentSignedName ?? null,
-      commitment_signed_date: todayISODate(new Date(), profile.timezone),
-      extra,
-      completed_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,review_type,period_start" }
-  );
-
-  if (error) {
+    if (error) {
+      return { status: "error", message: "Something went wrong saving this. Please try again." };
+    }
+  } catch {
     return { status: "error", message: "Something went wrong saving this. Please try again." };
   }
 

@@ -37,17 +37,40 @@ function overallPercent(week: { morningPercent: number | null; nightPercent: num
  */
 export default async function DashboardPage() {
   const profile = await requireHrAdmin();
-  const supabase = await createClient();
   const currentWeekMonday = getMondayOfWeek(new Date(), "UTC");
 
-  const [{ data: company }, supportCount, reviewCompletions, weeklyParticipation, weekdayThisWeek] =
-    await Promise.all([
-      supabase.from("companies").select("name").eq("id", profile.company_id).maybeSingle(),
-      getSupportCount(supabase, profile.company_id),
-      getReviewCompletions(supabase, profile.company_id),
-      getWeeklyParticipation(supabase, profile.company_id),
-      getWeekdayEngagementForWeek(supabase, profile.company_id, currentWeekMonday),
-    ]);
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  // Degrading to the same "Not enough data yet" empty states this
+  // dashboard already renders is safer than crashing an HR admin's whole
+  // reporting screen.
+  let company: { name: string } | null = null;
+  let supportCount: Awaited<ReturnType<typeof getSupportCount>> = 0;
+  let reviewCompletions: Awaited<ReturnType<typeof getReviewCompletions>> = [];
+  let weeklyParticipation: Awaited<ReturnType<typeof getWeeklyParticipation>> = [];
+  let weekdayThisWeek: Awaited<ReturnType<typeof getWeekdayEngagementForWeek>> = [];
+  try {
+    const supabase = await createClient();
+    const [companyResult, supportCountResult, reviewCompletionsResult, weeklyParticipationResult, weekdayThisWeekResult] =
+      await Promise.all([
+        supabase.from("companies").select("name").eq("id", profile.company_id).maybeSingle(),
+        getSupportCount(supabase, profile.company_id),
+        getReviewCompletions(supabase, profile.company_id),
+        getWeeklyParticipation(supabase, profile.company_id),
+        getWeekdayEngagementForWeek(supabase, profile.company_id, currentWeekMonday),
+      ]);
+    company = companyResult.data;
+    supportCount = supportCountResult;
+    reviewCompletions = reviewCompletionsResult;
+    weeklyParticipation = weeklyParticipationResult;
+    weekdayThisWeek = weekdayThisWeekResult;
+  } catch {
+    company = null;
+    supportCount = 0;
+    reviewCompletions = [];
+    weeklyParticipation = [];
+    weekdayThisWeek = [];
+  }
 
   const latestWeek = weeklyParticipation[weeklyParticipation.length - 1] ?? null;
   const trendDelta = computeTrendDelta(weeklyParticipation);

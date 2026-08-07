@@ -48,28 +48,34 @@ export async function submitCommunityPost(
     return { status: "error", message: "Please write something before posting." };
   }
 
-  const supabase = await createClient();
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient();
 
-  let imageUrl: string | null = null;
-  const image = formData.get("image");
-  if (image instanceof File && image.size > 0) {
-    const result = await uploadCommunityImage(supabase, session.userId, image);
-    if ("error" in result) {
-      return { status: "error", message: result.error };
+    let imageUrl: string | null = null;
+    const image = formData.get("image");
+    if (image instanceof File && image.size > 0) {
+      const result = await uploadCommunityImage(supabase, session.userId, image);
+      if ("error" in result) {
+        return { status: "error", message: result.error };
+      }
+      imageUrl = result.url;
     }
-    imageUrl = result.url;
-  }
 
-  const { error } = await supabase.from("community_posts").insert({
-    user_id: session.userId,
-    company_id: profile.company_id,
-    scope: parsed.data.scope,
-    board: parsed.data.board,
-    body: parsed.data.body,
-    image_url: imageUrl,
-  });
+    const { error } = await supabase.from("community_posts").insert({
+      user_id: session.userId,
+      company_id: profile.company_id,
+      scope: parsed.data.scope,
+      board: parsed.data.board,
+      body: parsed.data.body,
+      image_url: imageUrl,
+    });
 
-  if (error) {
+    if (error) {
+      return { status: "error", message: "Something went wrong posting this. Please try again." };
+    }
+  } catch {
     return { status: "error", message: "Something went wrong posting this. Please try again." };
   }
 
@@ -104,16 +110,22 @@ export async function submitCommunityComment(
     return { status: "error", message: "Please write a comment first." };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase.from("community_comments").insert({
-    post_id: parsed.data.postId,
-    user_id: session.userId,
-    scope: parsed.data.scope,
-    company_id: profile.company_id,
-    body: parsed.data.body,
-  });
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("community_comments").insert({
+      post_id: parsed.data.postId,
+      user_id: session.userId,
+      scope: parsed.data.scope,
+      company_id: profile.company_id,
+      body: parsed.data.body,
+    });
 
-  if (error) {
+    if (error) {
+      return { status: "error", message: "Something went wrong saving this. Please try again." };
+    }
+  } catch {
     return { status: "error", message: "Something went wrong saving this. Please try again." };
   }
 
@@ -128,22 +140,29 @@ export async function submitCommunityComment(
  */
 export async function toggleCommunityLike(postId: string): Promise<{ liked: boolean }> {
   const session = await verifySession();
-  const supabase = await createClient();
 
-  const { data: existing } = await supabase
-    .from("community_likes")
-    .select("id")
-    .eq("post_id", postId)
-    .eq("user_id", session.userId)
-    .maybeSingle();
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient();
 
-  if (existing) {
-    await supabase.from("community_likes").delete().eq("id", existing.id);
+    const { data: existing } = await supabase
+      .from("community_likes")
+      .select("id")
+      .eq("post_id", postId)
+      .eq("user_id", session.userId)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase.from("community_likes").delete().eq("id", existing.id);
+      return { liked: false };
+    }
+
+    await supabase.from("community_likes").insert({ post_id: postId, user_id: session.userId });
+    return { liked: true };
+  } catch {
     return { liked: false };
   }
-
-  await supabase.from("community_likes").insert({ post_id: postId, user_id: session.userId });
-  return { liked: true };
 }
 
 const ReportSchema = z.object({
@@ -167,14 +186,20 @@ export async function reportCommunityPost(
     return { status: "error", message: "Something went wrong. Please try again." };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase.from("community_reports").insert({
-    post_id: parsed.data.postId,
-    reporter_user_id: session.userId,
-    reason: parsed.data.reason ?? null,
-  });
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("community_reports").insert({
+      post_id: parsed.data.postId,
+      reporter_user_id: session.userId,
+      reason: parsed.data.reason ?? null,
+    });
 
-  if (error) {
+    if (error) {
+      return { status: "error", message: "Something went wrong reporting this. Please try again." };
+    }
+  } catch {
     return { status: "error", message: "Something went wrong reporting this. Please try again." };
   }
 
@@ -184,14 +209,21 @@ export async function reportCommunityPost(
 /** "Community guidelines displayed on first visit" -- accepting sets the flag that unlocks posting. */
 export async function acceptCommunityGuidelines(): Promise<{ ok: boolean }> {
   const session = await verifySession();
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("profiles")
-    .update({ community_opt_in: true })
-    .eq("id", session.userId);
 
-  if (!error) revalidatePath("/community", "layout");
-  return { ok: !error };
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("profiles")
+      .update({ community_opt_in: true })
+      .eq("id", session.userId);
+
+    if (!error) revalidatePath("/community", "layout");
+    return { ok: !error };
+  } catch {
+    return { ok: false };
+  }
 }
 
 const PodcastOptInSchema = z.discriminatedUnion("optIn", [
@@ -243,21 +275,27 @@ export async function updatePodcastGuestOptIn(
     };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("profiles")
-    .update(
-      parsed.data.optIn === "true"
-        ? {
-            podcast_guest_opt_in: true,
-            podcast_guest_anonymity_preference: parsed.data.anonymityPreference,
-            podcast_guest_consented_at: new Date().toISOString(),
-          }
-        : { podcast_guest_opt_in: false }
-    )
-    .eq("id", session.userId);
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("profiles")
+      .update(
+        parsed.data.optIn === "true"
+          ? {
+              podcast_guest_opt_in: true,
+              podcast_guest_anonymity_preference: parsed.data.anonymityPreference,
+              podcast_guest_consented_at: new Date().toISOString(),
+            }
+          : { podcast_guest_opt_in: false }
+      )
+      .eq("id", session.userId);
 
-  if (error) {
+    if (error) {
+      return { status: "error", message: "Something went wrong. Please try again." };
+    }
+  } catch {
     return { status: "error", message: "Something went wrong. Please try again." };
   }
 

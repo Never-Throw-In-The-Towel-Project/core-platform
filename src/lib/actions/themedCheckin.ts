@@ -65,8 +65,6 @@ export async function submitThemedCheckin(
     if (value) answers[field.key] = value;
   }
 
-  const supabase = await createClient("private");
-
   let goals: { goals: string[] } | null = null;
   if (checkinWeekday === "monday") {
     const goalValues = [formData.get("goal1"), formData.get("goal2"), formData.get("goal3")]
@@ -75,47 +73,55 @@ export async function submitThemedCheckin(
     goals = { goals: goalValues };
   }
 
-  if (checkinWeekday === "friday") {
-    // Per Anthony's guidance: the goal-check is only asked if Monday's
-    // goals actually exist for this week -- derived server-side from the
-    // real Monday row, not trusted from the form, same reasoning as the
-    // weekday lock itself. If Monday was skipped, Friday just skips this
-    // question rather than showing it empty or blocking completion on it.
-    const { data: mondayRow } = await supabase
-      .from("themed_checkins")
-      .select("goals")
-      .eq("user_id", session.userId)
-      .eq("week_start_date", getMondayOfWeek(now, profile.timezone))
-      .eq("weekday", "monday")
-      .maybeSingle();
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient("private");
 
-    const mondayGoals = (mondayRow?.goals as { goals?: string[] } | null)?.goals ?? [];
+    if (checkinWeekday === "friday") {
+      // Per Anthony's guidance: the goal-check is only asked if Monday's
+      // goals actually exist for this week -- derived server-side from the
+      // real Monday row, not trusted from the form, same reasoning as the
+      // weekday lock itself. If Monday was skipped, Friday just skips this
+      // question rather than showing it empty or blocking completion on it.
+      const { data: mondayRow } = await supabase
+        .from("themed_checkins")
+        .select("goals")
+        .eq("user_id", session.userId)
+        .eq("week_start_date", getMondayOfWeek(now, profile.timezone))
+        .eq("weekday", "monday")
+        .maybeSingle();
 
-    if (mondayGoals.length > 0) {
-      const achievedStatus = formData.get("achieved_monday_goals");
-      if (
-        typeof achievedStatus !== "string" ||
-        !["yes", "partially", "no"].includes(achievedStatus)
-      ) {
-        return { status: "error", message: "Please let us know how Monday's goals went." };
+      const mondayGoals = (mondayRow?.goals as { goals?: string[] } | null)?.goals ?? [];
+
+      if (mondayGoals.length > 0) {
+        const achievedStatus = formData.get("achieved_monday_goals");
+        if (
+          typeof achievedStatus !== "string" ||
+          !["yes", "partially", "no"].includes(achievedStatus)
+        ) {
+          return { status: "error", message: "Please let us know how Monday's goals went." };
+        }
+        answers.achieved_monday_goals = achievedStatus;
       }
-      answers.achieved_monday_goals = achievedStatus;
     }
-  }
 
-  const { error } = await supabase.from("themed_checkins").upsert(
-    {
-      user_id: session.userId,
-      week_start_date: getMondayOfWeek(now, profile.timezone),
-      weekday: checkinWeekday,
-      goals,
-      answers,
-      completed_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,week_start_date,weekday" }
-  );
+    const { error } = await supabase.from("themed_checkins").upsert(
+      {
+        user_id: session.userId,
+        week_start_date: getMondayOfWeek(now, profile.timezone),
+        weekday: checkinWeekday,
+        goals,
+        answers,
+        completed_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,week_start_date,weekday" }
+    );
 
-  if (error) {
+    if (error) {
+      return { status: "error", message: "Something went wrong saving this. Please try again." };
+    }
+  } catch {
     return { status: "error", message: "Something went wrong saving this. Please try again." };
   }
 
@@ -143,20 +149,26 @@ export async function submitWorkoutWednesday(
     return { status: "error", message: "Please select a difficulty level." };
   }
 
-  const supabase = await createClient("private");
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient("private");
 
-  const { error } = await supabase.from("themed_checkins").upsert(
-    {
-      user_id: session.userId,
-      week_start_date: getMondayOfWeek(now, profile.timezone),
-      weekday: "wednesday",
-      answers: { tier: parsed.data },
-      completed_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,week_start_date,weekday" }
-  );
+    const { error } = await supabase.from("themed_checkins").upsert(
+      {
+        user_id: session.userId,
+        week_start_date: getMondayOfWeek(now, profile.timezone),
+        weekday: "wednesday",
+        answers: { tier: parsed.data },
+        completed_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,week_start_date,weekday" }
+    );
 
-  if (error) {
+    if (error) {
+      return { status: "error", message: "Something went wrong saving this. Please try again." };
+    }
+  } catch {
     return { status: "error", message: "Something went wrong saving this. Please try again." };
   }
 

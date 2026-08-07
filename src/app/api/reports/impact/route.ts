@@ -19,30 +19,43 @@ import { generateImpactReportPdf } from "@/lib/reports/generateImpactReportPdf";
  */
 export async function GET() {
   const profile = await requireHrAdmin();
-  const supabase = await createClient();
 
-  const { data: company } = await supabase
-    .from("companies")
-    .select("name")
-    .eq("id", profile.company_id)
-    .single();
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed (node_modules/@supabase/ssr/dist/main/
+  // createServerClient.js), the same gap already closed on every other
+  // call site -- but this one's a Route Handler, not a page render, so it
+  // isn't covered by app/error.tsx at all. Unwrapped, this returned Next's
+  // raw unstyled default 500 to an HR admin clicking "Download impact
+  // report" instead of a JSON error the client can show a message for.
+  try {
+    const supabase = await createClient();
 
-  if (!company) {
-    return NextResponse.json({ error: "company not found" }, { status: 404 });
+    const { data: company } = await supabase
+      .from("companies")
+      .select("name")
+      .eq("id", profile.company_id)
+      .single();
+
+    if (!company) {
+      return NextResponse.json({ error: "company not found" }, { status: 404 });
+    }
+
+    const data = await collectImpactReportData(supabase, profile.company_id, company.name);
+    const pdf = await generateImpactReportPdf(data);
+
+    // NextResponse's body type doesn't line up with Node's Buffer (a TS/@types
+    // mismatch -- Buffer's `.buffer` is typed ArrayBufferLike, which includes
+    // SharedArrayBuffer, while the DOM lib's BlobPart wants a plain
+    // ArrayBuffer specifically). Uint8Array.from copies into a fresh,
+    // plain-ArrayBuffer-backed array, not a real runtime incompatibility.
+    return new NextResponse(new Blob([Uint8Array.from(pdf)], { type: "application/pdf" }), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `attachment; filename="ntitt-impact-report-${data.generatedAt}.pdf"`,
+      },
+    });
+  } catch (err) {
+    console.error("GET /api/reports/impact: failed to generate report", err);
+    return NextResponse.json({ error: "failed to generate report" }, { status: 500 });
   }
-
-  const data = await collectImpactReportData(supabase, profile.company_id, company.name);
-  const pdf = await generateImpactReportPdf(data);
-
-  // NextResponse's body type doesn't line up with Node's Buffer (a TS/@types
-  // mismatch -- Buffer's `.buffer` is typed ArrayBufferLike, which includes
-  // SharedArrayBuffer, while the DOM lib's BlobPart wants a plain
-  // ArrayBuffer specifically). Uint8Array.from copies into a fresh,
-  // plain-ArrayBuffer-backed array, not a real runtime incompatibility.
-  return new NextResponse(new Blob([Uint8Array.from(pdf)], { type: "application/pdf" }), {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="ntitt-impact-report-${data.generatedAt}.pdf"`,
-    },
-  });
 }

@@ -31,20 +31,38 @@ export async function CommunityFeedView({
     return <CommunityGuidelines showAccept />;
   }
 
-  const supabase = await createClient();
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  // Degrading to an empty feed is the same shape this page already renders
+  // for a genuinely new company/board (emptyMessage), not a distinct case
+  // worth crashing this screen over.
+  let posts: Awaited<ReturnType<typeof getPosts>> = [];
+  let company: { name: string } | null = null;
+  let podcastEpisode: { title: string; embed_url: string } | null = null;
+  let commentsByPost: Awaited<ReturnType<typeof getComments>>[] = [];
+  try {
+    const supabase = await createClient();
 
-  const [posts, { data: company }, { data: podcastEpisode }] = await Promise.all([
-    getPosts(supabase, { scope, board: "feed", companyId: profile.company_id, viewerUserId: profile.id }),
-    supabase.from("companies").select("name").eq("id", profile.company_id).maybeSingle(),
-    supabase
-      .from("podcast_episodes")
-      .select("title, embed_url")
-      .order("release_date", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
-
-  const commentsByPost = await Promise.all(posts.map((post) => getComments(supabase, post.id)));
+    const [postsResult, companyResult, podcastResult] = await Promise.all([
+      getPosts(supabase, { scope, board: "feed", companyId: profile.company_id, viewerUserId: profile.id }),
+      supabase.from("companies").select("name").eq("id", profile.company_id).maybeSingle(),
+      supabase
+        .from("podcast_episodes")
+        .select("title, embed_url")
+        .order("release_date", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    posts = postsResult;
+    company = companyResult.data;
+    podcastEpisode = podcastResult.data;
+    commentsByPost = await Promise.all(posts.map((post) => getComments(supabase, post.id)));
+  } catch {
+    posts = [];
+    company = null;
+    podcastEpisode = null;
+    commentsByPost = [];
+  }
 
   return (
     <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 px-6 py-10 lg:grid-cols-[200px_1fr_240px]">
