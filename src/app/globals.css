@@ -77,3 +77,32 @@
     font-family: Arial, Helvetica, sans-serif;
   }
 }
+
+/* Marketing homepage partner-logo strip: a continuous right-to-left scroll.
+   The strip's content is the logo list rendered twice back to back, and the
+   animation translates exactly -50% (one full copy's width) before looping,
+   so the seam between the end of copy 1 and the start of copy 2 is
+   invisible. Pausing on hover/focus lets a visitor stop it to read a logo. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 28s linear infinite;
+}
+
+.animate-marquee:hover,
+.animate-marquee:focus-within {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
+}

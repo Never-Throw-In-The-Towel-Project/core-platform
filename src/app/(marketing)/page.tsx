@@ -88,6 +88,23 @@ const OFFERINGS = [
 
 const STAND_FOR_POINTS = ["Let's keep talking", "Let's keep showing up", "Let's keep doing the work"];
 
+function LogoTile({ partner, duplicate = false }: { partner: (typeof PARTNER_LOGOS)[number]; duplicate?: boolean }) {
+  return (
+    <div
+      className="flex h-16 w-32 shrink-0 items-center justify-center border border-black/10 p-3"
+      aria-hidden={duplicate}
+    >
+      <Image
+        src={partner.src}
+        alt={partner.name}
+        width={104}
+        height={40}
+        style={{ width: "auto", height: "auto", maxWidth: "100%", maxHeight: "100%" }}
+      />
+    </div>
+  );
+}
+
 function CheckBadge() {
   return (
     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-accent text-[10px] font-bold text-brand-accent-foreground">
@@ -161,23 +178,23 @@ export default async function MarketingHomePage() {
       {/* Only on the default (non-branded) marketing page -- a company's
           own co-branded portal shouldn't show a generic partner wall. */}
       {!company && (
-        <section className="bg-background px-6 py-16 text-center text-foreground">
+        <section className="bg-background py-16 text-center text-foreground">
           <h2 className="text-xl font-bold">Companies we&apos;ve worked with</h2>
-          <div className="mx-auto mt-8 flex max-w-4xl flex-wrap items-center justify-center gap-4">
-            {PARTNER_LOGOS.map((partner) => (
-              <div
-                key={partner.src}
-                className="flex h-16 w-32 items-center justify-center rounded-md border border-black/10 p-3"
-              >
-                <Image
-                  src={partner.src}
-                  alt={partner.name}
-                  width={104}
-                  height={40}
-                  style={{ width: "auto", height: "auto", maxWidth: "100%", maxHeight: "100%" }}
-                />
-              </div>
-            ))}
+          <div
+            className="mx-auto mt-8 max-w-4xl overflow-hidden"
+            style={{
+              maskImage: "linear-gradient(to right, transparent, black 10%, black 90%, transparent)",
+              WebkitMaskImage: "linear-gradient(to right, transparent, black 10%, black 90%, transparent)",
+            }}
+          >
+            <div className="animate-marquee flex w-max items-center gap-4">
+              {PARTNER_LOGOS.map((partner) => (
+                <LogoTile key={partner.src} partner={partner} />
+              ))}
+              {PARTNER_LOGOS.map((partner) => (
+                <LogoTile key={`${partner.src}-dup`} partner={partner} duplicate />
+              ))}
+            </div>
           </div>
         </section>
       )}
@@ -193,13 +210,13 @@ export default async function MarketingHomePage() {
               ))}
             </div>
           </div>
-          <div className="overflow-hidden rounded-xl">
+          <div className="relative aspect-4/5 overflow-hidden rounded-xl">
             <Image
               src="/site/founder-speaking.jpg"
               alt="Anthony Hutton speaking on Never Throw In The Towel"
-              width={1200}
-              height={1486}
-              className="h-full w-full object-cover"
+              fill
+              sizes="(min-width: 768px) 50vw, 100vw"
+              className="object-cover"
             />
           </div>
         </div>
@@ -236,9 +253,12 @@ export default async function MarketingHomePage() {
             Not everyone wants to talk — and that&apos;s okay. We&apos;ve created different ways for people to
             connect, reset, and open up in a way that feels natural.
           </p>
-          <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-10 flex flex-wrap justify-center gap-6">
             {OFFERINGS.map((offering) => (
-              <div key={offering.title} className="flex flex-col overflow-hidden rounded-xl border border-black/10 text-left">
+              <div
+                key={offering.title}
+                className="flex w-full flex-col overflow-hidden rounded-xl border border-black/10 text-left sm:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)]"
+              >
                 <div className="aspect-video w-full overflow-hidden">
                   <Image
                     src={offering.image}
@@ -267,7 +287,8 @@ export default async function MarketingHomePage() {
         <div className="mx-auto grid max-w-4xl grid-cols-1 items-center gap-10 md:grid-cols-2">
           <div>
             <h2 className="text-3xl font-bold">This is What We Stand For</h2>
-            <div className="mt-6 space-y-3 text-sm text-brand-foreground/80">
+            <div className="mt-3 h-1 w-16 bg-brand-accent" />
+            <div className="mt-6 space-y-4 text-sm leading-relaxed text-brand-foreground/80">
               <p>At the core of Never Throw in the Towel is a simple message: keep going.</p>
               <p>Life can be heavy. But we&apos;re not meant to carry it alone.</p>
               <p>
@@ -288,13 +309,13 @@ export default async function MarketingHomePage() {
               ))}
             </div>
           </div>
-          <div className="overflow-hidden rounded-xl">
+          <div className="relative aspect-4/5 overflow-hidden rounded-xl">
             <Image
               src="/site/hero-boxing.jpg"
               alt="Never Throw In The Towel"
-              width={953}
-              height={1326}
-              className="h-full w-full object-cover"
+              fill
+              sizes="(min-width: 768px) 50vw, 100vw"
+              className="object-cover"
             />
           </div>
         </div>
@@ -303,14 +324,18 @@ export default async function MarketingHomePage() {
       {!company && (
         <section className="bg-background px-6 py-16 text-center text-foreground">
           <div className="mx-auto max-w-3xl">
-            <h2 className="text-xl font-bold">The Podcast</h2>
-            <div className="mt-8 overflow-hidden rounded-xl">
+            <h2 className="text-3xl font-bold">The Podcast</h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm text-foreground/70">
+              Real conversations with guests who&apos;ve faced real challenges — recorded raw, no scripts, no
+              polish. New episodes every month.
+            </p>
+            <div className="relative mt-8 aspect-video overflow-hidden rounded-xl">
               <Image
                 src="/site/podcast-recording.jpg"
                 alt="Recording the Never Throw In The Towel podcast"
-                width={1024}
-                height={576}
-                className="h-full w-full object-cover"
+                fill
+                sizes="(min-width: 768px) 48rem, 100vw"
+                className="object-cover"
               />
             </div>
             <Link
