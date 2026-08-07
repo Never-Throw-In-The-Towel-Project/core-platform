@@ -19,7 +19,7 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex border-t border-current/10 text-xs font-semibold tracking-wide uppercase">
+    <nav className="sticky bottom-0 z-10 flex border-t border-current/10 bg-background text-xs font-semibold tracking-wide uppercase">
       {TABS.map((tab) => {
         const isActive = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
         return (
