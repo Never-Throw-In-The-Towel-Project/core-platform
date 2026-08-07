@@ -41,7 +41,11 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
           )}
           <p className="text-xs opacity-50">{new Date(post.created_at).toLocaleDateString()}</p>
         </div>
-        <button type="button" onClick={() => setShowReport((v) => !v)} className="text-xs opacity-60 hover:opacity-100">
+        <button
+          type="button"
+          onClick={() => setShowReport((v) => !v)}
+          className="-m-2 rounded-md p-2 text-xs opacity-60 hover:opacity-100"
+        >
           Report
         </button>
       </div>
@@ -51,7 +55,7 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
         <img src={post.image_url} alt="" className="mt-3 max-h-80 w-full rounded-md object-cover" />
       )}
 
-      <div className="mt-3 flex items-center gap-4 text-xs opacity-70">
+      <div className="mt-3 flex items-center gap-2 text-xs opacity-70">
         <button
           type="button"
           disabled={isLikePending}
@@ -62,10 +66,11 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
               setLikeCount((count) => count + (result.liked ? 1 : -1));
             })
           }
+          className="-m-2 rounded-md p-2"
         >
           {liked ? "♥" : "♡"} {likeCount}
         </button>
-        <button type="button" onClick={() => setShowComments((v) => !v)}>
+        <button type="button" onClick={() => setShowComments((v) => !v)} className="-m-2 rounded-md p-2">
           💬 {post.commentCount}
         </button>
       </div>
@@ -120,7 +125,7 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
             <button
               type="submit"
               disabled={commentPending}
-              className="rounded-md bg-brand-accent px-3 py-1 text-xs font-semibold text-brand-accent-foreground disabled:opacity-50"
+              className="rounded-md bg-brand-accent px-3 py-2 text-xs font-semibold text-brand-accent-foreground disabled:opacity-50"
             >
               {commentPending ? "…" : "Send"}
             </button>
