@@ -18,7 +18,7 @@ const NAV_LINKS = [
  * site's text-first, no-icon-library Modernist look rather than reaching
  * for a hamburger glyph.
  */
-export function MarketingNav() {
+export function MarketingNav({ showSignup }: { showSignup: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -37,6 +37,11 @@ export function MarketingNav() {
               {link.label}
             </Link>
           ))}
+          {showSignup && (
+            <Link href="/signup" className="whitespace-nowrap opacity-70 hover:opacity-100">
+              Create account
+            </Link>
+          )}
           <Link
             href="/login"
             className="rounded-md bg-brand-accent px-5 py-2.5 font-semibold whitespace-nowrap text-brand-accent-foreground"
@@ -68,6 +73,15 @@ export function MarketingNav() {
               {link.label}
             </Link>
           ))}
+          {showSignup && (
+            <Link
+              href="/signup"
+              onClick={() => setOpen(false)}
+              className="block border-b border-black/5 py-3 opacity-70 hover:opacity-100"
+            >
+              Create account
+            </Link>
+          )}
           <Link
             href="/login"
             onClick={() => setOpen(false)}

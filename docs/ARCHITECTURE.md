@@ -92,6 +92,10 @@ experience; a company-only space is the co-branded overlay on top of it.
   any client company, an `ntitt_admin` profile needs a dedicated internal
   `companies` row (e.g. "NTITT (internal)") created once via Studio, purely
   to satisfy that constraint — their RLS policies are never scoped by it.
+  Direct/public members are a separate case, and are self-service now (see
+  "Direct/self-service signup" below) — they're not invited, and they land
+  in a different shared `companies` row ("NTITT Direct") from NTITT's own
+  internal staff row.
 
 **Author display names needed a real fix, not a workaround**: `profiles`
 only has a self-read RLS policy (Phase 1, deliberate — no role has ever
@@ -1007,6 +1011,26 @@ so left out rather than assumed to be fair game for the public site.
   profile has something to satisfy the `NOT NULL` `company_id` constraint),
   and Anthony's own profile row's `role` set to `ntitt_admin` — both via
   Supabase Studio, not any in-app flow.
+- ~~Whether the platform is invite-only or supports public self-signup~~ —
+  **resolved (Phase 11)**: the platform is hybrid B2C + B2B. The general
+  public can self-register directly on the NTITT platform via `/signup`
+  (`src/lib/actions/signup.ts`); every such account is assigned to one
+  shared seeded company, "NTITT Direct"
+  (`supabase/migrations/20260807000000_direct_company_seed.sql`,
+  `src/lib/tenant/constants.ts`'s `DIRECT_COMPANY_ID`) — chosen over making
+  `profiles.company_id` nullable so every existing company-scoped
+  RLS policy/aggregate table keeps working unchanged. Partner co-branded
+  companies (Amazon, KP Snacks, and any future ones) stay strictly
+  invite-only, on purpose — HR still controls who joins their org's space.
+  `/signup` and `signUp()` both refuse to run when the request's host
+  resolves to a partner company via `resolveCompanyForHost`
+  (`src/lib/tenant/resolve.ts`), redirecting to `/login` instead; the
+  marketing nav's "Create account" link is hidden the same way. `enable_signup`
+  flipped to `true` in `supabase/config.toml` as part of this — the
+  existing magic-link sign-in action (`signInWithMagicLink`) was
+  simultaneously locked down with `shouldCreateUser: false` so it can never
+  itself create a (company-less) account now that signup is globally
+  enabled at the Supabase Auth level.
 - **Real Supabase project + Vercel deployment**: in progress, driven by the
   account owner per `docs/DEPLOYMENT.md` (this build environment still can't
   do this part itself — see that doc). A Vercel project now exists and is
