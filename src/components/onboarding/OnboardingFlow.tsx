@@ -117,7 +117,7 @@ export function OnboardingFlow({
   return (
     <>
       {stepContent}
-      <AskForSupport companyId={profile.company_id} helplineNumber={helplineNumber} variant="inline" />
+      <AskForSupport helplineNumber={helplineNumber} variant="inline" />
     </>
   );
 }

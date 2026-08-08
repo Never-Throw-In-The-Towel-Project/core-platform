@@ -2,12 +2,11 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { verifySession } from "@/lib/auth/dal";
+import { getProfile } from "@/lib/auth/dal";
 import { dispatchSupportAlert } from "@/lib/support/alert";
 import type { Company } from "@/types/database";
 
 const SupportRequestSchema = z.object({
-  companyId: z.string().uuid(),
   stayAnonymous: z.boolean(),
   displayName: z.string().max(100).optional(),
   urgency: z.enum(["check_in", "talk_today", "urgent"]),
@@ -27,10 +26,16 @@ export async function submitSupportRequest(
   // -- "Ask for Support" identifies a real platform user internally (even
   // when they choose to appear anonymous to the responder), it is not an
   // open unauthenticated form.
-  const session = await verifySession();
+  //
+  // companyId always comes from the caller's own profile, never a
+  // client-submitted value -- previously this trusted a hidden form field,
+  // which let a tampered request pollute another company's support-count
+  // KPI and route the Twilio/email alert to a different company's real
+  // contact. Same defense-in-depth pattern as inviteEmployee
+  // (lib/actions/invite.ts).
+  const profile = await getProfile();
 
   const parsed = SupportRequestSchema.safeParse({
-    companyId: formData.get("companyId"),
     stayAnonymous: formData.get("stayAnonymous") === "true",
     displayName: formData.get("displayName") || undefined,
     urgency: formData.get("urgency"),
@@ -41,7 +46,8 @@ export async function submitSupportRequest(
     return { status: "error", message: "Please check the form and try again." };
   }
 
-  const { companyId, stayAnonymous, displayName, urgency, contactMethod } = parsed.data;
+  const companyId = profile.company_id;
+  const { stayAnonymous, displayName, urgency, contactMethod } = parsed.data;
   const contactDisplayName = stayAnonymous ? null : displayName?.trim() || null;
 
   // Wrapped in try/catch: createClient() throws synchronously if the
@@ -57,7 +63,7 @@ export async function submitSupportRequest(
     const { data, error: insertError } = await privateClient
       .from("support_requests")
       .insert({
-        user_id: session.userId,
+        user_id: profile.id,
         company_id: companyId,
         contact_display_name: contactDisplayName,
         urgency,

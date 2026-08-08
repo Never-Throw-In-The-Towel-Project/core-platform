@@ -22,7 +22,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </Link>
       </header>
       <div className="flex-1">{children}</div>
-      <AskForSupport companyId={profile.company_id} helplineNumber={resolveHelplineNumber()} />
+      <AskForSupport helplineNumber={resolveHelplineNumber()} />
     </div>
   );
 }

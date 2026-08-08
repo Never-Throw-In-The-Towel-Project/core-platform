@@ -65,11 +65,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </nav>
         </header>
         <div className="flex-1">{children}</div>
-        <AskForSupport
-          companyId={profile.company_id}
-          helplineNumber={resolveHelplineNumber()}
-          variant="inline"
-        />
+        <AskForSupport helplineNumber={resolveHelplineNumber()} variant="inline" />
         <BottomNav />
       </div>
     </div>
