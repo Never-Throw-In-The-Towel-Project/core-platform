@@ -19,11 +19,9 @@ const initialState: SupportActionState = { status: "idle" };
  * urgency implied", over a floating button which "breaks the flat grid").
  */
 export function AskForSupport({
-  companyId,
   helplineNumber,
   variant = "floating",
 }: {
-  companyId: string;
   helplineNumber?: string;
   variant?: "floating" | "inline";
 }) {
@@ -74,7 +72,6 @@ export function AskForSupport({
               <form action={formAction} className="space-y-4">
                 <h2 className="text-lg font-semibold">I want someone to check in with me</h2>
 
-                <input type="hidden" name="companyId" value={companyId} />
                 <input type="hidden" name="stayAnonymous" value={String(stayAnonymous)} />
 
                 <label className="flex items-center gap-2 text-sm">

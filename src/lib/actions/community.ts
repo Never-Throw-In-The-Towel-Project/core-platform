@@ -85,7 +85,6 @@ export async function submitCommunityPost(
 
 const CommentSchema = z.object({
   postId: z.string().uuid(),
-  scope: z.enum(["global", "company"]),
   body: z.string().trim().min(1).max(1000),
 });
 
@@ -102,7 +101,6 @@ export async function submitCommunityComment(
 
   const parsed = CommentSchema.safeParse({
     postId: formData.get("postId"),
-    scope: formData.get("scope"),
     body: formData.get("body"),
   });
 
@@ -114,11 +112,30 @@ export async function submitCommunityComment(
   // URL/key are missing or malformed -- same gap already closed elsewhere.
   try {
     const supabase = await createClient();
+
+    // scope/company_id always come from the parent post itself, never a
+    // client-submitted value -- previously a tampered hidden field could
+    // submit scope="global" on a reply to a company-only post, leaking that
+    // reply into the platform-wide feed even though the post insert policy
+    // already prevents the equivalent for posts (Phase 7 migration). This
+    // select is also RLS-scoped the same as any other read, so a postId the
+    // caller can't actually see (e.g. a different company's company-scoped
+    // post) fails here rather than letting a comment attach to it at all.
+    const { data: parentPost, error: postError } = await supabase
+      .from("community_posts")
+      .select("scope, company_id")
+      .eq("id", parsed.data.postId)
+      .single();
+
+    if (postError || !parentPost) {
+      return { status: "error", message: "Something went wrong saving this. Please try again." };
+    }
+
     const { error } = await supabase.from("community_comments").insert({
       post_id: parsed.data.postId,
       user_id: session.userId,
-      scope: parsed.data.scope,
-      company_id: profile.company_id,
+      scope: parentPost.scope,
+      company_id: parentPost.company_id,
       body: parsed.data.body,
     });
 

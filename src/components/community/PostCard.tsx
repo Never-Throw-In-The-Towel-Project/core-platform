@@ -113,7 +113,6 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
 
           <form action={commentAction} className="flex gap-2">
             <input type="hidden" name="postId" value={post.id} />
-            <input type="hidden" name="scope" value={post.scope} />
             <input
               name="body"
               type="text"
