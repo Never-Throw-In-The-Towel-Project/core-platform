@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { verifyCronRequest } from "@/lib/auth/cron";
 import { getMondayOfWeek, todayISODate, weekdayNameOrWeekend } from "@/lib/routines/dates";
 import type { ReviewType, Weekday } from "@/types/database";
 
@@ -28,8 +29,7 @@ const REVIEW_TOTALS_SENTINEL_PERIOD_START = "2000-01-01";
  * `private.morning_entries` isn't a single query here.
  */
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!(await verifyCronRequest(request))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
