@@ -65,14 +65,21 @@ the gap between "built" and "hardened, accessible, and fully spec-complete."
 
 ## Priority 1 — Safety & correctness follow-ups (near-term)
 
-1. **Timezone-correct participation aggregation.** The daily cron runs at
-   02:00 UTC and processes "yesterday-UTC", but `entry_date` is written in
-   each user's own timezone (Phase 9). Users west of ~UTC-2 (all of the
-   Americas — Amazon, plus NTITT Direct public signups) have their
-   evening/night completions systematically undercounted, because their
-   local day hasn't finished when the job runs. **Fix options:** delay the
-   job so the target date is settled in the westmost zone in use, or process
-   each user's day relative to their own timezone. _Effort: M._
+1. **Timezone-correct participation aggregation** — _done this pass._ The
+   daily cron ran at 02:00 UTC and processed only "yesterday-UTC", but
+   `entry_date` is written in each user's own timezone (Phase 9), so users
+   west of ~UTC-2 (all of the Americas — Amazon, plus NTITT Direct public
+   signups) had their evening/night completions systematically undercounted:
+   their local day hadn't finished when the job ran, and that date was never
+   revisited. Fixed by re-aggregating a **trailing window of recent UTC days**
+   (`AGGREGATION_WINDOW_DAYS = 3`) on every run rather than a single day. The
+   participation upsert is idempotent per `(company, entry_date, segment)` and
+   recomputes each count from source, so once a date has fully settled in
+   every timezone (guaranteed within ~26h of UTC midnight) a later run
+   overwrites the earlier partial count with the correct one — no fragile
+   "westmost zone in use" assumption baked in, and `?date=` still forces a
+   single explicit date for manual backfill. New `recentUtcDates` helper in
+   `src/lib/routines/dates.ts`, with tests.
 2. **Dry-run validate the new migrations** against a real local Postgres 16
    (the project's standard step, per `docs/DEPLOYMENT.md`) before merge —
    the four new migrations (`20260810000000`–`20260810030000`) were written

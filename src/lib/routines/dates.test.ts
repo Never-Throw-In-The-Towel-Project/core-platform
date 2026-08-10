@@ -7,6 +7,7 @@ import {
   isFirstOccurrenceOfWeekdayInMonth,
   isFirstWeekdayOfMonthInWeek,
   localMinutesSinceMidnight,
+  recentUtcDates,
   todayISODate,
   weekdayNameOrWeekend,
 } from "./dates";
@@ -127,6 +128,43 @@ describe("catchUpEligibleWeekdays", () => {
     const instant = new Date("2026-08-01T23:30:00Z");
     expect(catchUpEligibleWeekdays(instant, "UTC")).toHaveLength(5);
     expect(catchUpEligibleWeekdays(instant, "Pacific/Auckland")).toHaveLength(5);
+  });
+});
+
+describe("recentUtcDates", () => {
+  it("returns `count` fully-elapsed UTC days ending at yesterday-UTC, oldest first", () => {
+    // Run at 02:00 UTC (the real cron time): yesterday-UTC is Aug 9, and the
+    // window reaches back three days -- Aug 7, 8, 9.
+    const runInstant = new Date("2026-08-10T02:00:00Z");
+    expect(recentUtcDates(runInstant, 3)).toEqual(["2026-08-07", "2026-08-08", "2026-08-09"]);
+  });
+
+  it("never includes today-UTC (the day that isn't settled for anyone yet)", () => {
+    const runInstant = new Date("2026-08-10T02:00:00Z");
+    const dates = recentUtcDates(runInstant, 3);
+    expect(dates).not.toContain("2026-08-10");
+    expect(dates[dates.length - 1]).toBe("2026-08-09");
+  });
+
+  it("uses UTC to pick the window even late in the UTC day", () => {
+    // 23:59 UTC is still Aug 10 in UTC, so yesterday-UTC is Aug 9 -- the
+    // window is UTC-based, matching the rest of the cron-side date math.
+    const runInstant = new Date("2026-08-10T23:59:00Z");
+    expect(recentUtcDates(runInstant, 1)).toEqual(["2026-08-09"]);
+  });
+
+  it("rolls back across a month boundary", () => {
+    const runInstant = new Date("2026-09-01T02:00:00Z");
+    expect(recentUtcDates(runInstant, 3)).toEqual(["2026-08-29", "2026-08-30", "2026-08-31"]);
+  });
+
+  it("re-covers a day long enough for the westmost zones to settle", () => {
+    // A day D is fully over in every timezone within ~26h of UTC midnight, so
+    // the run two days later (D+2) sees D closed everywhere. With a 3-day
+    // window, D is re-aggregated on the D+1, D+2 and D+3 runs -- the D+2 pass
+    // alone already guarantees a fully-settled recount.
+    const dPlus2Run = new Date("2026-08-12T02:00:00Z");
+    expect(recentUtcDates(dPlus2Run, 3)).toContain("2026-08-10");
   });
 });
 

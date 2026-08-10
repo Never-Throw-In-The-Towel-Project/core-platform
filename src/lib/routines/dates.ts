@@ -73,6 +73,34 @@ export function todayISODate(now: Date, timeZone: TimeZone): string {
   return civilDateToISO(new Date(Date.UTC(year, month - 1, day)));
 }
 
+/**
+ * The `count` most recent fully-elapsed UTC calendar dates ending at
+ * yesterday-UTC, oldest first (e.g. run at 2026-08-10T02:00Z with count 3 ->
+ * ["2026-08-07", "2026-08-08", "2026-08-09"]). Never includes today-UTC.
+ *
+ * This is a system/cross-user helper, so it's UTC like the other cron-side
+ * date math -- but its whole reason to exist is per-user timezones. Each
+ * private entry's `entry_date` is written in that user's OWN timezone, so a
+ * single "yesterday-UTC" aggregation pass under-counts anyone whose local day
+ * hasn't ended yet when the 02:00-UTC job runs (everyone west of ~UTC-2 --
+ * all of the Americas). A given calendar date is fully settled in every
+ * timezone on Earth within ~26h of UTC midnight, so re-aggregating a short
+ * trailing window of UTC days on each daily run lets the idempotent
+ * participation upsert correct each day's count once that day has closed
+ * everywhere -- without baking in a fragile "westmost zone in use" assumption
+ * that one Hawaii/Alaska/Pacific user would silently break. See
+ * docs/ARCHITECTURE.md "Per-user timezone" and the aggregation cron.
+ */
+export function recentUtcDates(now: Date, count: number): string[] {
+  const dates: string[] = [];
+  for (let daysAgo = count; daysAgo >= 1; daysAgo--) {
+    const d = new Date(now);
+    d.setUTCDate(d.getUTCDate() - daysAgo);
+    dates.push(todayISODate(d, "UTC"));
+  }
+  return dates;
+}
+
 /** The hour of day (0-23) `now` falls on in `timeZone` -- drives the home-screen phase cutovers. */
 export function localHour(now: Date, timeZone: TimeZone): number {
   return zonedParts(now, timeZone).hour;

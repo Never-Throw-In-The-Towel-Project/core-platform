@@ -716,7 +716,16 @@ UTC-relative time rather than their own local midday/7pm.
   - `src/lib/dashboard/aggregates.ts` and the daily aggregation cron
     (`src/app/api/jobs/aggregate-participation/route.ts`) — bucketing
     every company's participation into weeks needs one consistent
-    definition of "week," not each user's own.
+    definition of "week," not each user's own. The cron's *target dates*
+    are still UTC, but because each private `entry_date` is stored in the
+    user's own timezone, a single "yesterday-UTC" pass would undercount
+    western users whose local day hadn't closed yet at 02:00 UTC. The job
+    therefore re-aggregates a trailing window of recent UTC days
+    (`AGGREGATION_WINDOW_DAYS`, currently 3): the participation upsert is
+    idempotent per `(company, entry_date, segment)` and recomputes each
+    count from source, so once a date has settled in every timezone
+    (within ~26h of UTC midnight) a later run overwrites the earlier
+    partial count. See `recentUtcDates` in `src/lib/routines/dates.ts`.
   - `src/lib/routines/workouts.ts`'s `getWorkoutForWeek`/`getDailyQuote` —
     already documented as "every user sees the same workout in the same
     real week regardless of when they personally started"; using each
