@@ -81,10 +81,17 @@ the gap between "built" and "hardened, accessible, and fully spec-complete."
    single explicit date for manual backfill. New `recentUtcDates` helper in
    `src/lib/routines/dates.ts`, with tests.
 2. **Dry-run validate the new migrations** against a real local Postgres 16
-   (the project's standard step, per `docs/DEPLOYMENT.md`) before merge —
-   the four new migrations (`20260810000000`–`20260810030000`) were written
-   but this environment has no Postgres to validate them against. RLS/GRANT
-   behaviour in particular only surfaces against a live PostgREST. _Effort: S._
+   (the project's standard step, per `docs/DEPLOYMENT.md`) — _done this pass._
+   All 18 migrations (including the four `20260810000000`–`20260810030000`
+   hardening/correctness ones) now apply cleanly in order against a real local
+   Postgres 16, and RLS is enabled on all 23 tables. The GRANT/RLS behaviour
+   the review flagged is asserted directly — the `companies` contact-PII
+   column grants, and a **live** RLS check of the comment-scope binding run as
+   the `authenticated` role with a simulated JWT (cross-label injection
+   blocked, legitimate comment allowed) — plus the `handle_new_user`
+   role-trust fix and the report dedup constraint. Made reproducible as
+   `supabase/tests/validate_migrations.sh` (stub + assertions), so future
+   schema changes get the same guard. _Effort: S._
 
 ## Priority 2 — Sellability & core-loop completeness
 
