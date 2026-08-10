@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { verifyCronRequest } from "@/lib/auth/cron";
 import { localMinutesSinceMidnight, todayISODate, weekdayNameOrWeekend } from "@/lib/routines/dates";
 import { sendPushToSubscription, type PushSubscriptionTarget } from "@/lib/notifications/sendPush";
 import type { PushNotificationType } from "@/types/database";
@@ -51,8 +52,7 @@ const FILTER_COLUMN: Record<PushNotificationType, keyof ProfileNotificationRow> 
  * overlapping/retried cron invocations can't double-send.
  */
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!(await verifyCronRequest(request))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

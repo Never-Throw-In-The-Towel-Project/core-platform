@@ -10,6 +10,15 @@ describe("escapeFilterValue", () => {
     expect(escapeFilterValue('say "hello"')).toBe('say \\"hello\\"');
   });
 
+  it("escapes a backslash before the quote, so it can't escape the closing quote", () => {
+    // A trailing backslash inside a quoted PostgREST value would otherwise
+    // escape the closing `"` and let the rest break out into filter syntax.
+    expect(escapeFilterValue("ends with\\")).toBe("ends with\\\\");
+    // Backslash + quote together must not collapse into a single escaped
+    // quote: both get escaped independently.
+    expect(escapeFilterValue('a\\"b')).toBe('a\\\\\\"b');
+  });
+
   it("does not need to escape commas or parens themselves -- the surrounding quotes neutralize them", () => {
     // This is the actual injection this helper defends against: a raw
     // comma/paren in an unquoted PostgREST filter value would be

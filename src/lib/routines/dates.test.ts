@@ -5,7 +5,9 @@ import {
   getMondayOfWeek,
   getNextMonday,
   isFirstOccurrenceOfWeekdayInMonth,
+  isFirstWeekdayOfMonthInWeek,
   localMinutesSinceMidnight,
+  recentUtcDates,
   todayISODate,
   weekdayNameOrWeekend,
 } from "./dates";
@@ -71,6 +73,25 @@ describe("isFirstOccurrenceOfWeekdayInMonth", () => {
   });
 });
 
+describe("isFirstWeekdayOfMonthInWeek", () => {
+  // 2026-08-04 is the first Tuesday of August; 2026-08-06 is the Thursday of
+  // that same week; 2026-08-11 is the second Tuesday; 2026-08-13 its Thursday.
+  it("is true on the first Tuesday itself", () => {
+    expect(isFirstWeekdayOfMonthInWeek(new Date("2026-08-04T10:00:00Z"), "UTC", "tuesday")).toBe(true);
+  });
+
+  it("is STILL true later the same week (the catch-up case the old check missed)", () => {
+    // Opening Tuesday's check-in on Thursday must not suppress the monthly
+    // podcast: this week's Tuesday (Aug 4) is genuinely the first of the month.
+    expect(isFirstWeekdayOfMonthInWeek(new Date("2026-08-06T10:00:00Z"), "UTC", "tuesday")).toBe(true);
+  });
+
+  it("is false in a week whose Tuesday is the second of the month", () => {
+    expect(isFirstWeekdayOfMonthInWeek(new Date("2026-08-11T10:00:00Z"), "UTC", "tuesday")).toBe(false);
+    expect(isFirstWeekdayOfMonthInWeek(new Date("2026-08-13T10:00:00Z"), "UTC", "tuesday")).toBe(false);
+  });
+});
+
 describe("catchUpEligibleWeekdays", () => {
   it("includes only Monday through today when today is a mid-week weekday", () => {
     // 2026-08-05 is a Wednesday.
@@ -107,6 +128,43 @@ describe("catchUpEligibleWeekdays", () => {
     const instant = new Date("2026-08-01T23:30:00Z");
     expect(catchUpEligibleWeekdays(instant, "UTC")).toHaveLength(5);
     expect(catchUpEligibleWeekdays(instant, "Pacific/Auckland")).toHaveLength(5);
+  });
+});
+
+describe("recentUtcDates", () => {
+  it("returns `count` fully-elapsed UTC days ending at yesterday-UTC, oldest first", () => {
+    // Run at 02:00 UTC (the real cron time): yesterday-UTC is Aug 9, and the
+    // window reaches back three days -- Aug 7, 8, 9.
+    const runInstant = new Date("2026-08-10T02:00:00Z");
+    expect(recentUtcDates(runInstant, 3)).toEqual(["2026-08-07", "2026-08-08", "2026-08-09"]);
+  });
+
+  it("never includes today-UTC (the day that isn't settled for anyone yet)", () => {
+    const runInstant = new Date("2026-08-10T02:00:00Z");
+    const dates = recentUtcDates(runInstant, 3);
+    expect(dates).not.toContain("2026-08-10");
+    expect(dates[dates.length - 1]).toBe("2026-08-09");
+  });
+
+  it("uses UTC to pick the window even late in the UTC day", () => {
+    // 23:59 UTC is still Aug 10 in UTC, so yesterday-UTC is Aug 9 -- the
+    // window is UTC-based, matching the rest of the cron-side date math.
+    const runInstant = new Date("2026-08-10T23:59:00Z");
+    expect(recentUtcDates(runInstant, 1)).toEqual(["2026-08-09"]);
+  });
+
+  it("rolls back across a month boundary", () => {
+    const runInstant = new Date("2026-09-01T02:00:00Z");
+    expect(recentUtcDates(runInstant, 3)).toEqual(["2026-08-29", "2026-08-30", "2026-08-31"]);
+  });
+
+  it("re-covers a day long enough for the westmost zones to settle", () => {
+    // A day D is fully over in every timezone within ~26h of UTC midnight, so
+    // the run two days later (D+2) sees D closed everywhere. With a 3-day
+    // window, D is re-aggregated on the D+1, D+2 and D+3 runs -- the D+2 pass
+    // alone already guarantees a fully-settled recount.
+    const dPlus2Run = new Date("2026-08-12T02:00:00Z");
+    expect(recentUtcDates(dPlus2Run, 3)).toContain("2026-08-10");
   });
 });
 

@@ -12,7 +12,14 @@
  * This only escapes the value itself; callers are still responsible for
  * wrapping it in double quotes at each use site (e.g. `title.ilike."%${escapeFilterValue(q)}%"`),
  * since the surrounding quote placement differs per filter operator.
+ *
+ * Backslash is escaped FIRST, then the double quote. PostgREST treats `\`
+ * as the escape character inside a double-quoted value, so a value ending in
+ * a lone backslash (or containing `\"`) could otherwise escape the closing
+ * quote and break back out into filter syntax -- the exact injection class
+ * this helper exists to close. Order matters: escaping quotes first and
+ * backslashes second would re-escape the backslash this step just added.
  */
 export function escapeFilterValue(value: string): string {
-  return value.replace(/"/g, '\\"');
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }

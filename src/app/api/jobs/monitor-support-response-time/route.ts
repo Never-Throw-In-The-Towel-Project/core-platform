@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { verifyCronRequest } from "@/lib/auth/cron";
 import { escalateOnResponseTimeout, type DeliveryStatus } from "@/lib/support/alert";
 import type { SupportUrgency } from "@/types/database";
 
@@ -25,8 +26,7 @@ const TIMEOUT_MINUTES: Record<SupportUrgency, number> = {
  * reason (checked via delivery_status.escalation already being set).
  */
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!(await verifyCronRequest(request))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

@@ -75,7 +75,7 @@ export async function CommunityFeedView({
       />
 
       <div>
-        <p className="text-xs font-semibold tracking-wide uppercase opacity-60">{heading}</p>
+        <h1 className="text-xs font-semibold tracking-wide uppercase opacity-60">{heading}</h1>
         <div className="mt-3">
           <PostComposer scope={scope} board="feed" placeholder={composerPlaceholder} />
         </div>

@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { computeOverallTrend, computeTrendDelta, type WeeklyParticipation } from "./aggregates";
+import {
+  computeOverallTrend,
+  computeTrendDelta,
+  getWeeklyParticipation,
+  type WeeklyParticipation,
+} from "./aggregates";
 
 // aggregates.ts starts with `import "server-only"` -- that package throws
 // under plain Node module resolution (it only resolves to a no-op under the
@@ -14,9 +19,29 @@ function week(overrides: Partial<WeeklyParticipation> = {}): WeeklyParticipation
     morningPercent: 50,
     nightPercent: 50,
     themedPercent: 50,
-    morningEligible: 100,
+    headcount: 100,
     ...overrides,
   };
+}
+
+// Minimal stand-in for the supabase query builder getWeeklyParticipation
+// uses: .from(...).select(...).eq(...).order(...) resolves to { data }.
+type Row = {
+  entry_date: string;
+  segment: "morning" | "night" | "themed_checkin";
+  completed_count: number;
+  eligible_count: number;
+};
+function clientReturning(rows: Row[]) {
+  const result = Promise.resolve({ data: rows });
+  const chain = {
+    from: () => chain,
+    select: () => chain,
+    eq: () => chain,
+    order: () => result,
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return chain as any;
 }
 
 describe("computeOverallTrend", () => {
@@ -72,6 +97,37 @@ describe("computeOverallTrend", () => {
       week({ morningPercent: 53, nightPercent: 53, themedPercent: 53 }), // delta +3 from previous
     ];
     expect(computeOverallTrend(weeks)).toBe("steady");
+  });
+});
+
+describe("getWeeklyParticipation", () => {
+  // 3 morning check-ins across one Mon-Wed of the same week, each with a
+  // headcount snapshot of 10 eligible employees. The regression this guards:
+  // headcount must be a single day's figure (10), never the week's SUM (30).
+  const rows: Row[] = [
+    { entry_date: "2026-01-05", segment: "morning", completed_count: 8, eligible_count: 10 }, // Mon
+    { entry_date: "2026-01-06", segment: "morning", completed_count: 9, eligible_count: 10 }, // Tue
+    { entry_date: "2026-01-07", segment: "morning", completed_count: 7, eligible_count: 10 }, // Wed
+  ];
+
+  it("reports headcount as a single day's eligible count, not the week sum", async () => {
+    const [wk] = await getWeeklyParticipation(clientReturning(rows), "company-1");
+    expect(wk.headcount).toBe(10); // NOT 30
+  });
+
+  it("still computes the weekly completion % from summed completed/eligible", async () => {
+    const [wk] = await getWeeklyParticipation(clientReturning(rows), "company-1");
+    // (8 + 9 + 7) / (10 + 10 + 10) = 24/30 = 80%
+    expect(wk.morningPercent).toBe(80);
+  });
+
+  it("uses the max eligible snapshot when headcount grows mid-week", async () => {
+    const growing: Row[] = [
+      { entry_date: "2026-01-05", segment: "morning", completed_count: 5, eligible_count: 10 },
+      { entry_date: "2026-01-08", segment: "morning", completed_count: 6, eligible_count: 12 }, // 2 joined
+    ];
+    const [wk] = await getWeeklyParticipation(clientReturning(growing), "company-1");
+    expect(wk.headcount).toBe(12);
   });
 });
 

@@ -83,9 +83,17 @@ export async function resolveCompanyForHost(host: string): Promise<Company | nul
       ? `custom_domain.eq."${escapedHostname}",slug.eq."${escapeFilterValue(slug)}"`
       : `custom_domain.eq."${escapedHostname}"`;
 
+    // Explicit branding/identity columns only -- never `select("*")`. The
+    // support_contact_* columns and ninety_day_report_sent_at are no longer
+    // granted to the anon role (see
+    // 20260810020000_restrict_company_contact_columns.sql), so `*` would
+    // error here; and this pre-auth, every-request path has no business
+    // reading a company's support-contact PII regardless.
     const { data } = await supabase
       .from("companies")
-      .select("*")
+      .select(
+        "id, name, slug, custom_domain, logo_url, primary_color, accent_color, welcome_copy, created_at"
+      )
       .or(orFilter)
       .maybeSingle();
 

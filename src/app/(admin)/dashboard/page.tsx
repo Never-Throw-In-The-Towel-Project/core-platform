@@ -75,6 +75,7 @@ export default async function DashboardPage() {
   const latestWeek = weeklyParticipation[weeklyParticipation.length - 1] ?? null;
   const trendDelta = computeTrendDelta(weeklyParticipation);
   const thirtyDayReviews = reviewCompletions.find((r) => r.reviewType === "30_day");
+  const ninetyDayReviews = reviewCompletions.find((r) => r.reviewType === "90_day");
 
   const engagedThisWeek = weekdayThisWeek.filter((w) => w.percent !== null);
   const mostEngaged = [...engagedThisWeek].sort((a, b) => (b.percent ?? 0) - (a.percent ?? 0))[0];
@@ -84,7 +85,7 @@ export default async function DashboardPage() {
     <main className="mx-auto max-w-5xl px-6 py-8">
       <p className="text-sm opacity-70">
         HR Admin · {company?.name ?? "Your company"}
-        {latestWeek && ` · ${latestWeek.morningEligible} staff enrolled`}
+        {latestWeek && ` · ${latestWeek.headcount} staff enrolled`}
       </p>
 
       <div className="mt-4 bg-brand-background px-4 py-3 text-sm text-brand-foreground">
@@ -100,7 +101,16 @@ export default async function DashboardPage() {
           accent={trendDelta ? trendDelta.points > 0 : false}
         />
         <Kpi value={String(supportCount)} label="Support button uses · count only" />
-        <Kpi value={String(thirtyDayReviews?.completedCount ?? 0)} label="30 day reviews completed" />
+        <div className="border border-current/15 p-4">
+          <p className="text-3xl font-extrabold">
+            {thirtyDayReviews?.completedCount ?? 0}
+            <span className="text-lg font-semibold opacity-50">
+              {" / "}
+              {ninetyDayReviews?.completedCount ?? 0}
+            </span>
+          </p>
+          <p className="mt-1 text-xs uppercase opacity-60">30 / 90 day reviews completed</p>
+        </div>
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_280px]">

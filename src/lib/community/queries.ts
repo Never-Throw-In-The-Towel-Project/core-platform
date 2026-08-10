@@ -91,6 +91,13 @@ export async function getPosts(
     .select("*")
     .eq("scope", params.scope)
     .eq("board", params.board)
+    // Explicitly exclude moderated-away posts. Non-admins already never see
+    // them (the base RLS policy has `not is_removed`), but the second
+    // permissive policy "ntitt admins read all community posts" ORs every
+    // post back in for an ntitt_admin -- so without this filter a removed
+    // post reappears inline in the normal feed when an admin browses it. The
+    // moderation queue reads its own path and is unaffected.
+    .eq("is_removed", false)
     .order("created_at", { ascending: false })
     .limit(50);
 

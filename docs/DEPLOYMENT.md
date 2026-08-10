@@ -9,17 +9,24 @@ a bug or a missing tool), and account/project creation requires an
 interactive login regardless. Everything here has to be run by a human with
 real Supabase/Vercel accounts.
 
-The 11 migrations under `supabase/migrations/` have already been dry-run
+The 18 migrations under `supabase/migrations/` have all been dry-run
 validated end-to-end against a real local Postgres 16 instance (stubbing
 only the parts Supabase's GoTrue normally provides — the `auth` schema,
 `auth.uid()`/`auth.role()`, and the `anon`/`authenticated`/`service_role`
-roles). All 11 apply cleanly in order with zero errors, and the resulting
+roles). All 18 apply cleanly in order with zero errors, and the resulting
 schema has Row Level Security enabled on all 23 tables across `public` and
 `private` — this is the real privacy boundary (see "Privacy boundary: how
 it's actually enforced" below in this doc's sibling, `ARCHITECTURE.md`).
 This runbook should not surface any migration errors; if it does, something
 about the target project differs from what's expected and is worth stopping
 to investigate rather than pushing through.
+
+That validation is reproducible — `supabase/tests/validate_migrations.sh`
+applies the stub + every migration + `seed.sql` against a throwaway local
+Postgres and then asserts the invariants above (RLS coverage plus the
+security/correctness behaviour of the hardening migrations), including a
+live RLS check run as the `authenticated` role. Run it before any merge that
+touches the schema; see `supabase/tests/README.md`.
 
 ## 1. Create the Supabase project
 

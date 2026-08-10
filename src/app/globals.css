@@ -32,7 +32,19 @@
   --brand-background: #201e1d;
   --brand-foreground: #f3f2f2;
   --brand-primary: #f3f2f2;
-  --brand-accent: #ec3013;
+  /*
+   * Accent red, darkened from the original #ec3013 to meet WCAG 2.1 AA
+   * contrast (4.5:1 for normal text). #ec3013 measured only ~3.76:1 against
+   * both the light ground (#f3f2f2) and its own near-white foreground -- so
+   * every accent CTA's label, the active nav tab, the content topic chips,
+   * and (most importantly for a mental-health product) the Ask-for-Support
+   * trigger itself were all below AA. #c81e0f keeps the NTITT red identity
+   * while measuring ~5.19:1 in both roles (as a button background under
+   * --brand-accent-foreground text, and as red text on --background). This
+   * is a deliberate accessibility fix, not a rebrand -- tune the exact hex
+   * with Anthony if a specific brand red is chosen later, keeping >=4.5:1.
+   */
+  --brand-accent: #c81e0f;
   --brand-accent-foreground: #f3f2f2;
 }
 

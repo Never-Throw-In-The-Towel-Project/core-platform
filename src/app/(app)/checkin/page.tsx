@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   catchUpEligibleWeekdays,
   getMondayOfWeek,
-  isFirstOccurrenceOfWeekdayInMonth,
+  isFirstWeekdayOfMonthInWeek,
   weekdayNameOrWeekend,
 } from "@/lib/routines/dates";
 import { getDailyQuote, getWorkoutForWeek } from "@/lib/routines/workouts";
@@ -113,7 +113,11 @@ async function renderCheckin(
 
   if (weekday === "tuesday") {
     let podcastEpisode = null;
-    if (isFirstOccurrenceOfWeekdayInMonth(now, timezone, "tuesday")) {
+    // Anchored to whether THIS WEEK's Tuesday is the first of the month, not
+    // whether `now` happens to be that Tuesday -- so the monthly podcast
+    // still surfaces when someone catches up on Tuesday's check-in later in
+    // the same week (see isFirstWeekdayOfMonthInWeek).
+    if (isFirstWeekdayOfMonthInWeek(now, timezone, "tuesday")) {
       try {
         const publicClient = await createClient();
         const { data } = await publicClient

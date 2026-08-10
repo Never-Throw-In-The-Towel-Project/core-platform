@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { verifyCronRequest } from "@/lib/auth/cron";
 import { collectImpactReportData } from "@/lib/reports/collectImpactReportData";
 import { generateImpactReportPdf } from "@/lib/reports/generateImpactReportPdf";
 import { getHrAdminEmails } from "@/lib/reports/getHrAdminEmails";
@@ -24,8 +25,7 @@ import { todayISODate } from "@/lib/routines/dates";
  * silently losing the report forever.
  */
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!(await verifyCronRequest(request))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

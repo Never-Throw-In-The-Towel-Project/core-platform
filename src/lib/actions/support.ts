@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getProfile } from "@/lib/auth/dal";
 import { dispatchSupportAlert } from "@/lib/support/alert";
 import type { Company } from "@/types/database";
@@ -85,11 +86,14 @@ export async function submitSupportRequest(
     };
   }
 
-  // Look up where to route the alert. Company support-contact routing info
-  // is not sensitive (it's staff contact details, not a user's private
-  // data), so the regular RLS-scoped client is fine here -- no admin client
-  // needed for this read. companies lives in the public schema, unlike
-  // support_requests, so this is a separate client -- see server.ts.
+  // Look up where to route the alert. The support_contact_* columns are no
+  // longer readable by the RLS session (`authenticated`) client -- they were
+  // world-readable via the anon key before
+  // 20260810020000_restrict_company_contact_columns.sql restricted them to
+  // service_role. So this read uses the admin client. That's the correct
+  // client for it anyway: this is staff routing info, not the user's own
+  // private data, and the admin client already handles every other
+  // support_contact_* read (the Twilio webhook and both cron jobs).
   //
   // Wrapped the same way as the insert above, but a failure here degrades
   // rather than fails the action outright: the support request is already
@@ -101,8 +105,8 @@ export async function submitSupportRequest(
     "name" | "support_contact_name" | "support_contact_phone" | "support_contact_email"
   > | null = null;
   try {
-    const publicClient = await createClient();
-    const { data } = await publicClient
+    const adminClient = createAdminClient();
+    const { data } = await adminClient
       .from("companies")
       .select("name, support_contact_name, support_contact_phone, support_contact_email")
       .eq("id", companyId)
