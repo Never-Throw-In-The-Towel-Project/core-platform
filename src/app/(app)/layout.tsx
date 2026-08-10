@@ -65,8 +65,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </nav>
         </header>
         <div className="flex-1">{children}</div>
-        <AskForSupport helplineNumber={resolveHelplineNumber()} variant="inline" />
-        <BottomNav />
+        {/* Support + nav are pinned together to the bottom so the
+            "always visible" Ask for Support entry point genuinely stays
+            reachable on pages taller than the viewport, not just when the
+            user scrolls to the very end. (BottomNav is itself sticky; this
+            outer sticky pins the support bar directly above it.) */}
+        <div className="sticky bottom-0 z-10 bg-background">
+          <AskForSupport helplineNumber={resolveHelplineNumber()} variant="inline" />
+          <BottomNav />
+        </div>
       </div>
     </div>
   );

@@ -1,9 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { submitSupportRequest, type SupportActionState } from "@/lib/actions/support";
 
 const initialState: SupportActionState = { status: "idle" };
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
  * "I want someone to check in with me" -- person-led only, never triggered
@@ -17,6 +20,14 @@ const initialState: SupportActionState = { status: "idle" };
  * directly above a bottom tab bar -- the design reference's own recommended
  * placement, "always in the same place, reads as part of the furniture, no
  * urgency implied", over a floating button which "breaks the flat grid").
+ *
+ * Accessibility: this is the product's single most important safety feature,
+ * so the dialog implements the full ARIA dialog pattern -- role="dialog" +
+ * aria-modal, focus moved into the dialog on open and restored to the
+ * trigger on close, a focus trap, Escape-to-close, backdrop-click dismiss,
+ * background scroll lock, and an announced (role="status") success state --
+ * rather than a bare div a keyboard or screen-reader user could tab straight
+ * out of without knowing it opened.
  */
 export function AskForSupport({
   helplineNumber,
@@ -28,12 +39,68 @@ export function AskForSupport({
   const [isOpen, setIsOpen] = useState(false);
   const [state, formAction, isPending] = useActionState(submitSupportRequest, initialState);
   const [stayAnonymous, setStayAnonymous] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const successHeadingRef = useRef<HTMLHeadingElement>(null);
+  const headingId = useId();
+
+  // Focus management, Escape, focus trap, and scroll lock while open.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const focusables = () =>
+      dialogRef.current
+        ? Array.from(dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+        : [];
+
+    focusables()[0]?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setIsOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = focusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = prevOverflow;
+      previouslyFocused?.focus?.();
+    };
+  }, [isOpen]);
+
+  // Move focus to the confirmation heading once the request succeeds -- the
+  // Send button it was on no longer exists, so without this focus would drop
+  // to <body>. role="status" on the panel also announces it to a reader.
+  useEffect(() => {
+    if (isOpen && state.status === "success") {
+      successHeadingRef.current?.focus();
+    }
+  }, [isOpen, state.status]);
 
   return (
     <>
       <button
         type="button"
         onClick={() => setIsOpen(true)}
+        aria-haspopup="dialog"
         className={
           variant === "inline"
             ? "block w-full border-t border-current/10 px-6 py-3 text-left text-sm font-medium text-brand-accent"
@@ -44,8 +111,19 @@ export function AskForSupport({
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center">
-          <div className="w-full max-w-md border-2 border-black/10 bg-background text-foreground">
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsOpen(false);
+          }}
+        >
+          <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={headingId}
+            className="w-full max-w-md border-2 border-black/10 bg-background text-foreground"
+          >
             {state.status !== "success" && (
               <p className="bg-brand-background px-6 py-3 text-sm text-brand-foreground">
                 If this is urgent right now, please call{" "}
@@ -54,8 +132,15 @@ export function AskForSupport({
             )}
             <div className="p-6">
             {state.status === "success" ? (
-              <div className="space-y-4">
-                <h2 className="text-lg font-semibold">Thanks for reaching out.</h2>
+              <div className="space-y-4" role="status">
+                <h2
+                  id={headingId}
+                  ref={successHeadingRef}
+                  tabIndex={-1}
+                  className="text-lg font-semibold outline-none"
+                >
+                  Thanks for reaching out.
+                </h2>
                 <p className="text-sm opacity-80">
                   Someone will be in touch. If this is urgent right now, please call{" "}
                   {helplineNumber ?? "the helpline"}.
@@ -70,7 +155,9 @@ export function AskForSupport({
               </div>
             ) : (
               <form action={formAction} className="space-y-4">
-                <h2 className="text-lg font-semibold">I want someone to check in with me</h2>
+                <h2 id={headingId} className="text-lg font-semibold">
+                  I want someone to check in with me
+                </h2>
 
                 <input type="hidden" name="stayAnonymous" value={String(stayAnonymous)} />
 
@@ -89,6 +176,7 @@ export function AskForSupport({
                     <input
                       name="displayName"
                       type="text"
+                      autoComplete="name"
                       className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
                     />
                   </label>
@@ -119,7 +207,9 @@ export function AskForSupport({
                 </label>
 
                 {state.status === "error" && (
-                  <p className="text-sm text-red-700">{state.message}</p>
+                  <p role="alert" className="text-sm text-red-700">
+                    {state.message}
+                  </p>
                 )}
 
                 <div className="flex justify-end gap-2">

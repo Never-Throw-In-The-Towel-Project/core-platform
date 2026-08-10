@@ -66,9 +66,13 @@ export default async function ContentLibraryPage({
     <main className="mx-auto max-w-2xl px-6 py-10">
       <h1 className="text-3xl font-extrabold uppercase">What do you need right now?</h1>
 
-      <form className="mt-6" action="/content">
+      <form className="mt-6" action="/content" role="search">
+        <label htmlFor="content-search" className="sr-only">
+          Search content by topic
+        </label>
         <input
-          type="text"
+          id="content-search"
+          type="search"
           name="q"
           defaultValue={q}
           placeholder="Search a topic — divorce, grief, sleep, redundancy…"

@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Image from "next/image";
 import { resolveCompanyForHost } from "@/lib/tenant/resolve";
+import { PreAuthSupport } from "@/components/PreAuthSupport";
 import { SignupForm } from "./SignupForm";
 
 /**
@@ -32,6 +33,7 @@ export default async function SignupPage({
       <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={64} height={65} />
       <h1 className="text-2xl font-bold">Create account</h1>
       <SignupForm next={next} />
+      <PreAuthSupport />
     </main>
   );
 }

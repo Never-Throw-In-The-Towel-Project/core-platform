@@ -31,6 +31,7 @@ export function PostComposer({
           required
           rows={1}
           placeholder={placeholder}
+          aria-label={placeholder}
           className="flex-1 resize-none border border-current/15 bg-transparent px-3 py-2 text-sm"
         />
         <button
@@ -45,9 +46,10 @@ export function PostComposer({
         name="image"
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
+        aria-label="Add an optional photo to your post"
         className="w-full text-xs file:mr-3 file:border-0 file:bg-current/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold"
       />
-      <p className="text-xs opacity-50">Optional photo -- JPEG, PNG, WebP, or GIF, up to 5MB.</p>
+      <p className="text-xs opacity-60">Optional photo -- JPEG, PNG, WebP, or GIF, up to 5MB.</p>
       {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
     </form>
   );
