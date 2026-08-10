@@ -35,12 +35,17 @@ export interface WeeklyParticipation {
   nightPercent: number | null;
   themedPercent: number | null;
   /**
-   * Raw eligible_count for the morning segment that week -- morning/night
-   * routines apply to every enrolled employee every day, so this doubles as
-   * a real, already-aggregate-safe headcount (not a private figure; it's
-   * the same eligible_count already used to compute morningPercent above).
+   * Enrolled-employee headcount for the week -- the MAX single-day
+   * morning-segment eligible_count that week, NOT the week's sum. Morning
+   * routines apply to every enrolled employee every day, so each day's
+   * eligible_count is the headcount snapshot for that day; the largest is
+   * the best current headcount. Summing across the week (the earlier bug)
+   * inflated this ~7x -- the percentages are unaffected because they divide
+   * summed-completed by summed-eligible, but a headcount must be a single
+   * day's figure. Not a private value: it's an aggregate count already used
+   * to compute morningPercent.
    */
-  morningEligible: number;
+  headcount: number;
 }
 
 export interface WeekdayEngagement {
@@ -94,7 +99,15 @@ export async function getWeeklyParticipation(
     .order("entry_date", { ascending: true });
 
   type Bucket = { c: number; e: number };
-  const byWeek = new Map<string, { morning: Bucket; night: Bucket; themed: Bucket }>();
+  // headcount is tracked separately from the morning bucket's summed
+  // eligible (`e`): the sum is the correct denominator for the weekly
+  // completion %, but the headcount must be a single day's snapshot, so it's
+  // the max morning eligible_count seen that week -- see the `headcount`
+  // field doc on WeeklyParticipation.
+  const byWeek = new Map<
+    string,
+    { morning: Bucket; night: Bucket; themed: Bucket; headcount: number }
+  >();
 
   for (const row of data ?? []) {
     // Cross-user aggregation (Phase 9): row.entry_date is already a
@@ -103,12 +116,20 @@ export async function getWeeklyParticipation(
     // one user's timezone. See docs/ARCHITECTURE.md "Per-user timezone".
     const weekStart = getMondayOfWeek(new Date(`${row.entry_date}T00:00:00Z`), "UTC");
     if (!byWeek.has(weekStart)) {
-      byWeek.set(weekStart, { morning: { c: 0, e: 0 }, night: { c: 0, e: 0 }, themed: { c: 0, e: 0 } });
+      byWeek.set(weekStart, {
+        morning: { c: 0, e: 0 },
+        night: { c: 0, e: 0 },
+        themed: { c: 0, e: 0 },
+        headcount: 0,
+      });
     }
     const bucket = byWeek.get(weekStart)!;
     const target = row.segment === "morning" ? bucket.morning : row.segment === "night" ? bucket.night : bucket.themed;
     target.c += row.completed_count as number;
     target.e += row.eligible_count as number;
+    if (row.segment === "morning") {
+      bucket.headcount = Math.max(bucket.headcount, row.eligible_count as number);
+    }
   }
 
   // Sorted ascending over the company's ENTIRE history, not just the
@@ -127,7 +148,7 @@ export async function getWeeklyParticipation(
       morningPercent: percentage(bucket.morning.c, bucket.morning.e),
       nightPercent: percentage(bucket.night.c, bucket.night.e),
       themedPercent: percentage(bucket.themed.c, bucket.themed.e),
-      morningEligible: bucket.morning.e,
+      headcount: bucket.headcount,
     };
   });
 }

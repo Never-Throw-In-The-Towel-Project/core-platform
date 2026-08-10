@@ -78,8 +78,14 @@ export async function getPendingPeriodicReview(
 
     const done = new Set((completed ?? []).map((r) => r.review_type as ReviewType));
 
-    if (activeDayCount >= THRESHOLDS["90_day"] && !done.has("90_day")) return "90_day";
+    // Earliest incomplete milestone first. A user who reaches 90 active days
+    // without ever completing the 30-day review (reachable: active-day count
+    // advances from /morning-routine and /night-routine directly, which
+    // don't gate on a pending review -- only /home does) must still be shown
+    // the 30-day review before the 90-day one, in order, not dropped into
+    // the 90-day and then bounced back to the 30-day on the next load.
     if (activeDayCount >= THRESHOLDS["30_day"] && !done.has("30_day")) return "30_day";
+    if (activeDayCount >= THRESHOLDS["90_day"] && !done.has("90_day")) return "90_day";
     return null;
   } catch {
     return null;

@@ -214,6 +214,14 @@ export async function reportCommunityPost(
     });
 
     if (error) {
+      // 23505 = unique_violation on (post_id, reporter_user_id): this user
+      // has already reported this post (see
+      // 20260810030000_community_report_dedup.sql). Idempotent -- the report
+      // is already in the moderation queue, so treat a repeat tap as success
+      // rather than surfacing an error or inserting a duplicate.
+      if (error.code === "23505") {
+        return { status: "success" };
+      }
       return { status: "error", message: "Something went wrong reporting this. Please try again." };
     }
   } catch {

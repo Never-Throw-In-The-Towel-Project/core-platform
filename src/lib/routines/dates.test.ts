@@ -5,6 +5,7 @@ import {
   getMondayOfWeek,
   getNextMonday,
   isFirstOccurrenceOfWeekdayInMonth,
+  isFirstWeekdayOfMonthInWeek,
   localMinutesSinceMidnight,
   todayISODate,
   weekdayNameOrWeekend,
@@ -68,6 +69,25 @@ describe("isFirstOccurrenceOfWeekdayInMonth", () => {
   it("is false for a different weekday even in the first week", () => {
     const firstTuesday = new Date("2026-08-04T10:00:00Z");
     expect(isFirstOccurrenceOfWeekdayInMonth(firstTuesday, "UTC", "wednesday")).toBe(false);
+  });
+});
+
+describe("isFirstWeekdayOfMonthInWeek", () => {
+  // 2026-08-04 is the first Tuesday of August; 2026-08-06 is the Thursday of
+  // that same week; 2026-08-11 is the second Tuesday; 2026-08-13 its Thursday.
+  it("is true on the first Tuesday itself", () => {
+    expect(isFirstWeekdayOfMonthInWeek(new Date("2026-08-04T10:00:00Z"), "UTC", "tuesday")).toBe(true);
+  });
+
+  it("is STILL true later the same week (the catch-up case the old check missed)", () => {
+    // Opening Tuesday's check-in on Thursday must not suppress the monthly
+    // podcast: this week's Tuesday (Aug 4) is genuinely the first of the month.
+    expect(isFirstWeekdayOfMonthInWeek(new Date("2026-08-06T10:00:00Z"), "UTC", "tuesday")).toBe(true);
+  });
+
+  it("is false in a week whose Tuesday is the second of the month", () => {
+    expect(isFirstWeekdayOfMonthInWeek(new Date("2026-08-11T10:00:00Z"), "UTC", "tuesday")).toBe(false);
+    expect(isFirstWeekdayOfMonthInWeek(new Date("2026-08-13T10:00:00Z"), "UTC", "tuesday")).toBe(false);
   });
 });
 

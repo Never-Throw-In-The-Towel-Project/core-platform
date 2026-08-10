@@ -149,3 +149,25 @@ export function isFirstOccurrenceOfWeekdayInMonth(
   const parts = zonedParts(now, timeZone);
   return parts.weekday === weekday && parts.day <= 7;
 }
+
+/**
+ * Is the given Mon-Fri weekday, WITHIN the calendar week containing `now`,
+ * the first occurrence of that weekday in its month? Unlike
+ * isFirstOccurrenceOfWeekdayInMonth (which only answers for `now`'s own day),
+ * this answers for a specific weekday of now's week regardless of what day
+ * `now` itself is -- so Talking Tuesday's first-of-month podcast still shows
+ * when a user opens Tuesday's check-in via this-week catch-up on, say, a
+ * Thursday. The first occurrence of any weekday in a month always falls on
+ * days 1-7, so the day-of-month <= 7 test identifies it.
+ */
+export function isFirstWeekdayOfMonthInWeek(
+  now: Date,
+  timeZone: TimeZone,
+  weekday: Weekday
+): boolean {
+  const mondayISO = getMondayOfWeek(now, timeZone);
+  const offset = WEEKDAY_ORDER.indexOf(weekday); // monday=0 .. friday=4
+  const target = new Date(`${mondayISO}T00:00:00Z`);
+  target.setUTCDate(target.getUTCDate() + offset);
+  return target.getUTCDate() <= 7;
+}
