@@ -1094,3 +1094,92 @@ only covers the current week; the user's own 90-day summary "PDF export" is
 actually the browser print dialog; nutrition education content, buddy
 pairing, and the full monthly-podcast episode structure (from the Website
 Spec's Section 6) don't exist at all.
+
+## Full platform re-review (2026-08)
+
+A second full-platform review (security, correctness, brief-compliance, and
+accessibility) against the same two source briefs. The full findings and the
+prioritised remaining work are in `docs/ROADMAP.md`; the fixes landed in this
+pass are recorded here. It also corrected two stale claims from the section
+just above: Ask for Support **does** render on `/onboarding` (via
+`OnboardingFlow`), and the HR weekly-participation view **is** multi-week
+(Phase 10), not current-week-only.
+
+**Security**
+- **CRITICAL: privilege escalation via `handle_new_user`.** With
+  `enable_signup = true` (Phase 11), the trigger's reading of `role` and
+  `company_id` from client-controlled `raw_user_meta_data` let anyone call
+  GoTrue's `/signup` with the public anon key and self-provision an
+  `ntitt_admin` (or arbitrary-company `hr_admin`) profile — a full compromise
+  of the admin/community/tenant plane. The private-journal RLS boundary held
+  regardless (no private-table policy references any admin role). Fixed in
+  `20260810000000_harden_handle_new_user_role.sql`: the trigger now always
+  provisions `role='employee'`, `company_id=DIRECT_COMPANY_ID` and reads
+  neither from metadata. Not a regression — both the invite flows and direct
+  signup already upsert the real role/company via the service-role client
+  immediately after (`onConflict:"id"`), which overrides the safe default.
+- **Comment scope binding** (`20260810010000_bind_comment_scope.sql`): the
+  `community_comments` INSERT policy now requires `scope`/`company_id` to
+  match the parent post (and, for company scope, the author's own company),
+  closing a cross-tenant comment-injection path the `community_posts` policy
+  already guarded against.
+- **`companies` support-contact PII**
+  (`20260810020000_restrict_company_contact_columns.sql`): `support_contact_*`
+  and `ninety_day_report_sent_at` were world-readable via the anon key (the
+  `using (true)` SELECT policy is row-level, not column-level). Now a
+  column-level SELECT grant exposes only branding/identity columns to
+  anon/authenticated; `resolveCompanyForHost` selects explicit columns
+  instead of `*`, and `submitSupportRequest` reads contacts via the admin
+  client (the correct client for staff routing info anyway).
+- **`escapeFilterValue`** now escapes backslashes before quotes (a trailing
+  `\` could otherwise escape the closing quote of a PostgREST filter value).
+- **Cron auth** (`src/lib/auth/cron.ts`, `verifyCronRequest`): the four
+  `/api/jobs/*` routes now fail **closed** when `CRON_SECRET` is unset (the
+  old inline check accepted `Bearer undefined`) and compare in constant time.
+
+**Correctness**
+- HR "staff enrolled" headcount was `sum(eligible_count)` over the week
+  (~7× inflation); now the max single-day snapshot (`headcount` on
+  `WeeklyParticipation`), with tests. Percentages were and remain correct.
+- `getPendingPeriodicReview` returns the earliest incomplete milestone, so a
+  user who hits 90 active days without doing the 30-day review gets 30 first,
+  then 90 — not out of order.
+- Community report idempotency (`20260810030000_community_report_dedup.sql` +
+  `reportCommunityPost` treats `23505` as success): one report per
+  (post, reporter), so repeat taps don't flood the moderation queue.
+- `getPosts` filters `is_removed` so moderated posts don't reappear in the
+  feed for `ntitt_admin` (the base RLS already hid them from everyone else).
+- Talking Tuesday's monthly podcast uses `isFirstWeekdayOfMonthInWeek`
+  (this week's Tuesday), so it still surfaces on this-week catch-up rather
+  than only when opened on the literal Tuesday, with tests.
+
+**Safety & accessibility**
+- **Pre-auth crisis support** (`src/components/PreAuthSupport.tsx`): the
+  full "check in with me" flow is session-gated (it routes to the user's own
+  company contact), so `/login`, `/signup`, and the marketing site — which
+  showed nothing before — now surface the always-available national crisis
+  line as a one-tap `tel:` link (`resolveHelplineTel`). Honest minimum for a
+  screen where no personal callback can be promised.
+- **Ask-for-Support modal** is now a full ARIA dialog (`role="dialog"`,
+  `aria-modal`, focus trap, Escape, focus restore, backdrop dismiss, scroll
+  lock, `role="status"` success) — the product's one non-negotiable safety
+  feature was previously a bare div a keyboard/SR user could tab out of
+  unknowingly.
+- The inline support trigger is pinned with the bottom nav
+  (`(app)/layout.tsx`) so it's genuinely always visible.
+- **Accent contrast**: `--brand-accent` darkened `#ec3013` → `#c81e0f` to
+  meet WCAG AA (~5.19:1, was ~3.76:1) on every CTA, the active nav tab, the
+  content chips, and the support trigger. This also supersedes the "Brand
+  color: monochrome" claim in "Co-branding depth (Phase 10)" above — the
+  live theme is light-default with a red accent (`globals.css` is the source
+  of truth), not black/white. The exact red is a deliberate,
+  AA-constrained accessibility value and can be tuned with Anthony as long as
+  it stays ≥4.5:1.
+- Labels added to the content search (`type="search"`, `role="search"`) and
+  the community composer; the community feed now has a real `<h1>`.
+
+The broader accessibility backlog (colour-only status indicators, the
+opacity-as-text-colour sweep, routine-form success announcements, tap-target
+sizing, loading/not-found states, the marketing logo chips, and the offline
+PWA gap) is catalogued and prioritised in `docs/ROADMAP.md` rather than done
+in this pass.
