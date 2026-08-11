@@ -30,14 +30,14 @@ export default async function MarketingLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-background text-foreground">
-      <MarketingNav showSignup={!company} />
+      <MarketingNav showSignup={!company} skinColor={company?.primary_color ?? null} />
       <div className="flex-1">{children}</div>
       {/* Crisis support on every marketing page too -- the brief's "visible
           on every single page of the website" is not scoped to the logged-in
           app. This is the pre-auth helpline entry point (a company's own
           designated support contact needs a signed-in user to route to; see
           PreAuthSupport). */}
-      <footer className="border-t border-current/10 px-6 py-8">
+      <footer className="border-t border-rule-hairline px-6 py-8">
         <PreAuthSupport />
       </footer>
     </div>

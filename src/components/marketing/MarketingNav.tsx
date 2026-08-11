@@ -11,40 +11,58 @@ const NAV_LINKS = [
 ];
 
 /**
- * The marketing site's header. Below `lg`, the wordmark + full inline nav +
- * Sign in button don't fit on one row and wrap onto two lines mid-word --
- * so below that breakpoint the links collapse into a text toggle ("Menu" /
- * "Close") that opens a stacked panel instead, matching the rest of the
- * site's text-first, no-icon-library Modernist look rather than reaching
- * for a hamburger glyph.
+ * The marketing site's header, in the Modernist design system (see
+ * globals.css): flat, hairline-ruled, wide-tracked uppercase, zero radius.
+ *
+ * A thin **company skin strip** runs along the very top -- the same co-branding
+ * motif the signed-in AppHeader uses. It takes the resolved company's
+ * `primary_color` when this is a co-branded subdomain, and falls back to the
+ * decorative NTITT red (--brand-accent-vivid) on the default site. Per the
+ * design brief a company skin colours the strip only, never the accent, so this
+ * is `primary_color` (the skin), not the accent token.
+ *
+ * Below `lg`, the wordmark + full inline nav + Sign in button don't fit on one
+ * row, so the links collapse into a text toggle ("Menu" / "Close") that opens a
+ * stacked panel -- matching the site's text-first, no-icon-library look rather
+ * than reaching for a hamburger glyph.
  */
-export function MarketingNav({ showSignup }: { showSignup: boolean }) {
+export function MarketingNav({ showSignup, skinColor }: { showSignup: boolean; skinColor?: string | null }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-black/10 bg-background">
+    <header className="sticky top-0 z-40 border-b border-rule-hairline bg-background">
+      <div className="h-[3px] w-full" style={{ background: skinColor ?? "var(--brand-accent-vivid)" }} aria-hidden />
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
         <Link href="/" className="flex shrink-0 items-center gap-2" onClick={() => setOpen(false)}>
+          {/* logo-mark.png is a light mark; inverted here to read on the light
+              header (it shows as-is on the dark hero/app surfaces). */}
           <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={32} height={33} className="invert" />
-          <span className="text-sm font-semibold tracking-wide whitespace-nowrap uppercase">
+          <span className="text-sm font-extrabold tracking-wide whitespace-nowrap uppercase">
             Never Throw In The Towel
           </span>
         </Link>
 
         <nav className="hidden items-center gap-8 text-sm lg:flex">
           {NAV_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className="whitespace-nowrap opacity-70 hover:opacity-100">
+            <Link
+              key={link.href}
+              href={link.href}
+              className="whitespace-nowrap font-semibold text-muted transition-colors hover:text-foreground"
+            >
               {link.label}
             </Link>
           ))}
           {showSignup && (
-            <Link href="/signup" className="whitespace-nowrap opacity-70 hover:opacity-100">
+            <Link
+              href="/signup"
+              className="whitespace-nowrap font-semibold text-muted transition-colors hover:text-foreground"
+            >
               Create account
             </Link>
           )}
           <Link
             href="/login"
-            className="rounded-md bg-brand-accent px-5 py-2.5 font-semibold whitespace-nowrap text-brand-accent-foreground"
+            className="whitespace-nowrap bg-brand-accent px-5 py-2.5 text-xs font-extrabold uppercase tracking-wide text-brand-accent-foreground"
           >
             Sign in
           </Link>
@@ -55,20 +73,20 @@ export function MarketingNav({ showSignup }: { showSignup: boolean }) {
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-controls="marketing-mobile-nav"
-          className="shrink-0 border border-black/15 px-4 py-2 text-xs font-semibold tracking-wide uppercase lg:hidden"
+          className="shrink-0 border border-rule-border px-4 py-2 text-xs font-extrabold tracking-wide uppercase lg:hidden"
         >
           {open ? "Close" : "Menu"}
         </button>
       </div>
 
       {open && (
-        <nav id="marketing-mobile-nav" className="border-t border-black/10 px-6 py-4 text-sm lg:hidden">
+        <nav id="marketing-mobile-nav" className="border-t border-rule-hairline px-6 py-4 text-sm lg:hidden">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               onClick={() => setOpen(false)}
-              className="block border-b border-black/5 py-3 opacity-70 hover:opacity-100"
+              className="block border-b border-rule-hairline py-3 font-semibold text-muted transition-colors hover:text-foreground"
             >
               {link.label}
             </Link>
@@ -77,7 +95,7 @@ export function MarketingNav({ showSignup }: { showSignup: boolean }) {
             <Link
               href="/signup"
               onClick={() => setOpen(false)}
-              className="block border-b border-black/5 py-3 opacity-70 hover:opacity-100"
+              className="block border-b border-rule-hairline py-3 font-semibold text-muted transition-colors hover:text-foreground"
             >
               Create account
             </Link>
@@ -85,7 +103,7 @@ export function MarketingNav({ showSignup }: { showSignup: boolean }) {
           <Link
             href="/login"
             onClick={() => setOpen(false)}
-            className="mt-4 block rounded-md bg-brand-accent px-5 py-3 text-center font-semibold text-brand-accent-foreground"
+            className="mt-4 block bg-brand-accent px-5 py-3 text-center text-xs font-extrabold uppercase tracking-wide text-brand-accent-foreground"
           >
             Sign in
           </Link>
