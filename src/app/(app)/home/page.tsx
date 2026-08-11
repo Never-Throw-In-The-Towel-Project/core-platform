@@ -4,15 +4,28 @@ import { getProfile } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import {
   resolveHomePhase,
-  getActiveDayCount,
   getThemedCheckinCompletionThisWeek,
   getOutstandingWeekdaysThisWeek,
-  type HomePhase,
 } from "@/lib/routines/dayState";
 import { getPendingPeriodicReview } from "@/lib/routines/periodicReview";
-import { getIsoWeekNumber, getMondayOfWeek, todayISODate, weekdayNameOrWeekend } from "@/lib/routines/dates";
-import { CHECKIN_CONFIG } from "@/lib/routines/checkinConfig";
+import { getTodayStats } from "@/lib/gamification/todayStats";
+import {
+  getIsoWeekNumber,
+  getMondayOfWeek,
+  todayISODate,
+  weekdayNameOrWeekend,
+} from "@/lib/routines/dates";
+import { CHECKIN_CONFIG, type TextCheckinWeekday } from "@/lib/routines/checkinConfig";
 import type { Weekday } from "@/types/database";
+import { ProgressBand } from "@/components/today/ProgressBand";
+import type { Story } from "@/components/today/StoryRail";
+import { CheckinCard } from "@/components/today/CheckinCard";
+import { RoutineRow } from "@/components/today/RoutineRow";
+import { CompanySlot } from "@/components/today/CompanySlot";
+import { WeekStrip } from "@/components/today/WeekStrip";
+import { BadgeGrid } from "@/components/today/BadgeGrid";
+import { WinsBoard } from "@/components/today/WinsBoard";
+import { ReviewProgress } from "@/components/today/ReviewProgress";
 
 const THEMED_TITLES: Record<Weekday, { title: string; subtitle: string }> = {
   ...CHECKIN_CONFIG,
@@ -27,282 +40,400 @@ const WEEKDAY_LABEL: Record<Weekday, string> = {
   friday: "Friday",
 };
 
-const TRACKER_LETTERS: { key: Weekday | "saturday" | "sunday"; letter: string }[] = [
-  { key: "monday", letter: "M" },
-  { key: "tuesday", letter: "T" },
-  { key: "wednesday", letter: "W" },
-  { key: "thursday", letter: "T" },
-  { key: "friday", letter: "F" },
-  { key: "saturday", letter: "S" },
-  { key: "sunday", letter: "S" },
+const REVIEW_ROUTES = { "30_day": "/reviews/30-day", "90_day": "/reviews/90-day" } as const;
+
+// The story rail reuses the photography already committed under public/site
+// (the same shots the handoff renamed into designs/assets). Seen-state and the
+// full-screen viewer aren't built yet (open decision) -- see StoryRail.
+const STORIES: Story[] = [
+  { key: "anthony", label: "Anthony", image: "/site/founder-speaking.jpg", seen: false },
+  { key: "barbershop", label: "Barbershop", image: "/site/community-brotherhood.jpg", seen: false },
+  { key: "meetup", label: "Meet-up", image: "/site/community-group.jpg", seen: true },
+  { key: "episode", label: "Episode", image: "/site/podcast-recording.jpg", seen: true },
 ];
 
-const REVIEW_ROUTES = { "30_day": "/reviews/30-day", "90_day": "/reviews/90-day" } as const;
+const CHECKIN_IMAGE = "/site/community-group.jpg";
 
 function formatHM(time: string | null): string {
   if (!time) return "";
   return time.slice(0, 5);
 }
 
-// The "Today" screen -- built as a Rail (see the conversation this shipped
-// from): one focal card for whatever time-of-day window is currently open,
-// with everything else -- the rest of today, this week's optional catch-up,
-// the weekly tracker -- as a stack of rules below it, not competing for the
-// same attention. Tapping the hero's CTA navigates out to a dedicated
-// screen (/morning-routine, /night-routine, /checkin) rather than
-// rendering the form inline, unlike the previous version of this page.
+function formatClock(timestamp: string | null, timeZone: string): string {
+  if (!timestamp) return "";
+  return new Date(timestamp).toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone,
+  });
+}
+
+/** Count how many of a text weekday's prompts already have a non-empty answer. */
+function countAnswered(weekday: TextCheckinWeekday, answers: Record<string, unknown> | null): number {
+  if (!answers) return 0;
+  return CHECKIN_CONFIG[weekday].fields.filter((field) => {
+    const value = answers[field.key];
+    return typeof value === "string" && value.trim().length > 0;
+  }).length;
+}
+
+// The redesigned "Today": an ink progress band (ring, rank, streak/wins/badges,
+// story rail) over a two-column body -- the phase-appropriate hero card, the
+// day's routine status, the company slot, and a right rail (week strip, badges,
+// wins board, review progress). Every gamification number is derived from the
+// user's own engagement; nothing private is ever shown to anyone but them.
 export default async function HomePage() {
   const profile = await getProfile();
-  const activeDayCount = await getActiveDayCount(profile.id);
+  const now = new Date();
+  const timeZone = profile.timezone;
 
-  // The 30/90-Day Review is "the critical retention point" / "triggers the
-  // renewal conversation" per the brief -- it takes over the home screen
-  // as a full-screen moment until completed, ahead of the normal Rail below.
-  const pendingReview = await getPendingPeriodicReview(profile.id, activeDayCount);
+  const stats = await getTodayStats(profile.id, now, timeZone);
+
+  // The 30/90-Day Review takes over the home screen as a full-screen moment
+  // until completed (see the brief) -- checked before rendering the Rail.
+  const pendingReview = await getPendingPeriodicReview(profile.id, stats.activeDayCount);
   if (pendingReview) {
     redirect(REVIEW_ROUTES[pendingReview]);
   }
 
-  const now = new Date();
-  const phase = resolveHomePhase(now, profile.timezone);
-  const todayWeekday = weekdayNameOrWeekend(now, profile.timezone);
-  const isoWeek = getIsoWeekNumber(now, profile.timezone);
+  const phase = resolveHomePhase(now, timeZone);
+  const todayWeekday = weekdayNameOrWeekend(now, timeZone);
+  const isoWeek = getIsoWeekNumber(now, timeZone);
   const isWeekday = todayWeekday !== "saturday" && todayWeekday !== "sunday";
-  const weeklyReviewOpen = todayWeekday === "friday" || todayWeekday === "saturday" || todayWeekday === "sunday";
+  const weeklyReviewOpen =
+    todayWeekday === "friday" || todayWeekday === "saturday" || todayWeekday === "sunday";
+  const mondayStart = getMondayOfWeek(now, timeZone);
 
-  const todayISO = todayISODate(now, profile.timezone);
-
-  // Wrapped in try/catch: createClient() throws synchronously if the
-  // URL/key are missing or malformed (node_modules/@supabase/ssr/dist/main/
-  // createServerClient.js) -- same gap already closed on the auth-critical
-  // path (lib/auth/dal.ts, proxy.ts, lib/actions/auth.ts) and in
-  // lib/routines/dayState.ts and periodicReview.ts above, which this page
-  // also calls into. /home is the universal post-login/post-onboarding
-  // landing page, so a throw here took down that page for everyone.
-  // Degrading to "nothing done yet, no goals" is a safe, if pessimistic,
-  // fallback rather than crashing the whole Rail.
+  // Per-day routine + check-in status for the hero, routine rows and answered
+  // count. Wrapped in try/catch: createClient() throws synchronously on a
+  // missing/malformed URL/key -- /home is the universal landing page, so we
+  // degrade to a safe "nothing done yet" rather than crashing it (same pattern
+  // as lib/routines/*).
   let morningDone = false;
   let nightDone = false;
-  let mondayGoalCount = 0;
+  let morningTime = "";
+  let nightTime = "";
+  let sleepScore: number | null = null;
+  let dayRating: number | null = null;
+  let answeredToday = 0;
+  let companyName = "NTITT";
+  let companyMessage: string | null = null;
+  let companySkin = "#ec3013";
+
   try {
     const privateClient = await createClient("private");
-    const [{ data: morningEntry }, { data: nightEntry }, mondayGoalsRow] = await Promise.all([
-      privateClient.from("morning_entries").select("completed_at").eq("user_id", profile.id).eq("entry_date", todayISO).maybeSingle(),
-      privateClient.from("night_entries").select("completed_at").eq("user_id", profile.id).eq("entry_date", todayISO).maybeSingle(),
-      isWeekday
-        ? privateClient
-            .from("themed_checkins")
-            .select("goals")
-            .eq("user_id", profile.id)
-            .eq("week_start_date", getMondayOfWeek(now, profile.timezone))
-            .eq("weekday", "monday")
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
-    ]);
+    const publicClient = await createClient();
+    const todayISO = todayISODate(now, timeZone);
+
+    const [{ data: morningEntry }, { data: nightEntry }, { data: todayCheckin }, { data: company }] =
+      await Promise.all([
+        privateClient
+          .from("morning_entries")
+          .select("completed_at, sleep_score")
+          .eq("user_id", profile.id)
+          .eq("entry_date", todayISO)
+          .maybeSingle(),
+        privateClient
+          .from("night_entries")
+          .select("completed_at, day_rating")
+          .eq("user_id", profile.id)
+          .eq("entry_date", todayISO)
+          .maybeSingle(),
+        isWeekday && todayWeekday !== "wednesday"
+          ? privateClient
+              .from("themed_checkins")
+              .select("answers")
+              .eq("user_id", profile.id)
+              .eq("week_start_date", mondayStart)
+              .eq("weekday", todayWeekday)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+        publicClient
+          .from("companies")
+          .select("name, welcome_copy, primary_color")
+          .eq("id", profile.company_id)
+          .maybeSingle(),
+      ]);
 
     morningDone = Boolean(morningEntry?.completed_at);
     nightDone = Boolean(nightEntry?.completed_at);
-    mondayGoalCount = ((mondayGoalsRow?.data?.goals as { goals?: string[] } | null)?.goals ?? []).length;
+    morningTime = formatClock(morningEntry?.completed_at ?? null, timeZone);
+    nightTime = formatClock(nightEntry?.completed_at ?? null, timeZone);
+    sleepScore = (morningEntry?.sleep_score as number | null) ?? null;
+    dayRating = (nightEntry?.day_rating as number | null) ?? null;
+    if (isWeekday && todayWeekday !== "wednesday") {
+      answeredToday = countAnswered(
+        todayWeekday as TextCheckinWeekday,
+        (todayCheckin?.answers as Record<string, unknown> | null) ?? null
+      );
+    }
+    companyName = company?.name ?? "NTITT";
+    companyMessage = (company?.welcome_copy as string | null) ?? null;
+    companySkin = (company?.primary_color as string | null) ?? "#ec3013";
   } catch {
-    // fall through with the safe defaults above
+    // safe defaults above
   }
 
-  const completedWeekdays = await getThemedCheckinCompletionThisWeek(profile.id, now, profile.timezone);
-
+  const completedWeekdays = await getThemedCheckinCompletionThisWeek(profile.id, now, timeZone);
   const catchUp = isWeekday
-    ? (await getOutstandingWeekdaysThisWeek(profile.id, now, profile.timezone)).filter((w) => w !== todayWeekday)
+    ? (await getOutstandingWeekdaysThisWeek(profile.id, now, timeZone)).filter((w) => w !== todayWeekday)
     : [];
 
-  const isNight = phase.kind === "night";
+  const hero = buildHero({
+    phase,
+    morningDone,
+    nightDone,
+    answeredToday,
+  });
+
+  // Which routine/check-in status rows to show below the hero: everything the
+  // hero itself isn't. Ordered morning -> today's check-in -> night.
+  const rows: RowSpec[] = [];
+  if (phase.kind !== "morning") {
+    rows.push({
+      key: "morning",
+      label: "Morning Routine",
+      done: morningDone,
+      href: "/morning-routine",
+      meta: morningDone
+        ? `Done${morningTime ? ` at ${morningTime}` : ""}${
+            sleepScore != null ? ` · slept ${sleepScore}/10 · private to you` : ""
+          }`
+        : "Win the morning, win the day",
+      trailing: morningDone ? "Edit" : formatHM(profile.morning_notification_time),
+    });
+  }
+  if (isWeekday && phase.kind !== "themed") {
+    const done = completedWeekdays.has(todayWeekday as Weekday);
+    rows.push({
+      key: "themed",
+      label: THEMED_TITLES[todayWeekday as Weekday].title,
+      done,
+      href: "/checkin",
+      meta: done ? "Done · win in the bank" : THEMED_TITLES[todayWeekday as Weekday].subtitle,
+      trailing: done ? "Edit" : "12:00",
+    });
+  }
+  if (phase.kind !== "night") {
+    rows.push({
+      key: "night",
+      label: "Night Routine",
+      done: nightDone,
+      href: "/night-routine",
+      meta: nightDone
+        ? `Done${nightTime ? ` at ${nightTime}` : ""}${
+            dayRating != null ? ` · felt ${dayRating}/10 · private to you` : ""
+          }`
+        : "Opens at 21:00 · tomorrow is a new day",
+      trailing: nightDone ? "Edit" : formatHM(profile.night_notification_time),
+    });
+  }
 
   return (
-    <main className={isNight ? "min-h-full bg-brand-background text-brand-foreground" : "min-h-full"}>
-      <div className="mx-auto max-w-xl px-6 py-10">
-        <div className="flex items-center justify-between text-xs opacity-70">
-          <span>
-            DAY {activeDayCount} · WEEK {isoWeek}
-          </span>
-          <span>
-            {now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: profile.timezone })} ·{" "}
-            {todayWeekday.toUpperCase()}
-          </span>
-        </div>
+    <main className="min-h-full">
+      <ProgressBand
+        ringPct={stats.ringPct}
+        rank={stats.rank}
+        streak={stats.streak}
+        winsCount={stats.winsCount}
+        badgesEarned={stats.badgesEarned}
+        daysToReview={stats.daysToReview}
+        reviewLabel={stats.reviewLabel}
+        reviewComplete={stats.reviewComplete}
+        stories={STORIES}
+      />
 
-        <HeroCard phase={phase} weeklyReviewOpen={weeklyReviewOpen} />
+      <div className="mx-auto max-w-5xl px-5 py-6">
+        <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">
+          Day {stats.activeDayCount} · Week {isoWeek}
+        </p>
 
-        <div className="mt-8 space-y-3">
-          {phase.kind !== "morning" && (
-            <StackRow
-              label="Morning Routine"
-              meta={morningDone ? "Win the morning, win the day" : "Not done yet"}
-              time={morningDone ? "DONE" : formatHM(profile.morning_notification_time)}
-              href="/morning-routine"
+        <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_320px]">
+          {/* Main column */}
+          <div className="space-y-6">
+            <CheckinCard
+              headerLabel={hero.headerLabel}
+              title={hero.title}
+              description={hero.description}
+              ctaLabel={hero.ctaLabel}
+              ctaHref={hero.ctaHref}
+              answered={hero.answered}
+              total={hero.total}
+              image={hero.image}
             />
-          )}
-          {isWeekday && phase.kind !== "themed" && (
-            <StackRow
-              label={THEMED_TITLES[todayWeekday as Weekday].title}
-              meta={completedWeekdays.has(todayWeekday as Weekday) ? THEMED_TITLES[todayWeekday as Weekday].subtitle : "Not done yet"}
-              time={completedWeekdays.has(todayWeekday as Weekday) ? "DONE" : "12:00"}
-              href="/checkin"
-            />
-          )}
-          {phase.kind !== "night" && (
-            <StackRow
-              label="Night Routine"
-              meta={nightDone ? "Rest up and go again" : "Tomorrow is a new day"}
-              time={nightDone ? "DONE" : formatHM(profile.night_notification_time)}
-              href="/night-routine"
-            />
-          )}
-          {mondayGoalCount > 0 && (
-            <StackRow label="Monday's goals" meta="Reviewed Friday" time={`${mondayGoalCount} SET`} />
-          )}
-        </div>
 
-        {catchUp.length > 0 && (
-          <div className="mt-8">
-            <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Also open this week</p>
-            <div className="mt-2 space-y-2">
-              {catchUp.map((weekday) => (
-                <Link
-                  key={weekday}
-                  href={`/checkin?day=${weekday}`}
-                  className="block border border-current/10 px-4 py-2 text-sm underline opacity-80 hover:opacity-100"
-                >
-                  {THEMED_TITLES[weekday].title} — {WEEKDAY_LABEL[weekday]}
-                </Link>
-              ))}
-            </div>
+            {hero.extraLink && (
+              <Link href={hero.extraLink.href} className="block text-sm font-semibold text-brand-accent-deep underline">
+                {hero.extraLink.label}
+              </Link>
+            )}
+
+            {rows.length > 0 && (
+              <div>
+                {rows.map((row) => (
+                  <RoutineRow
+                    key={row.key}
+                    label={row.label}
+                    meta={row.meta}
+                    done={row.done}
+                    href={row.href}
+                    trailing={row.trailing || undefined}
+                  />
+                ))}
+              </div>
+            )}
+
+            {catchUp.length > 0 && (
+              <div>
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">
+                  Also open this week
+                </p>
+                <div className="mt-2 space-y-2">
+                  {catchUp.map((weekday) => (
+                    <Link
+                      key={weekday}
+                      href={`/checkin?day=${weekday}`}
+                      className="block border border-rule-hairline px-4 py-2 text-sm hover:bg-foreground/[0.03]"
+                    >
+                      <span className="font-semibold">{THEMED_TITLES[weekday].title}</span>{" "}
+                      <span className="text-muted">— {WEEKDAY_LABEL[weekday]}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <CompanySlot companyName={companyName} message={companyMessage} skinColor={companySkin} />
           </div>
-        )}
 
-        <div className="mt-8">
-          <p className="text-xs font-semibold tracking-wide uppercase opacity-60">This week</p>
-          <div className="mt-2 flex gap-1">
-            {TRACKER_LETTERS.map(({ key, letter }, i) => {
-              const isToday = key === todayWeekday;
-              const isDone = key !== "saturday" && key !== "sunday" && completedWeekdays.has(key);
-              return (
-                <span
-                  key={`${key}-${i}`}
-                  className={
-                    "flex h-9 w-9 items-center justify-center border text-sm font-semibold " +
-                    (isDone
-                      ? "border-brand-accent bg-brand-accent text-brand-accent-foreground"
-                      : isToday
-                        ? "border-2 border-brand-accent"
-                        : "border-current/15 opacity-50")
-                  }
-                >
-                  {letter}
-                </span>
-              );
-            })}
-          </div>
+          {/* Right rail (desktop) / stacked below (mobile) */}
+          <aside className="space-y-6">
+            <section>
+              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">The Week</h2>
+              <div className="mt-2">
+                <WeekStrip completedWeekdays={completedWeekdays} todayKey={todayWeekday} />
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Badges</h2>
+              <div className="mt-2">
+                <BadgeGrid badges={stats.badges} />
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Wins Board</h2>
+              <div className="mt-2">
+                <WinsBoard wins={stats.recentWins} />
+              </div>
+            </section>
+
+            <ReviewProgress
+              pct={stats.ringPct}
+              daysToReview={stats.daysToReview}
+              reviewLabel={stats.reviewLabel}
+              reviewComplete={stats.reviewComplete}
+            />
+
+            {weeklyReviewOpen && (
+              <Link href="/weekly-review" className="block text-sm font-semibold text-brand-accent-deep underline">
+                Weekly Review is open →
+              </Link>
+            )}
+          </aside>
         </div>
       </div>
     </main>
   );
 }
 
-function HeroCard({
+interface RowSpec {
+  key: string;
+  label: string;
+  meta: string;
+  done: boolean;
+  href: string;
+  trailing: string;
+}
+
+interface HeroSpec {
+  headerLabel: string;
+  title: string;
+  description: string;
+  ctaLabel: string;
+  ctaHref: string;
+  answered?: number;
+  total?: number;
+  image?: string;
+  extraLink?: { href: string; label: string };
+}
+
+/** Map the time-of-day phase to the focal hero card's content. */
+function buildHero({
   phase,
-  weeklyReviewOpen,
+  morningDone,
+  nightDone,
+  answeredToday,
 }: {
-  phase: HomePhase;
-  weeklyReviewOpen: boolean;
-}) {
+  phase: ReturnType<typeof resolveHomePhase>;
+  morningDone: boolean;
+  nightDone: boolean;
+  answeredToday: number;
+}): HeroSpec {
   if (phase.kind === "morning") {
-    return (
-      <Hero title="Morning Routine" subtitle="Win the morning, win the day." ctaLabel="Start morning routine" ctaHref="/morning-routine" />
-    );
+    return {
+      headerLabel: "Morning Routine · 5 min",
+      title: "Win the morning",
+      description: "Win the morning, win the day.",
+      ctaLabel: morningDone ? "Review →" : "Start →",
+      ctaHref: "/morning-routine",
+    };
   }
 
   if (phase.kind === "night") {
-    return (
-      <Hero title="Night Routine" subtitle="Tomorrow is a new day, rest up and go again." ctaLabel="Start night routine" ctaHref="/night-routine" />
-    );
+    return {
+      headerLabel: "Night Routine",
+      title: "Close the day",
+      description: "Tomorrow is a new day — rest up and go again.",
+      ctaLabel: nightDone ? "Review →" : "Start →",
+      ctaHref: "/night-routine",
+    };
   }
 
   if (phase.kind === "themed") {
-    const info = THEMED_TITLES[phase.weekday];
-    return (
-      <div className="mt-6">
-        <Hero title={info.title} subtitle={info.subtitle} ctaLabel="Open today's check-in" ctaHref="/checkin" />
-        {weeklyReviewOpen && (
-          <Link href="/weekly-review" className="mt-3 block text-sm underline opacity-80">
-            Weekly Review is also open
-          </Link>
-        )}
-      </div>
-    );
+    const weekday = phase.weekday;
+    if (weekday === "wednesday") {
+      return {
+        headerLabel: "Today's Check-in · Wednesday · Workout",
+        title: "Workout Wednesday",
+        description: "Move the body. Four rounds, four difficulty tiers.",
+        ctaLabel: "Start →",
+        ctaHref: "/checkin",
+        image: CHECKIN_IMAGE,
+      };
+    }
+    const config = CHECKIN_CONFIG[weekday];
+    const total = config.fields.length;
+    return {
+      headerLabel: `Today's Check-in · ${WEEKDAY_LABEL[weekday]} · 5 min`,
+      title: config.title,
+      description: `${config.subtitle}. ${total} prompts, five minutes.`,
+      ctaLabel: answeredToday > 0 ? "Carry on →" : "Start →",
+      ctaHref: "/checkin",
+      answered: answeredToday,
+      total,
+      image: CHECKIN_IMAGE,
+    };
   }
 
   // weekend_midday
-  return (
-    <div className="mt-6">
-      <Hero title="Enjoy the weekend." subtitle="" ctaLabel="Weekly Review" ctaHref="/weekly-review" />
-      {phase.isSunday && (
-        <Link href="/sunday-setup" className="mt-3 block text-sm underline opacity-80">
-          Sunday Setup
-        </Link>
-      )}
-    </div>
-  );
-}
-
-function Hero({
-  title,
-  subtitle,
-  ctaLabel,
-  ctaHref,
-}: {
-  title: string;
-  subtitle: string;
-  ctaLabel: string;
-  ctaHref: string;
-}) {
-  return (
-    <div className="mt-6">
-      <h1 className="text-3xl font-extrabold uppercase">{title}</h1>
-      {subtitle && <p className="mt-2 opacity-80">{subtitle}</p>}
-      <Link
-        href={ctaHref}
-        className="mt-6 block w-full bg-brand-accent px-5 py-3 text-center text-sm font-semibold text-brand-accent-foreground"
-      >
-        {ctaLabel} →
-      </Link>
-    </div>
-  );
-}
-
-function StackRow({
-  label,
-  meta,
-  time,
-  href,
-}: {
-  label: string;
-  meta: string;
-  time: string;
-  href?: string;
-}) {
-  const content = (
-    <div className="flex items-center justify-between border-t border-current/10 py-3 text-sm">
-      <div>
-        <p className="font-medium">{label}</p>
-        <p className="opacity-60">{meta}</p>
-      </div>
-      <span className="font-semibold opacity-70">{time}</span>
-    </div>
-  );
-
-  return href ? (
-    <Link href={href} className="block hover:opacity-80">
-      {content}
-    </Link>
-  ) : (
-    content
-  );
+  return {
+    headerLabel: "Weekend",
+    title: "Enjoy the weekend.",
+    description: "Close the loop when you're ready.",
+    ctaLabel: "Weekly Review →",
+    ctaHref: "/weekly-review",
+    extraLink: phase.isSunday ? { href: "/sunday-setup", label: "Get set for Monday →" } : undefined,
+  };
 }

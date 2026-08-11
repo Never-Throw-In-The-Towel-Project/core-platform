@@ -46,6 +46,47 @@
    */
   --brand-accent: #c81e0f;
   --brand-accent-foreground: #f3f2f2;
+
+  /*
+   * Role-based accent shades from the Modernist redesign handoff. The design
+   * uses the *true* NTITT red #ec3013 everywhere, but #ec3013 only measures
+   * ~3.8:1 against white and ~4.0:1 against ink -- it physically cannot host
+   * AA-normal (4.5:1) text at any foreground colour. Rather than darken the
+   * whole brand red (the earlier fix, kept as --brand-accent for text-bearing
+   * button fills), the design system splits the accent by role so we keep the
+   * true red for the look AND pass AA everywhere text actually sits:
+   *
+   *   --brand-accent-vivid (#ec3013)  decorative fills / active states ONLY,
+   *       where no small text sits ON the red: the progress-ring arc, the
+   *       completed week-strip cell, story-ring, category flags, the heatmap
+   *       "full day" cell, the 3px active-tab border. AA text-contrast doesn't
+   *       apply to a colour nothing is read against.
+   *   --brand-accent-deep (#ae1800)   red *text* on the light ground -> 6.5:1.
+   *   --brand-accent-light (#ff9783)  red text/marks on the ink band -> 7.9:1.
+   *   --brand-accent-light-2 (#ff563c) brighter red on ink (eyebrows) -> 5.3:1.
+   *
+   * Unlike --brand-accent, these are NOT part of the company co-branding
+   * override set: the brief is explicit that a company skin touches the band
+   * and chip only, "never the accent", so the decorative red stays NTITT red
+   * for every tenant.
+   */
+  --brand-accent-vivid: #ec3013;
+  --brand-accent-deep: #ae1800;
+  --brand-accent-light: #ff9783;
+  --brand-accent-light-2: #ff563c;
+
+  /* Neutral ramp + rules from the handoff's token table. Named by role so a
+     component reads intent, not a hex: hairline (1px divider), border (1px
+     control edge), ink-hairline (rules on dark surfaces), muted text on light
+     vs. on ink, and the inactive fills for missed/future day cells. */
+  --rule-hairline: #d7d3d3;
+  --rule-border: #bab6b6;
+  --ink-hairline: #444141;
+  --muted: #605d5d;
+  --muted-on-ink: #9b9797;
+  --muted-on-ink-2: #bab6b6;
+  --inactive: #d7d3d3;
+  --inactive-ink: #221f1f;
 }
 
 @theme inline {
@@ -56,6 +97,18 @@
   --color-brand-primary: var(--brand-primary);
   --color-brand-accent: var(--brand-accent);
   --color-brand-accent-foreground: var(--brand-accent-foreground);
+  --color-brand-accent-vivid: var(--brand-accent-vivid);
+  --color-brand-accent-deep: var(--brand-accent-deep);
+  --color-brand-accent-light: var(--brand-accent-light);
+  --color-brand-accent-light-2: var(--brand-accent-light-2);
+  --color-rule-hairline: var(--rule-hairline);
+  --color-rule-border: var(--rule-border);
+  --color-ink-hairline: var(--ink-hairline);
+  --color-muted: var(--muted);
+  --color-muted-on-ink: var(--muted-on-ink);
+  --color-muted-on-ink-2: var(--muted-on-ink-2);
+  --color-inactive: var(--inactive);
+  --color-inactive-ink: var(--inactive-ink);
   --font-sans: var(--font-archivo);
   --font-mono: var(--font-geist-mono);
 
@@ -88,6 +141,28 @@
     color: var(--foreground);
     font-family: Arial, Helvetica, sans-serif;
   }
+
+  /*
+   * One consistent focus ring for the whole app, per the redesign's rule:
+   * "Focus: 2px solid #ec3013, offset 2px. Never leave a default browser
+   * focus ring." Scoped to :focus-visible so it only shows for keyboard
+   * users, and uses the vivid accent, which is legible on both the light
+   * ground and the ink surfaces. Components may still override where a
+   * tighter offset reads better (e.g. inside a filled control).
+   */
+  :focus-visible {
+    outline: 2px solid var(--brand-accent-vivid);
+    outline-offset: 2px;
+  }
+}
+
+/* Every photograph in the redesign is rendered grayscale with a touch of
+   added contrast, never tinted -- one utility so the treatment is identical
+   everywhere (Today check-in card, story rail, pillars, library, review
+   heroes). Applied to the <img> itself; over-image text uses a separate
+   ink scrim, not a filter. */
+.grayscale-photo {
+  filter: grayscale(1) contrast(1.1);
 }
 
 /* Marketing homepage partner-logo strip: a continuous right-to-left scroll.
