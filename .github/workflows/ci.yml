@@ -37,3 +37,25 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           NEXT_PUBLIC_APP_ROOT_DOMAIN: ntitt.co.uk
+
+  # Dry-run every migration + seed against a throwaway local Postgres 16 and
+  # assert the privacy/security invariants (RLS coverage plus the hardening
+  # migrations' role/RLS/GRANT behaviour). This is the "standard step"
+  # docs/DEPLOYMENT.md describes; running it here enforces it on every PR that
+  # touches the schema instead of relying on it being run by hand. The harness
+  # stubs only what Supabase provisions out of band and needs no network,
+  # Supabase CLI, or service container — see supabase/tests/README.md.
+  migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ubuntu-latest ships Postgres 16, but install it explicitly so the job
+      # doesn't silently depend on the runner image's preinstalled version.
+      - name: Install PostgreSQL 16
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-16 postgresql-client-16
+
+      - name: Validate migrations (apply + RLS/GRANT assertions)
+        run: supabase/tests/validate_migrations.sh
