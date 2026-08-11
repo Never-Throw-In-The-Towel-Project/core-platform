@@ -34,7 +34,7 @@ export function AskForSupport({
   variant = "floating",
 }: {
   helplineNumber?: string;
-  variant?: "floating" | "inline";
+  variant?: "floating" | "inline" | "header";
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [state, formAction, isPending] = useActionState(submitSupportRequest, initialState);
@@ -103,8 +103,14 @@ export function AskForSupport({
         aria-haspopup="dialog"
         className={
           variant === "inline"
-            ? "block w-full border-t border-current/10 px-6 py-3 text-left text-sm font-medium text-brand-accent"
-            : "fixed bottom-4 right-4 z-50 rounded-full bg-brand-accent px-5 py-3 text-sm font-semibold text-brand-accent-foreground shadow-lg"
+            ? // Mobile: full-width support link, 2px ink top rule, accent-deep
+              // text (#ae1800 -> 6.5:1 on the light ground) per the handoff.
+              "block w-full border-t-2 border-foreground px-6 py-3 text-left text-sm font-extrabold text-brand-accent-deep"
+            : variant === "header"
+              ? // Desktop: the support link that lives in the ink header, in
+                // accent-light (#ff9783 -> ~7.9:1 on ink).
+                "text-xs font-extrabold uppercase tracking-wide text-brand-accent-light hover:text-brand-accent-light-2"
+              : "fixed bottom-4 right-4 z-50 rounded-full bg-brand-accent px-5 py-3 text-sm font-semibold text-brand-accent-foreground shadow-lg"
         }
       >
         I want someone to check in with me

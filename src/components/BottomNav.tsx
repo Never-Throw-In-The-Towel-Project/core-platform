@@ -11,15 +11,19 @@ const TABS = [
 ] as const;
 
 /**
- * The four-tab bottom bar in the design reference's Rail mockups. A route
- * is "active" if the current path is that tab's href or a sub-path of it
- * (e.g. /community/wins highlights the Community tab).
+ * The four-tab bottom bar, from the redesign's mobile composition: the active
+ * tab gets a 3px vivid-accent top border and ink text, the rest a quiet muted
+ * label. A route is "active" if the current path is that tab's href or a
+ * sub-path of it (e.g. /community/wins highlights the Community tab).
+ *
+ * Mobile/tablet only (lg:hidden) -- on desktop the primary tabs live in the ink
+ * AppHeader instead, matching the design's desktop composition.
  */
 export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="sticky bottom-0 z-10 flex border-t border-current/10 bg-background text-xs font-semibold tracking-wide uppercase">
+    <nav className="sticky bottom-0 z-10 flex bg-background text-[11px] font-extrabold uppercase tracking-wide lg:hidden">
       {TABS.map((tab) => {
         const isActive = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
         return (
@@ -28,8 +32,10 @@ export function BottomNav() {
             href={tab.href}
             aria-current={isActive ? "page" : undefined}
             className={
-              "flex-1 border-t-2 px-2 py-3 text-center " +
-              (isActive ? "border-brand-accent text-brand-accent" : "border-transparent opacity-60 hover:opacity-100")
+              "flex-1 border-t-[3px] px-2 py-3 text-center " +
+              (isActive
+                ? "border-brand-accent-vivid text-foreground"
+                : "border-rule-hairline text-muted hover:text-foreground")
             }
           >
             {tab.label}

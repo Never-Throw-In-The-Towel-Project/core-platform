@@ -1,17 +1,46 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth/dal";
 import { AskForSupport } from "@/components/AskForSupport";
 import { BottomNav } from "@/components/BottomNav";
+import { AppHeader } from "@/components/app/AppHeader";
+import { createClient } from "@/lib/supabase/server";
 import { resolveHelplineNumber } from "@/lib/support/helpline";
+
+// The default NTITT skin colour when a company has none set (the brief's
+// table lists NTITT itself as #ec3013). Only ever colours the top strip and
+// the header chip -- never the accent.
+const DEFAULT_SKIN = "#ec3013";
+
+/**
+ * Fetch the signed-in user's company name + skin colour for the header chip
+ * and top strip. `companies` is public-readable (see lib/tenant/resolve.ts),
+ * so the session client is enough. Defensive: any failure degrades to the
+ * NTITT default rather than blocking every member screen.
+ */
+async function getCompanySkin(companyId: string): Promise<{ name: string; skinColor: string }> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("companies")
+      .select("name, primary_color")
+      .eq("id", companyId)
+      .maybeSingle();
+    return {
+      name: data?.name ?? "NTITT",
+      skinColor: data?.primary_color ?? DEFAULT_SKIN,
+    };
+  } catch {
+    return { name: "NTITT", skinColor: DEFAULT_SKIN };
+  }
+}
 
 // Everything under (app) requires a session -- enforced here via
 // getProfile()/verifySession() (the hard boundary; proxy.ts's redirect is
 // only the optimistic fast-path, per docs/app/guides/authentication.md).
 //
-// Chrome is a slim top strip (Settings/admin-only links -- not part of the
-// four primary sections) plus the bottom tab bar + support link the design
-// reference's Rail mockups show as every member screen's shared furniture.
+// Chrome is the redesign's ink header (primary nav + company chip + desktop
+// support link) plus, on mobile, the support bar + bottom tab bar that every
+// member screen shares.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const profile = await getProfile();
 
@@ -21,59 +50,26 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/onboarding");
   }
 
+  const helplineNumber = resolveHelplineNumber();
+  const { name: companyName, skinColor } = await getCompanySkin(profile.company_id);
+
   return (
-    <div className="flex min-h-full flex-1 flex-col items-center">
-      {/* The design reference's Rail mockups are mobile-width shells where
-          the bottom tab bar spans edge-to-edge naturally. Unconstrained on
-          desktop, that same full-bleed bar stretches across the whole
-          viewport while every page's own content sits narrower and
-          centered inside it (each page picks its own reading-width
-          max-w-*, up to max-w-5xl for Community/the HR dashboard) -- the
-          bar reads as disconnected, oversized furniture rather than part
-          of the same screen. Wrapping header+content+support+BottomNav in
-          one shared frame, capped to the widest content width any page
-          actually uses, keeps the bar (and the header) visually tied to
-          the content column at every viewport size instead of just this
-          one component. The side borders only show once the viewport
-          exceeds the frame's own width -- on mobile/tablet the frame *is*
-          the viewport, so they're invisible there, same as today. */}
-      <div className="flex w-full max-w-5xl flex-1 flex-col lg:border-x lg:border-current/10">
-        <header className="flex items-center justify-between border-b border-black/10 px-6 py-3 text-sm">
-          <p className="opacity-70">Signed in as {profile.display_name}</p>
-          <nav className="flex gap-4">
-            {profile.role === "hr_admin" && (
-              <Link href="/dashboard" className="underline opacity-80">
-                HR Dashboard
-              </Link>
-            )}
-            {profile.role === "ntitt_admin" && (
-              <>
-                <Link href="/community/admin" className="underline opacity-80">
-                  Moderation
-                </Link>
-                <Link href="/community/admin/podcast-guests" className="underline opacity-80">
-                  Podcast Guests
-                </Link>
-                <Link href="/admin/invite" className="underline opacity-80">
-                  Invite
-                </Link>
-              </>
-            )}
-            <Link href="/settings" className="underline opacity-80">
-              Settings
-            </Link>
-          </nav>
-        </header>
-        <div className="flex-1">{children}</div>
-        {/* Support + nav are pinned together to the bottom so the
-            "always visible" Ask for Support entry point genuinely stays
-            reachable on pages taller than the viewport, not just when the
-            user scrolls to the very end. (BottomNav is itself sticky; this
-            outer sticky pins the support bar directly above it.) */}
-        <div className="sticky bottom-0 z-10 bg-background">
-          <AskForSupport helplineNumber={resolveHelplineNumber()} variant="inline" />
-          <BottomNav />
-        </div>
+    <div className="flex min-h-full flex-1 flex-col">
+      <AppHeader
+        profile={profile}
+        companyName={companyName}
+        skinColor={skinColor}
+        helplineNumber={helplineNumber}
+      />
+      <div className="flex-1">{children}</div>
+      {/* Mobile only: the support bar sits directly above the bottom tab bar,
+          keeping the "always visible" support entry point reachable on pages
+          taller than the viewport. On desktop the header carries support and
+          the primary tabs, so both of these are lg:hidden (inside their own
+          components / here). */}
+      <div className="sticky bottom-0 z-10 bg-background lg:hidden">
+        <AskForSupport helplineNumber={helplineNumber} variant="inline" />
+        <BottomNav />
       </div>
     </div>
   );
