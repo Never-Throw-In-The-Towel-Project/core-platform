@@ -49,23 +49,24 @@ export default async function PodcastGuestsPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-bold">Podcast Guest Interest</h1>
-      <p className="mt-1 text-sm opacity-70">
+      <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-deep">Admin</p>
+      <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Podcast Guest Interest</h1>
+      <p className="mt-1 text-sm text-muted">
         Private list -- never shown publicly. Reach out directly to follow up. Each person&apos;s credit
         choice is what they agreed to when they opted in -- honour it when producing and publishing.
       </p>
 
       {guestsWithEmail.length === 0 ? (
-        <p className="mt-6 text-sm opacity-60">No one has opted in yet.</p>
+        <p className="mt-6 text-sm text-muted">No one has opted in yet.</p>
       ) : (
         <div className="mt-6 space-y-2">
           {guestsWithEmail.map((guest) => (
-            <div key={guest.id} className="rounded-lg border border-black/10 p-4 text-sm">
+            <div key={guest.id} className="border border-rule-border p-4 text-sm">
               <p className="font-semibold">{guest.displayName}</p>
-              <p className="opacity-70">
+              <p className="text-muted">
                 {guest.company} · {guest.email ?? "no email on file"}
               </p>
-              <p className="mt-1 text-xs opacity-60">
+              <p className="mt-1 text-xs text-muted">
                 Credit as:{" "}
                 {guest.anonymityPreference ? ANONYMITY_LABEL[guest.anonymityPreference] : "not recorded"}
                 {guest.consentedAt &&

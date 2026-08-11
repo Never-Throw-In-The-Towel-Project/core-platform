@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { PodcastOptIn } from "@/app/(app)/community/podcast-optin";
 import type { PodcastGuestAnonymityPreference } from "@/types/database";
@@ -9,10 +10,12 @@ const SPACE_LINKS = [
 
 /**
  * The left "Spaces" rail from the design reference -- which community space
- * you're in, plus this month's podcast episode and the guest opt-in. Shown
- * on the feed screens (/community, /community/company); the Wins Board is a
- * deliberately full-width, sidebar-free layout in the reference, so it
- * doesn't use this.
+ * you're in, plus this month's podcast episode and the guest opt-in. Restyled
+ * to the Modernist system: wide-tracked eyebrow labels, the active space marked
+ * with a left accent bar + deep-red text (not an opacity shift), and flat
+ * hairline-bordered cards. Shown on the feed screens (/community,
+ * /community/company); the Wins Board is a deliberately full-width,
+ * sidebar-free layout in the reference, so it doesn't use this.
  */
 export function CommunitySidebar({
   active,
@@ -27,25 +30,23 @@ export function CommunitySidebar({
   podcastOptedIn: boolean;
   podcastAnonymityPreference: PodcastGuestAnonymityPreference | null;
 }) {
+  const spaceClass = (isActive: boolean) =>
+    isActive
+      ? "block border-l-2 border-brand-accent-vivid pl-2.5 font-semibold text-brand-accent-deep"
+      : "block border-l-2 border-transparent pl-2.5 text-muted transition-colors hover:text-foreground";
+
   return (
     <aside className="space-y-6 text-sm">
       <div>
-        <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Spaces</p>
-        <div className="mt-2 space-y-1">
+        <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">Spaces</p>
+        <div className="mt-2.5 space-y-1.5">
           {SPACE_LINKS.map((space) => (
-            <Link
-              key={space.key}
-              href={space.href}
-              className={active === space.key ? "block font-semibold text-brand-accent" : "block opacity-70 hover:opacity-100"}
-            >
+            <Link key={space.key} href={space.href} className={spaceClass(active === space.key)}>
               {space.label}
             </Link>
           ))}
           {companyName && (
-            <Link
-              href="/community/company"
-              className={active === "company" ? "block font-semibold text-brand-accent" : "block opacity-70 hover:opacity-100"}
-            >
+            <Link href="/community/company" className={spaceClass(active === "company")}>
               {companyName} only
             </Link>
           )}
@@ -53,16 +54,30 @@ export function CommunitySidebar({
       </div>
 
       {podcastEpisode && (
-        <div className="border border-current/10 p-3">
-          <p className="text-xs font-semibold tracking-wide uppercase opacity-60">This month</p>
-          <p className="mt-2 font-medium">{podcastEpisode.title}</p>
-          <a href={podcastEpisode.embed_url} className="mt-2 inline-block text-brand-accent underline">
-            Listen →
-          </a>
+        <div className="border border-rule-border">
+          <div className="relative h-24 w-full overflow-hidden border-b border-rule-border">
+            <Image
+              src="/site/podcast-recording.jpg"
+              alt=""
+              fill
+              sizes="200px"
+              className="grayscale-photo object-cover"
+            />
+          </div>
+          <div className="p-3">
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">This month</p>
+            <p className="mt-2 font-semibold leading-snug">{podcastEpisode.title}</p>
+            <a
+              href={podcastEpisode.embed_url}
+              className="mt-2 inline-block text-xs font-bold uppercase tracking-wide text-brand-accent-deep"
+            >
+              Listen →
+            </a>
+          </div>
         </div>
       )}
 
-      <div className="border border-current/10 p-3">
+      <div className="border border-rule-border p-3">
         <PodcastOptIn optedIn={podcastOptedIn} anonymityPreference={podcastAnonymityPreference} />
       </div>
     </aside>

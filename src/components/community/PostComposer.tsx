@@ -22,7 +22,7 @@ export function PostComposer({
   }, [state]);
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-2 border border-current/15 p-3">
+    <form ref={formRef} action={formAction} className="space-y-2 border border-rule-border p-3">
       <input type="hidden" name="scope" value={scope} />
       <input type="hidden" name="board" value={board} />
       <div className="flex gap-2">
@@ -32,12 +32,12 @@ export function PostComposer({
           rows={1}
           placeholder={placeholder}
           aria-label={placeholder}
-          className="flex-1 resize-none border border-current/15 bg-transparent px-3 py-2 text-sm"
+          className="flex-1 resize-none border border-rule-border bg-transparent px-3 py-2 text-sm"
         />
         <button
           type="submit"
           disabled={isPending}
-          className="shrink-0 bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+          className="shrink-0 bg-brand-accent px-4 py-2 text-sm font-bold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
         >
           {isPending ? "…" : "Post"}
         </button>
@@ -47,10 +47,10 @@ export function PostComposer({
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
         aria-label="Add an optional photo to your post"
-        className="w-full text-xs file:mr-3 file:border-0 file:bg-current/10 file:px-3 file:py-1.5 file:text-xs file:font-semibold"
+        className="w-full text-xs file:mr-3 file:border file:border-rule-border file:bg-transparent file:px-3 file:py-1.5 file:text-xs file:font-semibold"
       />
-      <p className="text-xs opacity-60">Optional photo -- JPEG, PNG, WebP, or GIF, up to 5MB.</p>
-      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
+      <p className="text-xs text-muted">Optional photo -- JPEG, PNG, WebP, or GIF, up to 5MB.</p>
+      {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
     </form>
   );
 }

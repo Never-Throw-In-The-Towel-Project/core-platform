@@ -53,8 +53,11 @@ export default async function CommunityModerationPage() {
   if (!reports || reports.length === 0) {
     return (
       <main className="mx-auto max-w-2xl px-6 py-12">
-        <h1 className="text-2xl font-bold">Moderation Queue</h1>
-        <p className="mt-4 text-sm opacity-60">No open reports. All clear.</p>
+        <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-deep">
+          Admin
+        </p>
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Moderation Queue</h1>
+        <p className="mt-4 text-sm text-muted">No open reports. All clear.</p>
       </main>
     );
   }
@@ -63,8 +66,9 @@ export default async function CommunityModerationPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-bold">Moderation Queue</h1>
-      <p className="mt-1 text-sm opacity-70">
+      <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-deep">Admin</p>
+      <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Moderation Queue</h1>
+      <p className="mt-1 text-sm text-muted">
         {reports.length} open report{reports.length === 1 ? "" : "s"}.
       </p>
       <div className="mt-6 space-y-4">
