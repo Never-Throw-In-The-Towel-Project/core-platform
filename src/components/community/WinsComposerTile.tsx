@@ -9,7 +9,7 @@ export function WinsComposerTile() {
 
   if (isOpen) {
     return (
-      <div className="border border-current/15 p-3">
+      <div className="border border-rule-border p-3">
         <PostComposer scope="global" board="wins" placeholder="What's a win, big or small, from your day or week?" />
       </div>
     );
@@ -19,7 +19,7 @@ export function WinsComposerTile() {
     <button
       type="button"
       onClick={() => setIsOpen(true)}
-      className="flex min-h-32 w-full items-center justify-center bg-brand-accent text-sm font-semibold text-brand-accent-foreground"
+      className="flex min-h-32 w-full items-center justify-center bg-brand-accent text-sm font-bold uppercase tracking-wide text-brand-accent-foreground transition-colors hover:bg-brand-accent-deep"
     >
       + Add your win
     </button>

@@ -30,21 +30,21 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
   }
 
   return (
-    <div className="border-t border-current/10 py-4">
+    <div className="border-t border-rule-hairline py-5">
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-2">
-          <p className="font-semibold">{post.authorDisplayName}</p>
+          <p className="font-extrabold">{post.authorDisplayName}</p>
           {post.authorCompanyName && (
-            <span className="border border-current/15 px-1.5 py-0.5 text-xs uppercase opacity-60">
+            <span className="border border-rule-border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
               {post.authorCompanyName}
             </span>
           )}
-          <p className="text-xs opacity-50">{new Date(post.created_at).toLocaleDateString()}</p>
+          <p className="text-xs text-muted">{new Date(post.created_at).toLocaleDateString()}</p>
         </div>
         <button
           type="button"
           onClick={() => setShowReport((v) => !v)}
-          className="-m-2 rounded-md p-2 text-xs opacity-60 hover:opacity-100"
+          className="-m-2 p-2 text-xs font-semibold uppercase tracking-wide text-muted transition-colors hover:text-foreground"
         >
           Report
         </button>
@@ -52,10 +52,10 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
       <p className="mt-2 whitespace-pre-wrap text-sm">{post.body}</p>
       {post.image_url && (
         // eslint-disable-next-line @next/next/no-img-element -- user-pasted URL, not a local/optimizable asset
-        <img src={post.image_url} alt="" className="mt-3 max-h-80 w-full rounded-md object-cover" />
+        <img src={post.image_url} alt="" className="mt-3 max-h-80 w-full border border-rule-border object-cover" />
       )}
 
-      <div className="mt-3 flex items-center gap-2 text-xs opacity-70">
+      <div className="mt-3 flex items-center gap-1 text-xs">
         <button
           type="button"
           disabled={isLikePending}
@@ -66,19 +66,27 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
               setLikeCount((count) => count + (result.liked ? 1 : -1));
             })
           }
-          className="-m-2 rounded-md p-2"
+          className={`-m-2 flex items-center gap-1 p-2 font-semibold ${
+            liked ? "text-brand-accent-deep" : "text-muted transition-colors hover:text-foreground"
+          }`}
+          aria-pressed={liked}
+          aria-label={liked ? "Unlike this post" : "Like this post"}
         >
-          {liked ? "♥" : "♡"} {likeCount}
+          <span aria-hidden="true">{liked ? "♥" : "♡"}</span> {likeCount}
         </button>
-        <button type="button" onClick={() => setShowComments((v) => !v)} className="-m-2 rounded-md p-2">
-          💬 {post.commentCount}
+        <button
+          type="button"
+          onClick={() => setShowComments((v) => !v)}
+          className="-m-2 flex items-center gap-1 p-2 font-semibold text-muted transition-colors hover:text-foreground"
+        >
+          <span aria-hidden="true">💬</span> {post.commentCount}
         </button>
       </div>
 
       {showReport && (
-        <div className="mt-3 rounded-md border border-black/10 p-3 text-xs">
+        <div className="mt-3 border border-rule-border p-3 text-xs">
           {reportState.status === "success" ? (
-            <p className="opacity-70">Thanks -- this has been reported to the NTITT team.</p>
+            <p className="text-muted">Thanks -- this has been reported to the NTITT team.</p>
           ) : (
             <form action={reportAction} className="space-y-2">
               <input type="hidden" name="postId" value={post.id} />
@@ -86,13 +94,13 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
                 name="reason"
                 placeholder="What's wrong with this post? (optional)"
                 rows={2}
-                className="w-full rounded-md border border-black/20 bg-transparent px-2 py-1"
+                className="w-full border border-rule-border bg-transparent px-2 py-1"
               />
-              {reportState.status === "error" && <p className="text-red-700">{reportState.message}</p>}
+              {reportState.status === "error" && <p className="text-brand-accent-deep">{reportState.message}</p>}
               <button
                 type="submit"
                 disabled={reportPending}
-                className="rounded-md bg-brand-accent px-3 py-1.5 font-semibold text-brand-accent-foreground disabled:opacity-50"
+                className="bg-brand-accent px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
               >
                 {reportPending ? "Reporting…" : "Submit report"}
               </button>
@@ -102,12 +110,12 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
       )}
 
       {showComments && (
-        <div className="mt-3 space-y-3 border-t border-black/10 pt-3">
-          {comments.length === 0 && <p className="text-xs opacity-50">No comments yet.</p>}
+        <div className="mt-3 space-y-3 border-t border-rule-hairline pt-3">
+          {comments.length === 0 && <p className="text-xs text-muted">No comments yet.</p>}
           {comments.map((comment) => (
             <p key={comment.id} className="text-xs">
               <span className="font-semibold">{comment.authorDisplayName}</span>{" "}
-              <span className="opacity-80">{comment.body}</span>
+              <span className="text-muted">{comment.body}</span>
             </p>
           ))}
 
@@ -119,17 +127,19 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
               value={commentBody}
               onChange={(e) => setCommentBody(e.target.value)}
               placeholder="Write a comment…"
-              className="flex-1 rounded-md border border-black/20 bg-transparent px-2 py-1 text-xs"
+              className="flex-1 border border-rule-border bg-transparent px-2 py-1 text-xs"
             />
             <button
               type="submit"
               disabled={commentPending}
-              className="rounded-md bg-brand-accent px-3 py-2 text-xs font-semibold text-brand-accent-foreground disabled:opacity-50"
+              className="bg-brand-accent px-3 py-2 text-xs font-bold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
             >
               {commentPending ? "…" : "Send"}
             </button>
           </form>
-          {commentState.status === "error" && <p className="text-xs text-red-700">{commentState.message}</p>}
+          {commentState.status === "error" && (
+            <p className="text-xs text-brand-accent-deep">{commentState.message}</p>
+          )}
         </div>
       )}
     </div>

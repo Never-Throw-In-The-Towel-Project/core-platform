@@ -75,12 +75,17 @@ export async function CommunityFeedView({
       />
 
       <div>
-        <h1 className="text-xs font-semibold tracking-wide uppercase opacity-60">{heading}</h1>
-        <div className="mt-3">
+        <header>
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-deep">
+            The feed
+          </p>
+          <h1 className="mt-1 text-2xl font-extrabold leading-none tracking-tight">{heading}</h1>
+        </header>
+        <div className="mt-4">
           <PostComposer scope={scope} board="feed" placeholder={composerPlaceholder} />
         </div>
         <div className="mt-2">
-          {posts.length === 0 && <p className="py-6 text-sm opacity-60">{emptyMessage}</p>}
+          {posts.length === 0 && <p className="py-8 text-sm text-muted">{emptyMessage}</p>}
           {posts.map((post, i) => (
             <PostCard key={post.id} post={post} comments={commentsByPost[i]} />
           ))}

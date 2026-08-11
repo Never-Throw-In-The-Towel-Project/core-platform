@@ -41,8 +41,8 @@ export function PodcastOptIn({
   if (optedIn) {
     return (
       <form action={formAction} className="space-y-2 text-sm">
-        <p className="font-medium">You&apos;re on the podcast guest list</p>
-        <p className="text-xs opacity-60">
+        <p className="font-semibold">You&apos;re on the podcast guest list</p>
+        <p className="text-xs text-muted">
           Credited as: {anonymityPreference ? ANONYMITY_LABEL[anonymityPreference] : "not set"}. Anthony
           will reach out directly -- you&apos;ll get to review any episode before it airs, and you can
           withdraw at any time, including after it&apos;s published.
@@ -51,11 +51,11 @@ export function PodcastOptIn({
         <button
           type="submit"
           disabled={isPending}
-          className="border border-current/20 px-3 py-1.5 text-xs font-semibold"
+          className="border border-rule-border px-3 py-1.5 text-xs font-bold uppercase tracking-wide"
         >
           {isPending ? "…" : "Withdraw"}
         </button>
-        {state.status === "error" && <p className="text-xs text-red-700">{state.message}</p>}
+        {state.status === "error" && <p className="text-xs text-brand-accent-deep">{state.message}</p>}
       </form>
     );
   }
@@ -63,12 +63,12 @@ export function PodcastOptIn({
   if (!showConsent) {
     return (
       <div className="space-y-2 text-sm">
-        <p className="font-medium">Tell your story on the podcast</p>
-        <p className="text-xs opacity-60">Private -- only Anthony sees this list, never posted publicly.</p>
+        <p className="font-semibold">Tell your story on the podcast</p>
+        <p className="text-xs text-muted">Private -- only Anthony sees this list, never posted publicly.</p>
         <button
           type="button"
           onClick={() => setShowConsent(true)}
-          className="border border-current/20 px-3 py-1.5 text-xs font-semibold"
+          className="border border-rule-border px-3 py-1.5 text-xs font-bold uppercase tracking-wide"
         >
           I&apos;m interested
         </button>
@@ -78,8 +78,8 @@ export function PodcastOptIn({
 
   return (
     <form action={formAction} className="space-y-3 text-sm">
-      <p className="font-medium">Before you opt in</p>
-      <ul className="list-disc space-y-1 pl-4 text-xs opacity-70">
+      <p className="font-semibold">Before you opt in</p>
+      <ul className="list-disc space-y-1 pl-4 text-xs text-muted">
         <li>A conversation with Anthony gets recorded and shared as a podcast episode, publicly.</li>
         <li>You&apos;ll get to review the episode before it goes live.</li>
         <li>You can withdraw at any time -- including after it&apos;s published.</li>
@@ -88,7 +88,7 @@ export function PodcastOptIn({
 
       <input type="hidden" name="optIn" value="true" />
       <fieldset className="space-y-1">
-        <legend className="text-xs font-semibold uppercase tracking-wide opacity-60">
+        <legend className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">
           How should we credit you?
         </legend>
         {(Object.entries(ANONYMITY_LABEL) as [PodcastGuestAnonymityPreference, string][]).map(
@@ -108,20 +108,20 @@ export function PodcastOptIn({
         )}
       </fieldset>
 
-      {state.status === "error" && <p className="text-xs text-red-700">{state.message}</p>}
+      {state.status === "error" && <p className="text-xs text-brand-accent-deep">{state.message}</p>}
 
       <div className="flex gap-2">
         <button
           type="submit"
           disabled={isPending || !choice}
-          className="border border-current/20 px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+          className="border border-rule-border px-3 py-1.5 text-xs font-bold uppercase tracking-wide disabled:opacity-50"
         >
           {isPending ? "…" : "I understand -- opt in"}
         </button>
         <button
           type="button"
           onClick={() => setShowConsent(false)}
-          className="px-3 py-1.5 text-xs opacity-60 underline"
+          className="px-3 py-1.5 text-xs text-muted underline"
         >
           Cancel
         </button>

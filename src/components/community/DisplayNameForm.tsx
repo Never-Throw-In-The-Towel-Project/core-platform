@@ -15,15 +15,15 @@ export function DisplayNameForm({ currentName }: { currentName: string }) {
         defaultValue={currentName}
         maxLength={40}
         required
-        className="w-full border border-current/20 bg-transparent px-2 py-1.5 text-sm"
+        className="w-full border border-rule-border bg-transparent px-2 py-1.5 text-sm"
       />
-      <p className="text-xs opacity-60">Change it any time. It doesn&apos;t have to be your real name.</p>
-      {state.status === "error" && <p className="text-xs text-red-700">{state.message}</p>}
-      {state.status === "success" && <p className="text-xs opacity-60">Saved.</p>}
+      <p className="text-xs text-muted">Change it any time. It doesn&apos;t have to be your real name.</p>
+      {state.status === "error" && <p className="text-xs text-brand-accent-deep">{state.message}</p>}
+      {state.status === "success" && <p className="text-xs text-muted">Saved.</p>}
       <button
         type="submit"
         disabled={isPending}
-        className="border border-current/20 px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+        className="border border-rule-border px-3 py-1.5 text-xs font-bold uppercase tracking-wide disabled:opacity-50"
       >
         {isPending ? "Saving…" : "Save"}
       </button>
