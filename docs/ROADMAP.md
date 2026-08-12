@@ -94,8 +94,15 @@ where the carousel lives; AI autonomy (assistive-only for v1); documents
 inline vs download. Full list in the strategy doc.
 
 **Status**: strategy + roadmap written; the first slice (A1 → thin A2 → A3)
-shipped; **B. Challenges** shipped this pass. Next on the critical path:
-**C. AI brain v1 (assistive)** — Studio tag-suggestions + gap detection.
+shipped; **B. Challenges** shipped; and the content-OS is now **surfaced in the
+daily loop** — the day-tagged, week-rotated carousel and the member's own
+challenge progress both appear on Home, not only in the Library, so the spine
+and challenges are discoverable where members already are each day (pure reads;
+no schema change). Next on the critical path: **C. AI brain v1 (assistive)** —
+Studio tag-suggestions + gap detection. C is the first item needing an external
+dependency (`ANTHROPIC_API_KEY` + a small per-call budget) and is
+assistive-with-confirm — never auto-publish — so it wants Anthony's budget
+go-ahead before wiring.
 
 ---
 

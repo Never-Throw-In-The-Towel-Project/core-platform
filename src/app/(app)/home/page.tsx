@@ -26,6 +26,11 @@ import { WeekStrip } from "@/components/today/WeekStrip";
 import { BadgeGrid } from "@/components/today/BadgeGrid";
 import { WinsBoard } from "@/components/today/WinsBoard";
 import { ReviewProgress } from "@/components/today/ReviewProgress";
+import { DayCarousel } from "@/components/content/DayCarousel";
+import { getDayContent } from "@/lib/content/queries";
+import { rotateForWeek, isoWeekdayFromName, DAY_LABEL } from "@/lib/content/rotation";
+import { listChallengesWithProgress } from "@/lib/challenges/queries";
+import type { ContentItem, ChallengeWithProgress } from "@/types/database";
 
 const THEMED_TITLES: Record<Weekday, { title: string; subtitle: string }> = {
   ...CHECKIN_CONFIG,
@@ -99,6 +104,8 @@ export default async function HomePage() {
   const phase = resolveHomePhase(now, timeZone);
   const todayWeekday = weekdayNameOrWeekend(now, timeZone);
   const isoWeek = getIsoWeekNumber(now, timeZone);
+  const isoWeekday = isoWeekdayFromName(todayWeekday);
+  const dayLabel = DAY_LABEL[isoWeekday];
   const isWeekday = todayWeekday !== "saturday" && todayWeekday !== "sunday";
   const weeklyReviewOpen =
     todayWeekday === "friday" || todayWeekday === "saturday" || todayWeekday === "sunday";
@@ -119,6 +126,8 @@ export default async function HomePage() {
   let companyName = "NTITT";
   let companyMessage: string | null = null;
   let companySkin = "#ec3013";
+  let dayItems: ContentItem[] = [];
+  let myChallenges: ChallengeWithProgress[] = [];
 
   try {
     const privateClient = await createClient("private");
@@ -170,6 +179,16 @@ export default async function HomePage() {
     companyName = company?.name ?? "NTITT";
     companyMessage = (company?.welcome_copy as string | null) ?? null;
     companySkin = (company?.primary_color as string | null) ?? "#ec3013";
+
+    // The content-OS in the daily loop: today's day-tagged carousel and the
+    // member's own challenge progress. Both are plain reads (RLS scopes the
+    // spine by channel and participation to the caller), folded into this same
+    // guarded block so /home still degrades to "nothing yet" if Supabase is
+    // unreachable rather than crashing the universal landing page.
+    [dayItems, myChallenges] = await Promise.all([
+      getDayContent(publicClient, isoWeekday),
+      listChallengesWithProgress(publicClient, privateClient, profile.id),
+    ]);
   } catch {
     // safe defaults above
   }
@@ -178,6 +197,16 @@ export default async function HomePage() {
   const catchUp = isWeekday
     ? (await getOutstandingWeekdaysThisWeek(profile.id, now, timeZone)).filter((w) => w !== todayWeekday)
     : [];
+
+  // Rotate today's bank so a different pick leads each ISO week (the same helper
+  // the Library carousel uses), and pull the member's not-yet-finished
+  // challenges to the front so the rail nudges "keep going", capped at three.
+  const rotatedDay = rotateForWeek(dayItems, isoWeek);
+  const activeChallenges = myChallenges
+    .filter((c) => c.enrolled)
+    .sort((a, b) => Number(a.completed_days >= a.length_days) - Number(b.completed_days >= b.length_days))
+    .slice(0, 3);
+  const hasPublishedChallenges = myChallenges.length > 0;
 
   const hero = buildHero({
     phase,
@@ -303,6 +332,11 @@ export default async function HomePage() {
               </div>
             )}
 
+            {/* The content-OS made part of the daily loop: today's day-tagged,
+                week-rotated picks. Renders nothing when the day's bank is empty
+                (DayCarousel returns null), so it never leaves a hole. */}
+            <DayCarousel dayLabel={dayLabel} items={rotatedDay} />
+
             <CompanySlot companyName={companyName} message={companyMessage} skinColor={companySkin} />
           </div>
 
@@ -314,6 +348,61 @@ export default async function HomePage() {
                 <WeekStrip completedWeekdays={completedWeekdays} todayKey={todayWeekday} />
               </div>
             </section>
+
+            {/* Challenges brought into the daily loop: the member's own
+                in-progress programmes (private, own-rows-only) with a pure
+                completion count -- never an "expected day", so nothing ever
+                reads as behind. Falls back to a gentle discover nudge, and to
+                nothing at all when no challenges are published yet. */}
+            {activeChallenges.length > 0 ? (
+              <section>
+                <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
+                  Your challenges
+                </h2>
+                <div className="mt-2 space-y-2">
+                  {activeChallenges.map((c) => {
+                    const pct =
+                      c.length_days > 0 ? Math.min(100, Math.round((c.completed_days / c.length_days) * 100)) : 0;
+                    const complete = c.completed_days >= c.length_days && c.length_days > 0;
+                    return (
+                      <Link
+                        key={c.id}
+                        href={`/challenges/${c.id}`}
+                        className="block border border-rule-hairline p-3 transition-colors hover:bg-foreground/[0.03]"
+                      >
+                        <p className="line-clamp-1 text-sm font-extrabold leading-tight tracking-tight">{c.title}</p>
+                        <div className="mt-2 flex items-center justify-between text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
+                          <span>{complete ? "Complete" : "In progress"}</span>
+                          <span>
+                            {c.completed_days} of {c.length_days} done
+                          </span>
+                        </div>
+                        <div
+                          className="mt-1.5 h-1.5 w-full bg-foreground/10"
+                          role="progressbar"
+                          aria-valuenow={c.completed_days}
+                          aria-valuemin={0}
+                          aria-valuemax={c.length_days}
+                          aria-label={`${c.title}: ${c.completed_days} of ${c.length_days} days complete`}
+                        >
+                          <div className="h-full bg-brand-accent" style={{ width: `${pct}%` }} />
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : hasPublishedChallenges ? (
+              <section>
+                <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Challenges</h2>
+                <Link
+                  href="/challenges"
+                  className="mt-2 block border border-rule-hairline p-3 text-sm font-semibold text-brand-accent-deep transition-colors hover:bg-foreground/[0.03]"
+                >
+                  Start a guided challenge →
+                </Link>
+              </section>
+            ) : null}
 
             <section>
               <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Badges</h2>
