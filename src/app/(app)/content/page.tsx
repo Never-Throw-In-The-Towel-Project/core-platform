@@ -7,6 +7,7 @@ const CATEGORIES: { value: VideoCategory; label: string }[] = [
   { value: "mental_fitness", label: "Mental Fitness" },
   { value: "tools_tips", label: "Tools & Tips" },
   { value: "physical_fitness", label: "Physical Fitness" },
+  { value: "nutrition", label: "Nutrition" },
 ];
 
 // The brief's own enumerated Mental Fitness topics ("addiction, divorce,

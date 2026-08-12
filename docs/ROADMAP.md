@@ -101,9 +101,15 @@ the gap between "built" and "hardened, accessible, and fully spec-complete."
    the browser print dialog. Reuse the existing server-side
    `@react-pdf/renderer` pipeline (already used for the HR impact report) so
    the user gets a real, shareable file. _Effort: S–M._
-5. **Nutrition education content.** Spec'd (Website Spec §8) but absent — no
-   `nutrition` value in the `video_category` enum and no nav. Add the enum
-   value + a Content Library tab; the content itself is ops. _Effort: S–M._
+5. **Nutrition education content** — _enum + Library tab done this pass._
+   Spec'd (Website Spec §8) but previously absent: no `nutrition` value in the
+   `video_category` enum and no nav. The enum value now exists
+   (`20260812000000_add_nutrition_video_category.sql`, dry-run validated by the
+   migration harness) and the Content Library has a Nutrition tab (`CATEGORIES`
+   in `src/app/(app)/content/page.tsx`, `VideoCategory` in
+   `src/types/database.ts`). The content itself — seeding nutrition videos into
+   `content_videos` — stays a content-ops task via Supabase Studio, the same as
+   every other category. _Effort: S–M._
 6. **Offline-friendly daily forms (PWA).** `manifest.ts`/the brief promise an
    installable, offline-capable app, but `public/sw.js` has no `fetch`
    handler, no precache, and no offline form queue, and the SW only registers
