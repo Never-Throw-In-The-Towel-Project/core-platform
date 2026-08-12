@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { ContentVideo } from "@/types/database";
+import { getContentItem } from "@/lib/content/queries";
+import type { ContentItem } from "@/types/database";
 
 function formatDuration(seconds: number | null): string | null {
   if (!seconds) return null;
@@ -9,36 +10,41 @@ function formatDuration(seconds: number | null): string | null {
 }
 
 /**
- * The watch page a Content Library row opens into (see ../page.tsx). Renders
- * the Vimeo player directly rather than a click-to-load placeholder --
- * this page only exists because someone already chose to watch this video
- * from the library list, so there's no reason to make them click twice.
- * Restyled to the Modernist system: a muted uppercase back-link, the player
- * in a 2px ink frame, an extrabold title, and neutral hairline metadata
- * badges (tags are metadata here, not links, so they take the neutral chip,
- * not the accent).
+ * The watch/read page a Content Library row opens into. Renders the media by
+ * type off the content_items spine (docs/CONTENT_PLATFORM_STRATEGY.md): a
+ * Vimeo player for video, the image itself for image, an inline frame + open
+ * link for a document. Channel visibility is enforced by the content_items
+ * RLS policy -- an item the viewer isn't entitled to see simply isn't found.
  */
-export default async function ContentVideoPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ContentItemPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  // Wrapped in try/catch: createClient() throws synchronously if the
-  // URL/key are missing or malformed -- same gap already closed elsewhere.
-  // Treated the same as "video not found" below, since either way there's
-  // nothing to safely render on this watch page.
-  let video: ContentVideo | null = null;
+  // Wrapped in try/catch: createClient() throws synchronously if the URL/key
+  // are missing or malformed -- treated the same as "not found", since either
+  // way there's nothing to safely render here.
+  let item: ContentItem | null = null;
+  let mediaUrl: string | null = null;
   try {
     const supabase = await createClient();
-    const { data } = await supabase.from("content_videos").select("*").eq("id", id).maybeSingle();
-    video = data;
+    item = await getContentItem(supabase, id);
+    if (item) {
+      if (item.external_url) {
+        mediaUrl = item.external_url;
+      } else if (item.asset_path) {
+        // content-assets is a public bucket (see the spine migration); the
+        // public URL is derivable without a signed-URL round-trip.
+        mediaUrl = supabase.storage.from("content-assets").getPublicUrl(item.asset_path).data.publicUrl;
+      }
+    }
   } catch {
-    video = null;
+    item = null;
   }
 
-  if (!video) {
+  if (!item) {
     notFound();
   }
 
-  const duration = formatDuration(video.duration_seconds);
+  const duration = formatDuration(item.duration_seconds);
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
@@ -49,20 +55,44 @@ export default async function ContentVideoPage({ params }: { params: Promise<{ i
         ← Library
       </Link>
 
-      <div className="mt-6 aspect-video w-full overflow-hidden border-2 border-foreground">
-        <iframe
-          src={`https://player.vimeo.com/video/${video.vimeo_id}`}
-          title={video.title}
-          allow="autoplay; fullscreen; picture-in-picture"
-          allowFullScreen
-          className="h-full w-full"
-        />
-      </div>
+      {item.type === "video" && item.vimeo_id ? (
+        <div className="mt-6 aspect-video w-full overflow-hidden border-2 border-foreground">
+          <iframe
+            src={`https://player.vimeo.com/video/${item.vimeo_id}`}
+            title={item.title}
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+            className="h-full w-full"
+          />
+        </div>
+      ) : item.type === "image" && mediaUrl ? (
+        <div className="mt-6 border-2 border-foreground">
+          {/* eslint-disable-next-line @next/next/no-img-element -- remote Storage asset, not a local/optimizable image */}
+          <img src={mediaUrl} alt={item.title} className="w-full" />
+        </div>
+      ) : mediaUrl ? (
+        <div className="mt-6">
+          <div className="aspect-video w-full overflow-hidden border-2 border-foreground">
+            <iframe src={mediaUrl} title={item.title} className="h-full w-full" />
+          </div>
+          <a
+            href={mediaUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 inline-block bg-brand-accent px-5 py-2.5 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground transition-colors hover:opacity-90"
+          >
+            Open ↗
+          </a>
+        </div>
+      ) : (
+        <p className="mt-6 text-sm text-muted">This content isn’t available to view right now.</p>
+      )}
 
-      <h1 className="mt-6 text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">{video.title}</h1>
-      {(video.tags.length > 0 || duration) && (
+      <h1 className="mt-6 text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">{item.title}</h1>
+      {item.summary && <p className="mt-3 text-muted">{item.summary}</p>}
+      {(item.tags.length > 0 || duration) && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {video.tags.map((tag) => (
+          {item.tags.map((tag) => (
             <span
               key={tag}
               className="border border-rule-border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted"

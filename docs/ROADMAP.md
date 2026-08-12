@@ -14,6 +14,90 @@ aggregate-only; sleep score and day rating never reportable) is genuinely
 enforced by Postgres RLS and was verified as solid. The findings below are
 the gap between "built" and "hardened, accessible, and fully spec-complete."
 
+**This roadmap now has two horizons**, and they run in parallel:
+
+- **The strategic direction — the content platform** (next section): the
+  forward chapter, turning NTITT into a content operating system. This is
+  new build, and it is the primary thrust. The full reasoning, verified
+  current state, and schema proposals are in
+  `docs/CONTENT_PLATFORM_STRATEGY.md`; the phased plan is summarised below.
+- **The hardening & accessibility backlog** (Priority 1–3 and the
+  accessibility section further down): the near-term correctness, safety,
+  and WCAG follow-ups from the review. These do not block the strategic
+  build and can be picked up alongside it.
+
+---
+
+## Strategic direction — the content platform (the next chapter)
+
+Full detail: `docs/CONTENT_PLATFORM_STRATEGY.md`. The shift is from
+"features built" to a **content operating system**: Anthony creates, and
+the platform distributes his content intelligently — on the right day, down
+the right channel, to the right member — and keeps them coming back. Five
+pillars: content as a first-class atom (video **and** document/image); the
+Mon–Sun framework as the organising grid; challenges as the container;
+channels for per-partner targeting; and an AI brain that assists the Super
+Admin with tagging and distribution. Underneath, an engagement flywheel —
+a deeper community and a persisted gamification layer — keeps consumption
+sticky.
+
+**The architectural spine** is one change everything else hangs on:
+generalise `content_videos` into a `content_items` model whose tag
+dimensions (`type`, `day_of_week`, `theme`, channel placements, challenge
+membership) are the substrate the carousels, challenges, targeting, and AI
+all read from. It is the critical path and the one migration that touches
+existing surfaces, so it goes through
+`supabase/tests/validate_migrations.sh` like every schema change.
+
+**Phased plan** (dependencies and parallel tracks — see the strategy doc):
+
+_Track 1 — the content spine (critical path)_
+- **A1. Content spine** — `content_items` + channel placements + a
+  `content-assets` Storage bucket; backfill `content_videos`; harness-
+  validated. *Gate to everything else._
+- **A2. Super Admin Studio (thin)** — `ntitt_admin`-gated: add an item, tag
+  it day/theme/channel, publish. The keystone that lets Anthony self-serve.
+- **A3. Day carousel** — one live day-tagged, channel-scoped, ISO-week-
+  rotated carousel surface.
+- **B. Challenges** — `challenges` / `challenge_days` / `enrollments` on the
+  spine + the existing day-journey engine.
+- **C. AI brain v1 (assistive)** — tag suggestions + gap detection in the
+  Studio (assistive-with-confirm, never auto-publish).
+- **E. AI brain v2** — personalised ranking, once engagement data exists.
+
+_Track 2 — the engagement flywheel (independent, parallelisable)_
+- **D1. Community depth** — up/down (or up-only) votes, threaded comments,
+  hot/top/new sorting. No dependency on the content spine.
+- **D2. Gamification** — persist points/badges, add steps (self-reported
+  first), rewards, and opt-in leaderboards — under the privacy invariants
+  below.
+
+**Privacy invariants that must survive this chapter** (from the strategy
+doc): steps / any health metric are `private` and **never-reportable**,
+exactly like sleep score and day rating; leaderboards, if built, are
+opt-in and scope-safe; the AI brain reads content and aggregates, never
+private journals; aggregation stays one-way (`private → public`),
+service-role only.
+
+**Recommended first slice: A1 + a thin A2 + A3** — the spine, a minimal
+Studio, and one live day carousel. Everything else plugs into it.
+
+**Open decisions for Anthony** (do not block A1; they shape the surfaces on
+top): challenge day counters vs "no day numbers"; up/down vs up-only votes;
+whether leaderboards are in scope; steps self-reported vs integrated;
+where the carousel lives; AI autonomy (assistive-only for v1); documents
+inline vs download. Full list in the strategy doc.
+
+**Status**: strategy + roadmap written this pass; the first slice (A1 → thin
+A2 → A3) is the next build.
+
+---
+
+## Platform hardening & accessibility backlog (runs alongside)
+
+The review-driven correctness, safety, and WCAG follow-ups below are the
+second horizon — near-term, independent of the strategic build.
+
 ---
 
 ## Fixed in this pass (see the PR / `docs/ARCHITECTURE.md` "Full platform

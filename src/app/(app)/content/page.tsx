@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { escapeFilterValue } from "@/lib/supabase/filterEscape";
-import type { ContentVideo, VideoCategory } from "@/types/database";
+import { getProfile } from "@/lib/auth/dal";
+import { listContentItems, getDayContent } from "@/lib/content/queries";
+import { rotateForWeek, isoWeekdayFromName, DAY_LABEL } from "@/lib/content/rotation";
+import { weekdayNameOrWeekend, getIsoWeekNumber } from "@/lib/routines/dates";
+import { DayCarousel } from "@/components/content/DayCarousel";
+import type { ContentItem, VideoCategory } from "@/types/database";
 
 const CATEGORIES: { value: VideoCategory; label: string }[] = [
   { value: "mental_fitness", label: "Mental Fitness" },
@@ -12,13 +16,15 @@ const CATEGORIES: { value: VideoCategory; label: string }[] = [
 
 // The brief's own enumerated Mental Fitness topics ("addiction, divorce,
 // grief, redundancy, identity loss, anxiety, relationships, purpose") --
-// quick shortcuts into the same free-text search every video is already
-// searchable by (title or tags), not a separate filter mechanism. No
-// content has been seeded into content_videos yet, so there's no
-// established tag-casing convention to match against; these are plain
-// human-readable strings, same as a user would type into the search box
-// themselves.
+// quick shortcuts into the same free-text search every item is already
+// searchable by (title or tags), not a separate filter mechanism.
 const TOPICS = ["Addiction", "Divorce", "Grief", "Redundancy", "Identity loss", "Anxiety", "Relationships", "Purpose"];
+
+const TYPE_LABEL: Record<ContentItem["type"], string> = {
+  video: "Watch",
+  document: "Read",
+  image: "View",
+};
 
 function formatDuration(seconds: number | null): string | null {
   if (!seconds) return null;
@@ -53,12 +59,15 @@ const TAB_INACTIVE = "border-transparent text-muted hover:text-foreground";
 
 /**
  * Content Library -- one shared library, built once, available to every
- * company (see docs/ARCHITECTURE.md "Core platform vs. co-branded
- * portals"). Search-first: someone in a hard moment should be able to
- * search "divorce" or "addiction" and land directly on relevant content
- * rather than browsing, per the brief -- so the search itself is the focal
- * moment, set in the redesign's ink band, with the category tabs and topic
- * shortcuts as the two lighter refinements below it.
+ * company (see docs/ARCHITECTURE.md "Core platform vs. co-branded portals").
+ * Reads the content_items spine (docs/CONTENT_PLATFORM_STRATEGY.md), so it
+ * shows videos, documents, and images alike; channel targeting is enforced by
+ * the content_items RLS policy for the viewer's own session.
+ *
+ * Search-first: someone in a hard moment should be able to search "divorce"
+ * or "addiction" and land directly on relevant content. On the default browse
+ * view (no search/filter) a day-of-week carousel leads -- today's rotating
+ * pick from the Mon–Sun grid.
  */
 export default async function ContentLibraryPage({
   searchParams,
@@ -67,36 +76,36 @@ export default async function ContentLibraryPage({
 }) {
   const { q, category } = await searchParams;
 
-  // Wrapped in try/catch: createClient() throws synchronously if the
-  // URL/key are missing or malformed -- same gap already closed elsewhere.
-  // Degrading to an empty result is the same "Nothing here yet" state this
-  // page already renders for a genuinely empty library.
-  let videos: ContentVideo[] = [];
+  // The viewer's own timezone decides which weekday "today" is and which ISO
+  // week drives the rotation -- consistent with the rest of the platform's
+  // timezone-correct day/week resolution (Phase 9).
+  const profile = await getProfile();
+  const now = new Date();
+  const tz = profile.timezone;
+  const isoWeekday = isoWeekdayFromName(weekdayNameOrWeekend(now, tz));
+  const isoWeek = getIsoWeekNumber(now, tz);
+  const dayLabel = DAY_LABEL[isoWeekday];
+
+  // Wrapped in try/catch: createClient() throws synchronously if the URL/key
+  // are missing or malformed. Degrading to empty results is the same "Nothing
+  // here yet" state this page already renders for a genuinely empty library.
+  let items: ContentItem[] = [];
+  let dayItems: ContentItem[] = [];
   try {
     const supabase = await createClient();
-
-    let query = supabase.from("content_videos").select("*").order("created_at", { ascending: false });
-
-    if (category) {
-      query = query.eq("category", category);
-    }
-    if (q) {
-      const escaped = escapeFilterValue(q);
-      query = query.or(`title.ilike."%${escaped}%",tags.cs.{"${escaped}"}`);
-    }
-
-    const { data } = await query;
-    videos = (data as ContentVideo[] | null) ?? [];
+    [items, dayItems] = await Promise.all([
+      listContentItems(supabase, { q, category }),
+      getDayContent(supabase, isoWeekday),
+    ]);
   } catch {
-    videos = [];
+    items = [];
+    dayItems = [];
   }
+  const rotatedDay = rotateForWeek(dayItems, isoWeek);
 
   return (
     <main className="min-h-full">
-      {/* Search-first ink hero -- the deliberate emphasis moment, mirroring the
-          Wins Board banner's ink-band recipe. The big question and the search
-          box are the focus; the category tabs and topic chips sit below on
-          paper. */}
+      {/* Search-first ink hero -- the deliberate emphasis moment. */}
       <section className="bg-brand-background text-brand-foreground">
         <div className="mx-auto max-w-5xl px-6 py-12">
           <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-light-2">
@@ -132,8 +141,8 @@ export default async function ContentLibraryPage({
         </div>
       </section>
 
-      {/* Category filter -- the taxonomy tabs (All + the three categories),
-          carrying the active search across a category change. */}
+      {/* Category filter -- the taxonomy tabs (All + the categories), carrying
+          the active search across a category change. */}
       <nav className="border-b border-rule-hairline" aria-label="Filter by category">
         <div className="mx-auto max-w-5xl px-6">
           <ul className="flex gap-7 overflow-x-auto">
@@ -165,9 +174,15 @@ export default async function ContentLibraryPage({
       </nav>
 
       <div className="mx-auto max-w-5xl px-6 py-8">
-        {/* Topic shortcuts -- one tap fills the same free-text search. The
-            selected topic takes the AA-safe filled-accent state; the rest are
-            neutral hairline chips (square, per the zero-radius system). */}
+        {/* Day-of-week carousel -- only on the default browse view; a search or
+            category filter is a focused intent, so the carousel steps aside. */}
+        {!q && !category && (
+          <div className="mb-8">
+            <DayCarousel dayLabel={dayLabel} items={rotatedDay} />
+          </div>
+        )}
+
+        {/* Topic shortcuts -- one tap fills the same free-text search. */}
         <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">Quick topics</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {TOPICS.map((topic) => {
@@ -192,31 +207,29 @@ export default async function ContentLibraryPage({
 
         {/* Results */}
         <div className="mt-8">
-          {videos.length === 0 ? (
+          {items.length === 0 ? (
             <p className="py-8 text-sm text-muted">
               {q || category ? "No matches here." : "Nothing here yet — check back soon."}
             </p>
           ) : (
             <ul>
-              {videos.map((video) => {
-                const duration = formatDuration(video.duration_seconds);
+              {items.map((item) => {
+                const duration = formatDuration(item.duration_seconds);
                 return (
-                  <li key={video.id}>
+                  <li key={item.id}>
                     <Link
-                      href={`/content/${video.id}`}
+                      href={`/content/${item.id}`}
                       className="flex gap-4 border-t border-rule-hairline py-5 transition-colors hover:bg-foreground/[0.03]"
                     >
-                      {/* No still is stored on content_videos (only the Vimeo
-                          id), so the thumbnail is an honest framed placeholder,
-                          not a fetched image -- flat, hairline-bordered, in the
-                          zero-radius system. */}
+                      {/* No still is stored, so the thumbnail is an honest framed
+                          placeholder labelled by content type, not a fetched image. */}
                       <div className="flex h-20 w-32 shrink-0 items-center justify-center border border-rule-border bg-foreground/[0.04] text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
-                        Still
+                        {TYPE_LABEL[item.type]}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-extrabold leading-tight tracking-tight">{video.title}</p>
+                        <p className="font-extrabold leading-tight tracking-tight">{item.title}</p>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
-                          {video.tags.map((tag) => (
+                          {item.tags.map((tag) => (
                             <span
                               key={tag}
                               className="border border-rule-border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted"

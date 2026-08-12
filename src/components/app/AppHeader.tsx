@@ -61,6 +61,9 @@ export function AppHeader({
             )}
             {profile.role === "ntitt_admin" && (
               <>
+                <Link href="/community/admin/content" className="hidden text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground md:inline">
+                  Studio
+                </Link>
                 <Link href="/community/admin" className="hidden text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground md:inline">
                   Moderation
                 </Link>
