@@ -100,6 +100,23 @@ begin
 end
 $$;
 
+-- ---- 2e. community_comments threading column (self-referential FK) ----------
+do $$
+declare has_col boolean; nfk int;
+begin
+  select exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='community_comments' and column_name='parent_comment_id'
+  ) into has_col;
+  if not has_col then raise exception 'community_comments.parent_comment_id missing (threading)'; end if;
+  select count(*) into nfk from pg_constraint
+    where conrelid = 'public.community_comments'::regclass and contype = 'f'
+      and confrelid = 'public.community_comments'::regclass;
+  if nfk < 1 then raise exception 'community_comments has no self-referential FK for threading'; end if;
+  raise notice 'PASS  2e community_comments.parent_comment_id present + self-referential FK';
+end
+$$;
+
 -- ---- 3. photo-upload storage bucket + policies applied ----------------------
 do $$
 declare npol int; is_public boolean;
@@ -215,6 +232,42 @@ begin
 end
 $$;
 
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+-- ---- threading: a reply inherits the parent-POST scope binding --------------
+-- Adding parent_comment_id must not open a hole: a reply is still bound to its
+-- post's scope/company by the same hardened INSERT policy. A known-id top-level
+-- comment (created as the bootstrap superuser) is the reply target.
+insert into public.community_comments (id, post_id, user_id, scope, company_id, body) values
+  ('dd000000-0000-0000-0000-0000000000c1','cc000000-0000-0000-0000-0000000000a1',
+   'a0000000-0000-0000-0000-00000000000a','global','aaaaaaaa-0000-0000-0000-000000000001','parent comment');
+
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+set role authenticated;
+do $$
+begin
+  -- TEST 1 (must be ALLOWED): a legit reply -- parent set, scope/company match the post
+  begin
+    insert into public.community_comments (post_id, user_id, scope, company_id, body, parent_comment_id)
+    values ('cc000000-0000-0000-0000-0000000000a1','a0000000-0000-0000-0000-00000000000a',
+            'global','aaaaaaaa-0000-0000-0000-000000000001','legit reply','dd000000-0000-0000-0000-0000000000c1');
+  exception when insufficient_privilege then
+    raise exception 'FAIL threading: a legitimate reply was blocked';
+  end;
+
+  -- TEST 2 (must be BLOCKED): a reply mislabeling scope=company on the GLOBAL post
+  begin
+    insert into public.community_comments (post_id, user_id, scope, company_id, body, parent_comment_id)
+    values ('cc000000-0000-0000-0000-0000000000a1','a0000000-0000-0000-0000-00000000000a',
+            'company','bbbbbbbb-0000-0000-0000-000000000002','sneaky reply','dd000000-0000-0000-0000-0000000000c1');
+    raise exception 'FAIL threading: a mislabeled-scope reply was allowed';
+  exception when insufficient_privilege then null;
+  end;
+
+  raise notice 'PASS  2e* live: replies inherit the parent-post scope binding (legit allowed, mislabeled blocked)';
+end
+$$;
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 

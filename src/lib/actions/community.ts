@@ -86,6 +86,9 @@ export async function submitCommunityPost(
 const CommentSchema = z.object({
   postId: z.string().uuid(),
   body: z.string().trim().min(1).max(1000),
+  // Present only when replying. Re-derived and validated server-side below --
+  // never trusted to set scope/visibility (that still comes from the post).
+  parentCommentId: z.string().uuid().optional(),
 });
 
 export async function submitCommunityComment(
@@ -102,6 +105,7 @@ export async function submitCommunityComment(
   const parsed = CommentSchema.safeParse({
     postId: formData.get("postId"),
     body: formData.get("body"),
+    parentCommentId: formData.get("parentCommentId") || undefined,
   });
 
   if (!parsed.success) {
@@ -131,12 +135,32 @@ export async function submitCommunityComment(
       return { status: "error", message: "Something went wrong saving this. Please try again." };
     }
 
+    // Threading: a reply's parent is re-derived and validated server-side, never
+    // trusted from the client. The parent must be a comment the caller can
+    // actually see (RLS-scoped read) AND live on this same post; otherwise we
+    // fall back to posting a plain top-level comment rather than erroring. A
+    // reply to a reply is flattened onto its top-level ancestor so threads stay
+    // exactly two levels deep (matching the reader in lib/community/threads.ts).
+    let parentCommentId: string | null = null;
+    if (parsed.data.parentCommentId) {
+      const { data: parentComment } = await supabase
+        .from("community_comments")
+        .select("id, post_id, parent_comment_id")
+        .eq("id", parsed.data.parentCommentId)
+        .eq("is_removed", false)
+        .maybeSingle();
+      if (parentComment && parentComment.post_id === parsed.data.postId) {
+        parentCommentId = parentComment.parent_comment_id ?? parentComment.id;
+      }
+    }
+
     const { error } = await supabase.from("community_comments").insert({
       post_id: parsed.data.postId,
       user_id: session.userId,
       scope: parentPost.scope,
       company_id: parentPost.company_id,
       body: parsed.data.body,
+      parent_comment_id: parentCommentId,
     });
 
     if (error) {

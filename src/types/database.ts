@@ -353,6 +353,10 @@ export interface CommunityComment {
   scope: CommunityScope;
   company_id: string;
   body: string;
+  // Self-FK: null = top-level comment; set = a reply to that comment. Threads
+  // are kept two levels deep by the submitting server action (a reply-to-a-reply
+  // is re-pointed onto the top-level ancestor). See the threading migration.
+  parent_comment_id: string | null;
   is_removed: boolean;
   removed_by: string | null;
   removed_at: string | null;

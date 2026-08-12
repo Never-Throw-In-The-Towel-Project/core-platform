@@ -4,6 +4,7 @@ import { useActionState, useState, useTransition } from "react";
 import { reportCommunityPost, submitCommunityComment, toggleCommunityLike } from "@/lib/actions/community";
 import { initialRoutineState } from "@/lib/actions/routineState";
 import type { CommentWithAuthor, PostWithMeta } from "@/lib/community/queries";
+import { buildCommentThreads } from "@/lib/community/threads";
 
 export function PostCard({ post, comments }: { post: PostWithMeta; comments: CommentWithAuthor[] }) {
   const [liked, setLiked] = useState(post.likedByViewer);
@@ -12,6 +13,10 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
   const [showComments, setShowComments] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [commentBody, setCommentBody] = useState("");
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyBody, setReplyBody] = useState("");
+
+  const threads = buildCommentThreads(comments);
 
   const [commentState, commentAction, commentPending] = useActionState(
     submitCommunityComment,
@@ -20,13 +25,17 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
   const [reportState, reportAction, reportPending] = useActionState(reportCommunityPost, initialRoutineState);
 
   // revalidatePath refreshes `comments` server-side on success, but the
-  // controlled input itself needs clearing explicitly. Adjusting state
+  // controlled inputs themselves need clearing explicitly. Adjusting state
   // during render (React's documented pattern for this) rather than in a
   // useEffect, which would cause an extra cascading render.
   const [handledCommentState, setHandledCommentState] = useState(commentState);
   if (commentState !== handledCommentState) {
     setHandledCommentState(commentState);
-    if (commentState.status === "success") setCommentBody("");
+    if (commentState.status === "success") {
+      setCommentBody("");
+      setReplyBody("");
+      setReplyingTo(null);
+    }
   }
 
   return (
@@ -111,12 +120,59 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
 
       {showComments && (
         <div className="mt-3 space-y-3 border-t border-rule-hairline pt-3">
-          {comments.length === 0 && <p className="text-xs text-muted">No comments yet.</p>}
-          {comments.map((comment) => (
-            <p key={comment.id} className="text-xs">
-              <span className="font-semibold">{comment.authorDisplayName}</span>{" "}
-              <span className="text-muted">{comment.body}</span>
-            </p>
+          {threads.length === 0 && <p className="text-xs text-muted">No comments yet.</p>}
+          {threads.map((thread) => (
+            <div key={thread.id} className="space-y-2">
+              <p className="text-xs">
+                <span className="font-semibold">{thread.authorDisplayName}</span>{" "}
+                <span className="text-muted">{thread.body}</span>
+              </p>
+
+              {thread.replies.length > 0 && (
+                <div className="ml-3 space-y-2 border-l border-rule-hairline pl-3">
+                  {thread.replies.map((reply) => (
+                    <p key={reply.id} className="text-xs">
+                      <span className="font-semibold">{reply.authorDisplayName}</span>{" "}
+                      <span className="text-muted">{reply.body}</span>
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {replyingTo === thread.id ? (
+                <form action={commentAction} className="ml-3 flex gap-2">
+                  <input type="hidden" name="postId" value={post.id} />
+                  <input type="hidden" name="parentCommentId" value={thread.id} />
+                  <input
+                    name="body"
+                    type="text"
+                    value={replyBody}
+                    onChange={(e) => setReplyBody(e.target.value)}
+                    placeholder={`Reply to ${thread.authorDisplayName}…`}
+                    aria-label={`Reply to ${thread.authorDisplayName}`}
+                    className="flex-1 border border-rule-border bg-transparent px-2 py-1 text-xs"
+                  />
+                  <button
+                    type="submit"
+                    disabled={commentPending}
+                    className="bg-brand-accent px-3 py-2 text-xs font-bold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
+                  >
+                    {commentPending ? "…" : "Reply"}
+                  </button>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReplyingTo(thread.id);
+                    setReplyBody("");
+                  }}
+                  className="text-[11px] font-semibold uppercase tracking-wide text-muted transition-colors hover:text-foreground"
+                >
+                  Reply
+                </button>
+              )}
+            </div>
           ))}
 
           <form action={commentAction} className="flex gap-2">
