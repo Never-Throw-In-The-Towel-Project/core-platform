@@ -21,8 +21,8 @@ begin
     raise exception 'RLS disabled on % public/private table(s)', missing;
   end if;
   select count(*) into total from pg_tables where schemaname in ('public','private');
-  if total <> 25 then
-    raise exception 'expected 25 public+private tables (18+7), found %', total;
+  if total <> 29 then
+    raise exception 'expected 29 public+private tables (20+9), found %', total;
   end if;
   raise notice 'PASS  1  RLS enabled on all % public/private tables', total;
 end
@@ -129,6 +129,26 @@ begin
     raise exception 'content-assets bucket missing or not public';
   end if;
   raise notice 'PASS  4  content_items writes ntitt_admin-gated; content-assets bucket public';
+end
+$$;
+
+-- ---- 5. challenges: ntitt_admin-only writes; participation is private -------
+do $$
+declare wc text; enroll_rls boolean;
+begin
+  select pg_get_expr(polwithcheck, polrelid) into wc
+    from pg_policy where polrelid = 'public.challenges'::regclass and polcmd = 'a';
+  if wc is null then raise exception 'no INSERT policy on challenges'; end if;
+  if position('ntitt_admin' in wc) = 0 then
+    raise exception 'challenges INSERT policy is not ntitt_admin gated: %', wc;
+  end if;
+  -- Participation tables must live in `private` with RLS on (own-rows boundary).
+  select rowsecurity into enroll_rls from pg_tables
+    where schemaname = 'private' and tablename = 'challenge_enrollments';
+  if enroll_rls is distinct from true then
+    raise exception 'challenge_enrollments is not an RLS-protected private table';
+  end if;
+  raise notice 'PASS  5  challenges writes ntitt_admin-gated; enrollments private + RLS on';
 end
 $$;
 
@@ -282,6 +302,98 @@ begin
     raise exception 'FAIL content-write: an ntitt_admin was blocked from inserting content';
   end;
   raise notice 'PASS  4b* live: ntitt_admin insert allowed';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
+
+-- ============================================================================
+-- LIVE RLS test of challenges: ntitt_admin-only definition writes, published
+-- visibility, and PRIVATE participation (a member enrols only themselves and
+-- never sees another member's enrollment). Reuses usera / userb / the admin and
+-- the global content item ef…f1 from the fixtures above.
+-- ============================================================================
+insert into public.challenges (id, title, category, length_days, is_published) values
+  ('caa00000-0000-0000-0000-0000000000c1','Published challenge','mental_fitness',28,true),
+  ('caa00000-0000-0000-0000-0000000000c2','Draft challenge','mental_fitness',28,false);
+insert into public.challenge_days (id, challenge_id, day_index, content_item_id) values
+  ('cda00000-0000-0000-0000-0000000000d1','caa00000-0000-0000-0000-0000000000c1',1,'ef000000-0000-0000-0000-0000000000f1');
+-- userb enrols in the published challenge (as the bootstrap superuser, bypassing
+-- RLS) so we can prove usera can't see it.
+insert into private.challenge_enrollments (user_id, challenge_id) values
+  ('b0000000-0000-0000-0000-00000000000b','caa00000-0000-0000-0000-0000000000c1');
+
+-- Replicate Supabase's default public-schema grants (private grants come from
+-- the challenges migration itself) so RLS -- not a missing grant -- is the gate.
+grant select, insert on public.challenges to authenticated;
+grant select on public.challenge_days to authenticated;
+
+-- ---- as usera (Company A, NOT an admin) ----
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$
+declare visible int;
+begin
+  -- TEST 1 (must be BLOCKED): a non-admin cannot author a challenge
+  begin
+    insert into public.challenges (title, category, length_days, is_published)
+    values ('sneaky','mental_fitness',7,true);
+    raise exception 'FAIL challenge-write: a non-admin was allowed to create a challenge';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- TEST 2 (must be VISIBLE / HIDDEN): published seen, draft hidden
+  select count(*) into visible from public.challenges where id = 'caa00000-0000-0000-0000-0000000000c1';
+  if visible <> 1 then raise exception 'FAIL challenge-read: published challenge not visible to a member'; end if;
+  select count(*) into visible from public.challenges where id = 'caa00000-0000-0000-0000-0000000000c2';
+  if visible <> 0 then raise exception 'FAIL challenge-read: a draft challenge leaked to a member'; end if;
+
+  -- TEST 3 (must be BLOCKED): enrolling someone else
+  begin
+    insert into private.challenge_enrollments (user_id, challenge_id)
+    values ('b0000000-0000-0000-0000-00000000000b','caa00000-0000-0000-0000-0000000000c1');
+    raise exception 'FAIL enrollment-write: a member enrolled another user';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- TEST 4 (must be ALLOWED): enrolling yourself + marking your own day done
+  begin
+    insert into private.challenge_enrollments (user_id, challenge_id)
+    values ('a0000000-0000-0000-0000-00000000000a','caa00000-0000-0000-0000-0000000000c1');
+    insert into private.challenge_day_completions (user_id, challenge_day_id, challenge_id)
+    values ('a0000000-0000-0000-0000-00000000000a','cda00000-0000-0000-0000-0000000000d1','caa00000-0000-0000-0000-0000000000c1');
+  exception when insufficient_privilege then
+    raise exception 'FAIL participation-write: a member was blocked from enrolling/completing their own';
+  end;
+
+  -- TEST 5 (must be ISOLATED): usera sees only their own enrollment, never userb's
+  select count(*) into visible from private.challenge_enrollments;
+  if visible <> 1 then
+    raise exception 'FAIL participation-read: expected usera to see exactly 1 (own) enrollment, saw %', visible;
+  end if;
+
+  raise notice 'PASS  5* live: non-admin challenge write blocked; draft hidden; participation private + self-only';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
+
+-- ---- as the ntitt_admin: authoring a challenge must succeed ----
+select set_config('request.jwt.claim.sub', 'ee000000-0000-0000-0000-0000000000ad', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$
+begin
+  begin
+    insert into public.challenges (title, category, length_days, is_published, created_by)
+    values ('admin challenge','mental_fitness',30,true,'ee000000-0000-0000-0000-0000000000ad');
+  exception when insufficient_privilege then
+    raise exception 'FAIL challenge-write: an ntitt_admin was blocked from creating a challenge';
+  end;
+  raise notice 'PASS  5** live: ntitt_admin challenge authoring allowed';
 end
 $$;
 reset role;

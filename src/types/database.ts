@@ -153,6 +153,58 @@ export interface ContentChannelPlacement {
   created_at: string;
 }
 
+// Challenges — the "container" pillar (docs/CONTENT_PLATFORM_STRATEGY.md
+// "Pillar 3", supabase/migrations/20260812020000_challenges.sql). The public
+// definition (challenges + challenge_days) sequences the content spine; a
+// member's participation (enrollment + completions) is private.
+export interface Challenge {
+  id: string;
+  title: string;
+  summary: string | null;
+  category: VideoCategory;
+  length_days: number;
+  is_published: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface ChallengeDay {
+  id: string;
+  challenge_id: string;
+  day_index: number;
+  content_item_id: string | null;
+  prompt: string | null;
+  created_at: string;
+}
+
+// Private participation (own-rows-only RLS). Deliberately no start-date /
+// expected-day field: progress is completion-count only. See the migration.
+export interface ChallengeEnrollment {
+  id: string;
+  user_id: string;
+  challenge_id: string;
+  created_at: string;
+}
+
+export interface ChallengeDayCompletion {
+  id: string;
+  user_id: string;
+  challenge_day_id: string;
+  challenge_id: string;
+  completed_at: string;
+}
+
+// A challenge day joined to its (optional) spine item, for the detail view.
+export interface ChallengeDayWithContent extends ChallengeDay {
+  content: ContentItem | null;
+}
+
+// A published challenge plus the caller's own progress, for the list view.
+export interface ChallengeWithProgress extends Challenge {
+  enrolled: boolean;
+  completed_days: number;
+}
+
 export interface WorkoutWeek {
   id: string;
   bank_position: number;

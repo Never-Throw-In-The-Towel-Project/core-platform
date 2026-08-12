@@ -138,6 +138,13 @@ export default async function ContentLibraryPage({
               Search
             </button>
           </form>
+
+          <p className="mt-5 text-sm text-muted-on-ink-2">
+            Prefer something guided?{" "}
+            <Link href="/challenges" className="font-bold text-brand-accent-light-2 underline underline-offset-2">
+              Explore challenges →
+            </Link>
+          </p>
         </div>
       </section>
 

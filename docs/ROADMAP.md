@@ -59,8 +59,13 @@ _Track 1 — the content spine (critical path)_
   it day/theme/channel, publish. The keystone that lets Anthony self-serve.
 - **A3. Day carousel** — one live day-tagged, channel-scoped, ISO-week-
   rotated carousel surface.
-- **B. Challenges** — `challenges` / `challenge_days` / `enrollments` on the
-  spine + the existing day-journey engine.
+- **B. Challenges** — _built this pass._ `challenges` / `challenge_days`
+  (public, ntitt_admin-authored) sequence the spine; `challenge_enrollments` /
+  `challenge_day_completions` (private, own-rows-only RLS) hold a member's
+  participation. Members browse/join/track at `/challenges`; the Studio authors
+  at `/community/admin/challenges`. Progress is completion-count only — no
+  "expected day", so nothing ever reads as behind (the "no day numbers"
+  principle, enforced by the schema). Harness-validated.
 - **C. AI brain v1 (assistive)** — tag suggestions + gap detection in the
   Studio (assistive-with-confirm, never auto-publish).
 - **E. AI brain v2** — personalised ranking, once engagement data exists.
@@ -88,8 +93,9 @@ whether leaderboards are in scope; steps self-reported vs integrated;
 where the carousel lives; AI autonomy (assistive-only for v1); documents
 inline vs download. Full list in the strategy doc.
 
-**Status**: strategy + roadmap written this pass; the first slice (A1 → thin
-A2 → A3) is the next build.
+**Status**: strategy + roadmap written; the first slice (A1 → thin A2 → A3)
+shipped; **B. Challenges** shipped this pass. Next on the critical path:
+**C. AI brain v1 (assistive)** — Studio tag-suggestions + gap detection.
 
 ---
 
