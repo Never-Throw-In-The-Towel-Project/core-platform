@@ -21,8 +21,8 @@ begin
     raise exception 'RLS disabled on % public/private table(s)', missing;
   end if;
   select count(*) into total from pg_tables where schemaname in ('public','private');
-  if total <> 23 then
-    raise exception 'expected 23 public+private tables (16+7), found %', total;
+  if total <> 25 then
+    raise exception 'expected 25 public+private tables (18+7), found %', total;
   end if;
   raise notice 'PASS  1  RLS enabled on all % public/private tables', total;
 end
@@ -114,6 +114,24 @@ begin
 end
 $$;
 
+-- ---- 4. content spine: ntitt_admin-only writes + content-assets bucket ------
+do $$
+declare wc text; is_public boolean;
+begin
+  select pg_get_expr(polwithcheck, polrelid) into wc
+    from pg_policy where polrelid = 'public.content_items'::regclass and polcmd = 'a';
+  if wc is null then raise exception 'no INSERT policy on content_items'; end if;
+  if position('ntitt_admin' in wc) = 0 then
+    raise exception 'content_items INSERT policy is not ntitt_admin gated: %', wc;
+  end if;
+  select public into is_public from storage.buckets where id = 'content-assets';
+  if is_public is distinct from true then
+    raise exception 'content-assets bucket missing or not public';
+  end if;
+  raise notice 'PASS  4  content_items writes ntitt_admin-gated; content-assets bucket public';
+end
+$$;
+
 -- ============================================================================
 -- LIVE RLS test of the comment-scope fix, run as the `authenticated` role with
 -- a simulated JWT sub -- what PostgREST sets up per request. Fixtures are
@@ -194,6 +212,81 @@ begin
   raise notice 'PASS  2d* live: duplicate report raises unique_violation (idempotent no-op precondition)';
 end
 $$;
+
+-- ============================================================================
+-- LIVE RLS test of the content spine: ntitt_admin-only writes + channel
+-- placement visibility. Fixtures created as the bootstrap superuser (which
+-- bypasses RLS); reuses Company A / usera from the community fixtures above.
+-- ============================================================================
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('ee000000-0000-0000-0000-0000000000ad','admin@ntitt.test','{"display_name":"admin"}'::jsonb);
+update public.profiles set role='ntitt_admin', company_id='aaaaaaaa-0000-0000-0000-000000000001'
+  where id='ee000000-0000-0000-0000-0000000000ad';
+
+-- One global published item (no placement) and one placed only on Company B.
+insert into public.content_items (id, type, title, category, vimeo_id, is_published) values
+  ('ef000000-0000-0000-0000-0000000000f1','video','Global item','mental_fitness','vimeo-global',true),
+  ('ef000000-0000-0000-0000-0000000000f2','video','Company B item','mental_fitness','vimeo-b',true);
+insert into public.content_channel_placements (content_item_id, company_id) values
+  ('ef000000-0000-0000-0000-0000000000f2','bbbbbbbb-0000-0000-0000-000000000002');
+
+-- Replicate Supabase's default public-schema grants so RLS -- not a missing
+-- grant -- is the gate (same as the community block above).
+grant select, insert on public.content_items to authenticated;
+grant select, insert on public.content_channel_placements to authenticated;
+
+-- ---- as usera (Company A, NOT an admin) ----
+-- Set both JWT claims PostgREST provides per request: `sub` (feeds auth.uid())
+-- and `role` (feeds auth.role(), which the content read policy checks).
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$
+declare visible int;
+begin
+  -- TEST 1 (must be BLOCKED): a non-admin cannot insert content
+  begin
+    insert into public.content_items (type, title, category, vimeo_id, is_published)
+    values ('video','sneaky','mental_fitness','x',true);
+    raise exception 'FAIL content-write: a non-admin was allowed to insert content';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- TEST 2 (must be VISIBLE): a global published item
+  select count(*) into visible from public.content_items
+    where id = 'ef000000-0000-0000-0000-0000000000f1';
+  if visible <> 1 then raise exception 'FAIL content-read: global published item not visible to a member'; end if;
+
+  -- TEST 3 (must be HIDDEN): an item placed only on Company B, seen by Company A
+  select count(*) into visible from public.content_items
+    where id = 'ef000000-0000-0000-0000-0000000000f2';
+  if visible <> 0 then raise exception 'FAIL content-read: a Company-B-placed item leaked to Company A'; end if;
+
+  raise notice 'PASS  4a* live: non-admin insert blocked; channel placement scopes visibility';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
+
+-- ---- as the ntitt_admin: the write must succeed ----
+select set_config('request.jwt.claim.sub', 'ee000000-0000-0000-0000-0000000000ad', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$
+begin
+  begin
+    insert into public.content_items (type, title, category, vimeo_id, is_published, created_by)
+    values ('video','admin upload','mental_fitness','vimeo-admin',true,'ee000000-0000-0000-0000-0000000000ad');
+  exception when insufficient_privilege then
+    raise exception 'FAIL content-write: an ntitt_admin was blocked from inserting content';
+  end;
+  raise notice 'PASS  4b* live: ntitt_admin insert allowed';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
 
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'

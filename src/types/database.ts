@@ -117,6 +117,42 @@ export interface ContentVideo {
   created_at: string;
 }
 
+// The content-platform spine (see docs/CONTENT_PLATFORM_STRATEGY.md and
+// supabase/migrations/20260812010000_content_platform_spine.sql). Generalises
+// content_videos into typed, day-taggable, channel-targetable content.
+export type ContentType = "video" | "document" | "image";
+
+export interface ContentItem {
+  id: string;
+  type: ContentType;
+  title: string;
+  summary: string | null;
+  /** The "theme" dimension; reuses the video category enum for now. */
+  category: VideoCategory;
+  /** ISO weekday, 1 = Monday … 7 = Sunday. null = day-agnostic. */
+  day_of_week: number | null;
+  vimeo_id: string | null;
+  /** Object path within the `content-assets` Storage bucket (document/image). */
+  asset_path: string | null;
+  external_url: string | null;
+  tags: string[];
+  workout_tier: WorkoutTier | null;
+  duration_seconds: number | null;
+  is_published: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+// Per-partner targeting join. ZERO rows for an item = NTITT-wide (visible to
+// every channel); a row per company targets/restricts it, ordered by priority.
+export interface ContentChannelPlacement {
+  id: string;
+  content_item_id: string;
+  company_id: string;
+  priority: number;
+  created_at: string;
+}
+
 export interface WorkoutWeek {
   id: string;
   bank_position: number;
