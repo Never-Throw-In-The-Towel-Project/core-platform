@@ -1,0 +1,21 @@
+-- ============================================================================
+-- Add a `nutrition` value to the video_category enum.
+-- ============================================================================
+-- Nutrition education content is called for by the Website Full Spec (§8) but
+-- was never represented in the schema: video_category only had
+-- ('mental_fitness', 'physical_fitness', 'tools_tips') from the init migration,
+-- so there was no category a nutrition video could be filed under and no tab
+-- for it in the Content Library. This adds the missing enum value; the Library
+-- tab that surfaces it lives in app code (src/app/(app)/content/page.tsx's
+-- CATEGORIES array + the VideoCategory type). The content itself is a content-
+-- ops task (insert rows into content_videos via Supabase Studio, same as every
+-- other category -- see docs/ARCHITECTURE.md "Content Library").
+--
+-- IF NOT EXISTS keeps this idempotent. The new value is deliberately NOT
+-- referenced anywhere else in this migration: Postgres forbids using a freshly
+-- added enum value in the same transaction that added it (the same constraint
+-- that split the ntitt_admin enum add from its policies in Phase 7), and there
+-- is nothing here that needs to. content_videos.category is already
+-- `public.video_category`, so it accepts the new value with no table change,
+-- and the enum is not pinned in any check constraint or seed row.
+alter type public.video_category add value if not exists 'nutrition';

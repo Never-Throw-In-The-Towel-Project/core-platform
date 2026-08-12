@@ -937,8 +937,10 @@ so left out rather than assumed to be fair game for the public site.
    from Phase 6's HR impact report, which must generate and email itself
    unattended and will need a real PDF library then.
 4. **Content Library** (done) — `/content`: browse and search
-   `content_videos` by category (Mental Fitness, Physical Fitness, Tools &
-   Tips) and by title/tag (`title.ilike`/`tags.cs` — search "divorce" or
+   `content_videos` by category (Mental Fitness, Physical Fitness, Nutrition,
+   Tools & Tips — the `nutrition` category added post-launch per Website Spec
+   §8, `20260812000000_add_nutrition_video_category.sql`) and by title/tag
+   (`title.ilike`/`tags.cs` — search "divorce" or
    "addiction" and land on relevant content, per the brief), Vimeo-embedded
    via a lazy `<iframe>` (`src/components/VimeoEmbed.tsx` — starts as a
    lightweight "Watch" card, only mounts the real player once tapped, rather
