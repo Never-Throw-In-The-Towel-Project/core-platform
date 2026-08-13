@@ -10,13 +10,27 @@ import { verifyChallengeConfirmToken } from "@/lib/steps/challengeConfirm";
  * service-role client (the tapper isn't an hr_admin of the company). Renders a
  * plain HTML acknowledgement, since it opens in a mail-client browser.
  */
+// Escape before interpolating. Everything passed today is a literal, but this
+// keeps the page injection-proof if a caller ever routes challenge text or an
+// error string through it (defence in depth, per the security review).
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function htmlPage(title: string, message: string, status: number): NextResponse {
+  const t = escapeHtml(title);
+  const m = escapeHtml(message);
   const body =
     `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
-    `<meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title></head>` +
+    `<meta name="viewport" content="width=device-width, initial-scale=1"><title>${t}</title></head>` +
     `<body style="font-family: system-ui, -apple-system, sans-serif; max-width: 32rem; margin: 4rem auto; ` +
     `padding: 0 1.5rem; line-height: 1.6; color: #111;">` +
-    `<h1 style="font-size: 1.25rem;">${title}</h1><p>${message}</p></body></html>`;
+    `<h1 style="font-size: 1.25rem;">${t}</h1><p>${m}</p></body></html>`;
   return new NextResponse(body, { status, headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 

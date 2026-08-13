@@ -83,8 +83,10 @@ export interface ChallengeAwards {
  * Decide the challenge-end badge awards from each member's step sum. Pure, so
  * the privacy-sensitive "who is the MVP" rule is unit-tested away from the DB.
  * MVP is the strict argmax (first-seen wins a tie); only members who actually
- * contributed ( > 0 ) are eligible for anything. Challenge Complete is gated on
- * the team hitting the (unsuppressed) target -- a collective outcome.
+ * contributed ( > 0 ) are eligible. BOTH awards are gated on the k-anon floor
+ * (`suppressed`): challenge badges only exist for a real cohort (>= the floor),
+ * so a sub-floor group never produces an individual "Team MVP" standing.
+ * Challenge Complete additionally requires the team to have hit the target.
  */
 export function pickChallengeAwards(
   sums: Iterable<[string, number]>,
@@ -103,7 +105,8 @@ export function pickChallengeAwards(
       }
     }
   }
-  return { mvp, completeUsers: targetReached && !suppressed ? contributors : [] };
+  if (suppressed) return { mvp: null, completeUsers: [] };
+  return { mvp, completeUsers: targetReached ? contributors : [] };
 }
 
 /**

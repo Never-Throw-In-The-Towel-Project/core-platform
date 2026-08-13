@@ -78,21 +78,32 @@ export async function getAdminChallengeView(
   publicClient: AnyClient,
   companyId: string
 ): Promise<AdminChallengeView | null> {
-  const { data: challenge } = await publicClient
+  // Surface an active OR pending-confirmation challenge, so a pending
+  // Anthony-visit challenge never reads as "none" (which would show HR the
+  // create form again and let them make a duplicate). Prefer active
+  // ('active' sorts before 'pending_confirmation'); at most one of each exists.
+  const { data: rows } = await publicClient
     .from("company_step_challenges")
     .select("id, title, target_steps, reward_type, reward_name, starts_on, ends_on, status")
     .eq("company_id", companyId)
-    .eq("status", "active")
-    .maybeSingle();
+    .in("status", ["active", "pending_confirmation"])
+    .order("status", { ascending: true })
+    .limit(1);
+  const challenge = rows?.[0];
   if (!challenge) return null;
 
-  const { data: totals } = await publicClient
-    .from("company_step_totals")
-    .select("total_steps, contributor_count, opted_in_count, headcount, target_reached, suppressed")
-    .eq("challenge_id", challenge.id)
-    .maybeSingle();
+  // A pending challenge has no aggregate yet (it isn't live), so skip that read.
+  let totalsRow: Record<string, unknown> | null = null;
+  if (challenge.status === "active") {
+    const { data } = await publicClient
+      .from("company_step_totals")
+      .select("total_steps, contributor_count, opted_in_count, headcount, target_reached, suppressed")
+      .eq("challenge_id", challenge.id)
+      .maybeSingle();
+    totalsRow = data;
+  }
 
-  return { challenge: mapChallenge(challenge), totals: mapTotals(totals) };
+  return { challenge: mapChallenge(challenge), totals: mapTotals(totalsRow) };
 }
 
 /** The member's company's active challenge (id + title only), for entry points. */

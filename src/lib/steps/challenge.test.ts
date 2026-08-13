@@ -99,10 +99,12 @@ describe("pickChallengeAwards", () => {
     expect(a.mvp).toBe("u2");
   });
 
-  it("awards no Challenge Complete when suppressed, even if 'reached'", () => {
-    // suppressed implies the total was hidden; never award a collective badge off it
+  it("awards nothing when suppressed (sub-floor cohort) — no Challenge Complete AND no MVP", () => {
+    // suppressed implies fewer than the k-anon floor contributed; challenge
+    // badges (including the individual MVP standing) must not exist for it.
     const a = pickChallengeAwards(sums({ u1: 1000, u2: 2000 }), true, true);
     expect(a.completeUsers).toEqual([]);
+    expect(a.mvp).toBeNull();
   });
 
   it("returns a null MVP when no one contributed", () => {
