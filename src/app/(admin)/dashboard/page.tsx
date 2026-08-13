@@ -7,8 +7,11 @@ import {
   getWeekdayEngagementForWeek,
   getWeeklyParticipation,
 } from "@/lib/dashboard/aggregates";
-import { getMondayOfWeek } from "@/lib/routines/dates";
+import { getMondayOfWeek, todayISODate } from "@/lib/routines/dates";
+import { getAdminChallengeView, type AdminChallengeView } from "@/lib/steps/challengeQueries";
 import { InviteEmployeeForm } from "@/components/admin/InviteEmployeeForm";
+import { ChallengeSetupForm } from "@/components/admin/ChallengeSetupForm";
+import { ChallengeAdminTile } from "@/components/admin/ChallengeAdminTile";
 import type { Weekday } from "@/types/database";
 
 const WEEKDAY_LABEL: Record<Weekday, string> = {
@@ -71,6 +74,17 @@ export default async function DashboardPage() {
     weeklyParticipation = [];
     weekdayThisWeek = [];
   }
+
+  // The company's active step challenge (aggregate only), if any. Best-effort:
+  // any failure just falls back to offering the setup form.
+  let adminChallenge: AdminChallengeView | null = null;
+  try {
+    const supabase = await createClient();
+    adminChallenge = await getAdminChallengeView(supabase, profile.company_id);
+  } catch {
+    adminChallenge = null;
+  }
+  const todayIso = todayISODate(new Date(), "UTC");
 
   const latestWeek = weeklyParticipation[weeklyParticipation.length - 1] ?? null;
   const trendDelta = computeTrendDelta(weeklyParticipation);
@@ -185,6 +199,17 @@ export default async function DashboardPage() {
               <li>Names against any figure</li>
             </ul>
           </div>
+        </div>
+      </div>
+
+      <div className="mt-10 border-t border-current/10 pt-8">
+        <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Step challenge</p>
+        <div className="mt-4">
+          {adminChallenge ? (
+            <ChallengeAdminTile view={adminChallenge} todayIso={todayIso} />
+          ) : (
+            <ChallengeSetupForm />
+          )}
         </div>
       </div>
 
