@@ -66,8 +66,17 @@ _Track 1 — the content spine (critical path)_
   at `/community/admin/challenges`. Progress is completion-count only — no
   "expected day", so nothing ever reads as behind (the "no day numbers"
   principle, enforced by the schema). Harness-validated.
-- **C. AI brain v1 (assistive)** — tag suggestions + gap detection in the
-  Studio (assistive-with-confirm, never auto-publish).
+- **C. AI brain v1 (assistive)** — _shipped this pass._ In the Studio: an
+  **AI "Suggest theme, day & tags"** button (structured-output call to Claude
+  via `@anthropic-ai/sdk`) that pre-fills the composer for the admin to confirm
+  or edit — assistive-with-confirm, it never writes or publishes and only ever
+  reads content metadata (never a member's private journals). Plus a
+  **deterministic coverage/gap panel** (counting lives in code, not an LLM):
+  which Mon–Sun days and which themes have no published content. Reads
+  `ANTHROPIC_API_KEY` from the env (set in Vercel) and the model is env-
+  overridable (`ANTHROPIC_MODEL`, defaults to the current Opus); degrades to a
+  friendly "not configured here" when the key is absent, and the gap panel needs
+  no key at all. Not exercised against the live API from here.
 - **E. AI brain v2** — personalised ranking, once engagement data exists.
 
 _Track 2 — the engagement flywheel (independent, parallelisable)_
@@ -107,14 +116,16 @@ shipped; **B. Challenges** shipped; and the content-OS is now **surfaced in the
 daily loop** — the day-tagged, week-rotated carousel and the member's own
 challenge progress both appear on Home, not only in the Library, so the spine
 and challenges are discoverable where members already are each day (pure reads;
-no schema change). Next on the critical path: **C. AI brain v1 (assistive)** —
-Studio tag-suggestions + gap detection. C is the first item needing an external
-dependency (`ANTHROPIC_API_KEY` + a small per-call budget) and is
-assistive-with-confirm — never auto-publish — so it wants Anthony's budget
-go-ahead before wiring. In parallel, **Track 2 · D1 (community depth)** is
-essentially done — threaded comment replies and new/top/hot feed sorting both
+no schema change). **C. AI brain v1 (assistive)** is now shipped too — Studio
+AI tag-suggestions (assistive-with-confirm, structured output via
+`@anthropic-ai/sdk`, `ANTHROPIC_API_KEY` set in Vercel and the model
+env-overridable) plus a no-key deterministic coverage/gap panel; not exercised
+against the live API from here. In parallel, **Track 2 · D1 (community depth)**
+is essentially done — threaded comment replies and new/top/hot feed sorting both
 shipped (up-only votes, reusing the existing likes); only the up/down decision
-is left to Anthony.
+is left to Anthony. That clears Track 1's critical path through v1; the next
+frontier is **E. AI brain v2** (personalised ranking) once engagement data
+accrues, plus the Track-2 **D2 gamification** work under the privacy invariants.
 
 ---
 
