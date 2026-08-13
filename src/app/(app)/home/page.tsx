@@ -26,6 +26,7 @@ import { WeekStrip } from "@/components/today/WeekStrip";
 import { BadgeGrid } from "@/components/today/BadgeGrid";
 import { WinsBoard } from "@/components/today/WinsBoard";
 import { ReviewProgress } from "@/components/today/ReviewProgress";
+import { BadgeSync } from "@/components/today/BadgeSync";
 import { DayCarousel } from "@/components/content/DayCarousel";
 import { getDayContent } from "@/lib/content/queries";
 import { rotateForWeek, isoWeekdayFromName, DAY_LABEL } from "@/lib/content/rotation";
@@ -273,6 +274,9 @@ export default async function HomePage() {
       />
 
       <div className="mx-auto max-w-5xl px-5 py-6">
+        {/* Persists any newly-earned badges on load and celebrates them once. */}
+        <BadgeSync />
+
         <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">
           Day {stats.activeDayCount} · Week {isoWeek}
         </p>

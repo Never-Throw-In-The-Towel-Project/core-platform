@@ -1,7 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { getPosts } from "@/lib/community/queries";
-import { evaluateBadges, countEarned, type Badge } from "./badges";
+import { evaluateBadges, countEarned, type Badge, type BadgeStatsInput } from "./badges";
 import { resolveRank, type Rank } from "./rank";
 import { todayISODate, type TimeZone } from "@/lib/routines/dates";
 
@@ -82,23 +82,30 @@ function resolveReviewProgress(activeDayCount: number): {
   return { ringPct, daysToReview: Math.max(0, next - activeDayCount), reviewLabel: label, reviewComplete: false };
 }
 
-/**
- * Everything the Today progress band + right rail need, wired to real data.
- * The gamification numbers are all *derived* from records the platform
- * already keeps (completed routines/check-ins, community posts) -- nothing
- * here reads a private journal answer, a sleep score or a day rating, and
- * none of it is ever reported to a company. Defensive throughout: any DB
- * failure degrades to a brand-new-user zero state rather than crashing the
- * universal /home landing page (same pattern as lib/routines/*).
- */
-export async function getTodayStats(userId: string, now: Date, timeZone: TimeZone): Promise<TodayStats> {
-  const todayISO = todayISODate(now, timeZone);
+/** The raw engagement a member has built, derived from records the platform
+ *  already keeps. All monotonic, all non-private (completed routines/check-ins
+ *  and public posts) -- never a journal answer, sleep score, or day rating. */
+export interface EngagementCounts {
+  activeDates: Set<string>;
+  activeDayCount: number;
+  morningCount: number;
+  nightCount: number;
+  themedCount: number;
+  postCount: number;
+  /** Completed sessions all-time = "wins". */
+  winsCount: number;
+}
 
+/**
+ * Gather a member's engagement counts. Shared by the Today stats and the badge
+ * persistence action so both derive badges from exactly the same numbers.
+ * Defensive: any DB failure degrades to a brand-new-user zero state.
+ */
+export async function gatherEngagement(userId: string): Promise<EngagementCounts> {
   let morningDates: string[] = [];
   let nightDates: string[] = [];
   let themedCount = 0;
   let postCount = 0;
-  let recentWins: RecentWin[] = [];
 
   try {
     // Routine/check-in tables live in the `private` schema; community_posts is
@@ -124,38 +131,69 @@ export async function getTodayStats(userId: string, now: Date, timeZone: TimeZon
     nightDates = (nights ?? []).map((r) => r.entry_date as string);
     themedCount = themed ?? 0;
     postCount = posts ?? 0;
-
-    // Site-wide wins board -- public posts people chose to share, so surfacing
-    // them here breaches no privacy (unlike anything in the private tables
-    // above). Best-effort: a failure just leaves the widget empty.
-    try {
-      const wins = await getPosts(publicClient, { scope: "global", board: "wins", viewerUserId: userId });
-      recentWins = wins.slice(0, 3).map((w) => ({
-        id: w.id,
-        authorDisplayName: w.authorDisplayName,
-        body: w.body,
-      }));
-    } catch {
-      recentWins = [];
-    }
   } catch {
     // fall through with zero/empty defaults
   }
 
   const activeDates = new Set<string>([...morningDates, ...nightDates]);
-  const activeDayCount = activeDates.size;
   const morningCount = morningDates.length;
   const nightCount = nightDates.length;
-  const winsCount = morningCount + nightCount + themedCount;
+  return {
+    activeDates,
+    activeDayCount: activeDates.size,
+    morningCount,
+    nightCount,
+    themedCount,
+    postCount,
+    winsCount: morningCount + nightCount + themedCount,
+  };
+}
 
-  const badges = evaluateBadges({ activeDayCount, morningCount, nightCount, themedCount, postCount, winsCount });
-  const review = resolveReviewProgress(activeDayCount);
+/** The subset of engagement the badge catalogue evaluates against. */
+export function badgeStatsFrom(eng: EngagementCounts): BadgeStatsInput {
+  return {
+    activeDayCount: eng.activeDayCount,
+    morningCount: eng.morningCount,
+    nightCount: eng.nightCount,
+    themedCount: eng.themedCount,
+    postCount: eng.postCount,
+    winsCount: eng.winsCount,
+  };
+}
+
+/**
+ * Everything the Today progress band + right rail need, wired to real data.
+ * The gamification numbers are all *derived* from records the platform
+ * already keeps (completed routines/check-ins, community posts) -- nothing
+ * here reads a private journal answer, a sleep score or a day rating, and
+ * none of it is ever reported to a company. Defensive throughout: any DB
+ * failure degrades to a brand-new-user zero state rather than crashing the
+ * universal /home landing page (same pattern as lib/routines/*).
+ */
+export async function getTodayStats(userId: string, now: Date, timeZone: TimeZone): Promise<TodayStats> {
+  const todayISO = todayISODate(now, timeZone);
+  const eng = await gatherEngagement(userId);
+
+  // Site-wide wins board -- public posts people chose to share, so surfacing
+  // them here breaches no privacy (unlike anything in the private tables above).
+  // Best-effort: a failure just leaves the widget empty.
+  let recentWins: RecentWin[] = [];
+  try {
+    const publicClient = await createClient();
+    const wins = await getPosts(publicClient, { scope: "global", board: "wins", viewerUserId: userId });
+    recentWins = wins.slice(0, 3).map((w) => ({ id: w.id, authorDisplayName: w.authorDisplayName, body: w.body }));
+  } catch {
+    recentWins = [];
+  }
+
+  const badges = evaluateBadges(badgeStatsFrom(eng));
+  const review = resolveReviewProgress(eng.activeDayCount);
 
   return {
-    activeDayCount,
-    streak: computeStreak(activeDates, todayISO),
-    winsCount,
-    rank: resolveRank(activeDayCount),
+    activeDayCount: eng.activeDayCount,
+    streak: computeStreak(eng.activeDates, todayISO),
+    winsCount: eng.winsCount,
+    rank: resolveRank(eng.activeDayCount),
     badges,
     badgesEarned: countEarned(badges),
     ...review,
