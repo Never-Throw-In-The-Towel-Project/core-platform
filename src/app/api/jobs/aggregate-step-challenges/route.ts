@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyCronRequest } from "@/lib/auth/cron";
 import { DIRECT_COMPANY_ID } from "@/lib/tenant/constants";
-import { computeStepTotals } from "@/lib/steps/challenge";
+import { computeStepTotals, pickChallengeAwards } from "@/lib/steps/challenge";
 import { sendTargetHitEmail } from "@/lib/steps/challengeNotify";
 
 /**
@@ -90,8 +90,11 @@ export async function GET(request: NextRequest) {
   }
 
   const now = new Date().toISOString();
+  const todayIso = now.slice(0, 10);
   const totalsRows = [];
   const targetHitNotices: { companyId: string; title: string; total: number; target: number }[] = [];
+  // Challenges whose window has ended: award badges + mark completed (once).
+  const finalizations: { challengeId: string; completeUsers: string[]; mvp: string | null }[] = [];
 
   for (const challenge of activeChallenges) {
     const employees = employeesByCompany.get(challenge.company_id as string) ?? [];
@@ -111,7 +114,9 @@ export async function GET(request: NextRequest) {
 
     // Sum each opted-in member's steps within the window. Service-role read of
     // private.step_entries; summed per member in memory, never exposed per-row.
-    let memberSums: number[] = [];
+    // sumByUser is kept (not just its values) so challenge-end finalisation can
+    // pick the top contributor (Team MVP) and the set of contributors.
+    const sumByUser = new Map<string, number>();
     if (optedInUsers.length > 0) {
       const { data: stepRows } = await privateClient
         .from("step_entries")
@@ -119,13 +124,12 @@ export async function GET(request: NextRequest) {
         .in("user_id", optedInUsers)
         .gte("entry_date", challenge.starts_on)
         .lte("entry_date", challenge.ends_on);
-      const sumByUser = new Map<string, number>();
       for (const row of stepRows ?? []) {
         const uid = row.user_id as string;
         sumByUser.set(uid, (sumByUser.get(uid) ?? 0) + (row.steps as number));
       }
-      memberSums = Array.from(sumByUser.values());
     }
+    const memberSums = Array.from(sumByUser.values());
 
     const result = computeStepTotals(memberSums, Number(challenge.target_steps));
     totalsRows.push({
@@ -148,6 +152,20 @@ export async function GET(request: NextRequest) {
         title: challenge.title as string,
         total: result.totalSteps,
         target: Number(challenge.target_steps),
+      });
+    }
+
+    // Challenge-end finalisation (brief §3): once the window has passed, award
+    // the badges and mark the challenge completed. Team MVP is the single top
+    // contributor -- a PRIVATE award (own-rows-only earned_badges), so no
+    // ranking is ever exposed; only that member sees it. Challenge Complete goes
+    // to every contributor, but only when the team actually hit the target.
+    if ((challenge.ends_on as string) < todayIso) {
+      const awards = pickChallengeAwards(sumByUser.entries(), result.targetReached, result.suppressed);
+      finalizations.push({
+        challengeId: challenge.id as string,
+        completeUsers: awards.completeUsers,
+        mvp: awards.mvp,
       });
     }
   }
@@ -187,5 +205,41 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, challengesProcessed: totalsRows.length, targetHitNotified });
+  // Finalise ended challenges: award badges into private.earned_badges (service
+  // role; own-rows-only for members, so these stay private until the member
+  // chooses to share), then flip status to 'completed' so this runs exactly once
+  // (the status='active' filter above excludes it next run). Badge keys are
+  // generic achievements, deduped by the (user_id, badge_key) unique constraint.
+  let challengesCompleted = 0;
+  for (const fin of finalizations) {
+    if (fin.completeUsers.length > 0) {
+      await privateClient
+        .from("earned_badges")
+        .upsert(
+          fin.completeUsers.map((uid) => ({ user_id: uid, badge_key: "challenge_complete" })),
+          { onConflict: "user_id,badge_key", ignoreDuplicates: true }
+        );
+    }
+    if (fin.mvp) {
+      await privateClient
+        .from("earned_badges")
+        .upsert([{ user_id: fin.mvp, badge_key: "team_mvp" }], {
+          onConflict: "user_id,badge_key",
+          ignoreDuplicates: true,
+        });
+    }
+    const { error } = await publicClient
+      .from("company_step_challenges")
+      .update({ status: "completed" })
+      .eq("id", fin.challengeId)
+      .eq("status", "active");
+    if (!error) challengesCompleted += 1;
+  }
+
+  return NextResponse.json({
+    ok: true,
+    challengesProcessed: totalsRows.length,
+    targetHitNotified,
+    challengesCompleted,
+  });
 }

@@ -95,9 +95,20 @@ const CATALOGUE: { def: BadgeDef; isEarned: (s: BadgeStatsInput) => boolean }[] 
 /** Every badge's static definition, in display order. */
 export const BADGE_DEFS: BadgeDef[] = CATALOGUE.map((c) => c.def);
 
+// Challenge-outcome badges (brief §3). These are NOT derived from personal
+// stats (evaluateBadges) -- they're awarded by the service-role aggregation job
+// at a challenge's end and written straight into earned_badges, so they only
+// need a label here for the Journey's earned-badge list. Team MVP is private to
+// the single top contributor; Challenge Complete goes to every contributor when
+// the team hits the target.
+const CHALLENGE_BADGE_LABELS: Record<string, string> = {
+  team_mvp: "Team MVP",
+  challenge_complete: "Challenge Complete",
+};
+
 /** Human label for a persisted badge_key (falls back to the key itself). */
 export function badgeLabel(key: string): string {
-  return BADGE_DEFS.find((d) => d.key === key)?.label ?? key;
+  return BADGE_DEFS.find((d) => d.key === key)?.label ?? CHALLENGE_BADGE_LABELS[key] ?? key;
 }
 
 /**
