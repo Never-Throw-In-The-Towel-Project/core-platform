@@ -18,6 +18,29 @@ const REVIEW_TYPES: readonly ReviewType[] = ["30_day", "90_day"];
 // docs/ARCHITECTURE.md "Per-user timezone".
 const AGGREGATION_WINDOW_DAYS = 3;
 
+// PostgREST caps every response at max_rows (1000, supabase/config.toml) with a
+// silently-truncated 200. These reads are PLATFORM-WIDE (every employee, every
+// completion for a date), so they blow past 1000 for even a modest user base --
+// every one must page with `.range()` and hard-fail on error rather than
+// aggregate a partial set into a wrong dashboard number. `.order()` on a unique,
+// stable column is REQUIRED: range paging without a total order can skip or
+// duplicate rows across pages. `makeQuery` must build a fresh query each call.
+const PAGE_SIZE = 1000;
+
+type PageResult<T> = { data: T[] | null; error: { message?: string } | null };
+
+async function fetchAll<T>(makeQuery: (from: number, to: number) => PromiseLike<PageResult<T>>): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await makeQuery(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message ?? "query failed");
+    const rows = data ?? [];
+    out.push(...rows);
+    if (rows.length < PAGE_SIZE) break;
+  }
+  return out;
+}
+
 type ParticipationRow = {
   company_id: string;
   entry_date: string;
@@ -47,7 +70,8 @@ const REVIEW_TOTALS_SENTINEL_PERIOD_START = "2000-01-01";
  * completion rows for each target date) aggregated in memory, rather than a
  * cross-schema join -- PostgREST/supabase-js queries are schema-scoped to
  * one schema per request, so a join across `public.profiles` and
- * `private.morning_entries` isn't a single query here.
+ * `private.morning_entries` isn't a single query here. All reads PAGE (see
+ * fetchAll) so the platform-wide scans stay correct past 1000 rows.
  *
  * It re-aggregates a trailing window of recent UTC days
  * (AGGREGATION_WINDOW_DAYS), not just yesterday-UTC, because `entry_date` is
@@ -70,34 +94,39 @@ export async function GET(request: NextRequest) {
   const publicClient = createAdminClient();
   const privateClient = createAdminClient("private");
 
-  const { data: profiles, error: profilesError } = await publicClient
-    .from("profiles")
-    .select("id, company_id")
-    .eq("role", "employee");
-
-  if (profilesError || !profiles) {
+  let profiles: { id: string; company_id: string }[];
+  try {
+    profiles = await fetchAll<{ id: string; company_id: string }>((from, to) =>
+      publicClient.from("profiles").select("id, company_id").eq("role", "employee").order("id").range(from, to)
+    );
+  } catch {
     return NextResponse.json({ error: "failed to load profiles" }, { status: 500 });
   }
 
-  const companyByUser = new Map(profiles.map((p) => [p.id as string, p.company_id as string]));
+  const companyByUser = new Map(profiles.map((p) => [p.id, p.company_id]));
   const eligibleByCompany = new Map<string, number>();
   for (const profile of profiles) {
-    const companyId = profile.company_id as string;
-    eligibleByCompany.set(companyId, (eligibleByCompany.get(companyId) ?? 0) + 1);
+    eligibleByCompany.set(profile.company_id, (eligibleByCompany.get(profile.company_id) ?? 0) + 1);
   }
 
-  const participationRows = (
-    await Promise.all(
-      targetDates.map((date) =>
-        aggregateParticipationForDate(privateClient, date, companyByUser, eligibleByCompany)
-      )
+  // Aggregate each date independently; a date whose read fails is skipped (its
+  // rows aren't written) rather than failing the whole run or writing a partial
+  // count -- the idempotent upsert re-does it next run.
+  const perDate = await Promise.all(
+    targetDates.map((date) =>
+      aggregateParticipationForDate(privateClient, date, companyByUser, eligibleByCompany).catch(() => null)
     )
-  ).flat();
+  );
+  const participationRows = perDate.filter((r): r is ParticipationRow[] => r !== null).flat();
+  const datesSkipped = perDate.filter((r) => r === null).length;
 
   if (participationRows.length > 0) {
-    await publicClient
+    const { error } = await publicClient
       .from("company_daily_participation")
       .upsert(participationRows, { onConflict: "company_id,entry_date,segment" });
+    if (error) {
+      return NextResponse.json({ error: "failed to persist participation", datesSkipped }, { status: 500 });
+    }
   }
 
   // company_review_completions: the brief's actual requirement is just "30
@@ -107,46 +136,64 @@ export async function GET(request: NextRequest) {
   // calendar period to bucket by across a company's cohort the way daily
   // participation has a shared entry_date. Every run recomputes the full
   // all-time count and upserts onto the same sentinel period_start row per
-  // (company, review_type).
-  const { data: reviewRows } = await privateClient
-    .from("periodic_reviews")
-    .select("user_id, review_type")
-    .not("completed_at", "is", null);
-
-  const reviewCountsByType = new Map<ReviewType, Map<string, number>>();
-  for (const row of reviewRows ?? []) {
-    const companyId = companyByUser.get(row.user_id as string);
-    if (!companyId) continue;
-    const reviewType = row.review_type as ReviewType;
-    if (!reviewCountsByType.has(reviewType)) reviewCountsByType.set(reviewType, new Map());
-    const companyCounts = reviewCountsByType.get(reviewType)!;
-    companyCounts.set(companyId, (companyCounts.get(companyId) ?? 0) + 1);
+  // (company, review_type). Read paged; if it fails, skip the review upsert
+  // this run (keep last run's counts) rather than writing zeros.
+  let reviewRows: { user_id: string; review_type: string }[] | null = null;
+  try {
+    reviewRows = await fetchAll<{ user_id: string; review_type: string }>((from, to) =>
+      privateClient
+        .from("periodic_reviews")
+        .select("user_id, review_type")
+        .not("completed_at", "is", null)
+        .order("id")
+        .range(from, to)
+    );
+  } catch {
+    reviewRows = null;
   }
 
-  const reviewCompletionRows = [];
-  for (const reviewType of REVIEW_TYPES) {
-    const companyCounts = reviewCountsByType.get(reviewType) ?? new Map<string, number>();
-    for (const [companyId, eligibleCount] of eligibleByCompany) {
-      reviewCompletionRows.push({
-        company_id: companyId,
-        review_type: reviewType,
-        period_start: REVIEW_TOTALS_SENTINEL_PERIOD_START,
-        completed_count: companyCounts.get(companyId) ?? 0,
-        eligible_count: eligibleCount,
-      });
+  let reviewsCounted = false;
+  if (reviewRows) {
+    const reviewCountsByType = new Map<ReviewType, Map<string, number>>();
+    for (const row of reviewRows) {
+      const companyId = companyByUser.get(row.user_id);
+      if (!companyId) continue;
+      const reviewType = row.review_type as ReviewType;
+      if (!reviewCountsByType.has(reviewType)) reviewCountsByType.set(reviewType, new Map());
+      const companyCounts = reviewCountsByType.get(reviewType)!;
+      companyCounts.set(companyId, (companyCounts.get(companyId) ?? 0) + 1);
     }
-  }
 
-  if (reviewCompletionRows.length > 0) {
-    await publicClient
-      .from("company_review_completions")
-      .upsert(reviewCompletionRows, { onConflict: "company_id,review_type,period_start" });
+    const reviewCompletionRows = [];
+    for (const reviewType of REVIEW_TYPES) {
+      const companyCounts = reviewCountsByType.get(reviewType) ?? new Map<string, number>();
+      for (const [companyId, eligibleCount] of eligibleByCompany) {
+        reviewCompletionRows.push({
+          company_id: companyId,
+          review_type: reviewType,
+          period_start: REVIEW_TOTALS_SENTINEL_PERIOD_START,
+          completed_count: companyCounts.get(companyId) ?? 0,
+          eligible_count: eligibleCount,
+        });
+      }
+    }
+
+    if (reviewCompletionRows.length > 0) {
+      const { error } = await publicClient
+        .from("company_review_completions")
+        .upsert(reviewCompletionRows, { onConflict: "company_id,review_type,period_start" });
+      reviewsCounted = !error;
+    } else {
+      reviewsCounted = true;
+    }
   }
 
   return NextResponse.json({
     ok: true,
     targetDates,
     companiesProcessed: eligibleByCompany.size,
+    datesSkipped,
+    reviewsCounted,
   });
 }
 
@@ -156,7 +203,9 @@ export async function GET(request: NextRequest) {
  * UTC -- one company-wide notion of "day"/"week" for bucketing many users'
  * rows, per docs/ARCHITECTURE.md "Per-user timezone"); the caller just runs
  * this over a trailing window of dates instead of a single one, so late
- * completions from western timezones are picked up on a later run.
+ * completions from western timezones are picked up on a later run. Each read
+ * pages (fetchAll) and throws on error, so a truncated/failed date is skipped
+ * by the caller rather than silently under-counted.
  */
 async function aggregateParticipationForDate(
   privateClient: AdminClient,
@@ -168,30 +217,42 @@ async function aggregateParticipationForDate(
   const targetWeekday = weekdayNameOrWeekend(targetDateObj, "UTC");
   const isWeekday = (WEEKDAYS as readonly string[]).includes(targetWeekday);
 
-  const [{ data: morningRows }, { data: nightRows }, { data: themedRows }] = await Promise.all([
-    privateClient
-      .from("morning_entries")
-      .select("user_id")
-      .eq("entry_date", targetDate)
-      .not("completed_at", "is", null),
-    privateClient
-      .from("night_entries")
-      .select("user_id")
-      .eq("entry_date", targetDate)
-      .not("completed_at", "is", null),
+  const [morningRows, nightRows, themedRows] = await Promise.all([
+    fetchAll<{ user_id: string }>((from, to) =>
+      privateClient
+        .from("morning_entries")
+        .select("user_id")
+        .eq("entry_date", targetDate)
+        .not("completed_at", "is", null)
+        .order("id")
+        .range(from, to)
+    ),
+    fetchAll<{ user_id: string }>((from, to) =>
+      privateClient
+        .from("night_entries")
+        .select("user_id")
+        .eq("entry_date", targetDate)
+        .not("completed_at", "is", null)
+        .order("id")
+        .range(from, to)
+    ),
     isWeekday
-      ? privateClient
-          .from("themed_checkins")
-          .select("user_id")
-          .eq("week_start_date", getMondayOfWeek(targetDateObj, "UTC"))
-          .eq("weekday", targetWeekday)
-          .not("completed_at", "is", null)
-      : Promise.resolve({ data: [] as { user_id: string }[] }),
+      ? fetchAll<{ user_id: string }>((from, to) =>
+          privateClient
+            .from("themed_checkins")
+            .select("user_id")
+            .eq("week_start_date", getMondayOfWeek(targetDateObj, "UTC"))
+            .eq("weekday", targetWeekday)
+            .not("completed_at", "is", null)
+            .order("id")
+            .range(from, to)
+        )
+      : Promise.resolve([] as { user_id: string }[]),
   ]);
 
-  const morningCounts = countByCompany(morningRows ?? [], companyByUser);
-  const nightCounts = countByCompany(nightRows ?? [], companyByUser);
-  const themedCounts = countByCompany(themedRows ?? [], companyByUser);
+  const morningCounts = countByCompany(morningRows, companyByUser);
+  const nightCounts = countByCompany(nightRows, companyByUser);
+  const themedCounts = countByCompany(themedRows, companyByUser);
 
   const rows: ParticipationRow[] = [];
   for (const [companyId, eligibleCount] of eligibleByCompany) {
@@ -225,10 +286,7 @@ async function aggregateParticipationForDate(
   return rows;
 }
 
-function countByCompany(
-  rows: { user_id: string }[],
-  companyByUser: Map<string, string>
-): Map<string, number> {
+function countByCompany(rows: { user_id: string }[], companyByUser: Map<string, string>): Map<string, number> {
   const counts = new Map<string, number>();
   for (const row of rows) {
     const companyId = companyByUser.get(row.user_id);
