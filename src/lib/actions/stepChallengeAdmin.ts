@@ -62,6 +62,12 @@ export async function createChallengeAction(
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
   }
 
+  // A challenge can't be created already-ended (which would "complete" instantly
+  // off historical steps). UTC "today" is a fine approximation here.
+  if (parsed.data.endsOn < new Date().toISOString().slice(0, 10)) {
+    return { status: "error", message: "The end date can't be in the past." };
+  }
+
   // The Anthony-visit reward doesn't launch immediately: the challenge is
   // created 'pending_confirmation' and Anthony is emailed a signed link to
   // confirm his availability, which flips it to 'active' (brief §4). Every other
@@ -72,6 +78,24 @@ export async function createChallengeAction(
   let newChallengeId: string | null = null;
   try {
     const supabase = await createClient();
+
+    // At most one challenge active OR awaiting confirmation at a time. The
+    // partial unique index only guards 'active', so this closes the gap where a
+    // pending Anthony-visit challenge could be duplicated. RLS scopes the read
+    // to the caller's own company.
+    const { data: existing } = await supabase
+      .from("company_step_challenges")
+      .select("id")
+      .eq("company_id", profile.company_id)
+      .in("status", ["active", "pending_confirmation"])
+      .limit(1);
+    if (existing && existing.length > 0) {
+      return {
+        status: "error",
+        message: "You already have a challenge running or awaiting confirmation. It must finish first.",
+      };
+    }
+
     const { data: inserted, error } = await supabase
       .from("company_step_challenges")
       .insert({

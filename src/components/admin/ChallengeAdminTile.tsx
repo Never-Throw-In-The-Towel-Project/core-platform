@@ -13,6 +13,25 @@ export function ChallengeAdminTile({ view, todayIso }: { view: AdminChallengeVie
   const daysLeft = daysRemaining(challenge.ends_on, todayIso);
   const target = challenge.target_steps.toLocaleString();
 
+  // Awaiting Anthony's confirmation: the challenge exists but isn't live yet, so
+  // there's no team total to show. Distinct state so HR sees it's set up (and
+  // isn't tempted to create a duplicate), and knows what it's waiting on.
+  if (challenge.status === "pending_confirmation") {
+    return (
+      <div className="border border-current/15 p-5">
+        <p className="text-xs font-semibold uppercase tracking-wide opacity-60">Step challenge — awaiting confirmation</p>
+        <p className="mt-1 text-lg font-extrabold">{challenge.title}</p>
+        <p className="mt-3 text-sm opacity-70">
+          Waiting on Anthony to confirm his availability. He&apos;s been emailed a confirmation link; the
+          challenge goes live and staff can opt in as soon as he confirms.
+        </p>
+        <p className="mt-3 text-xs opacity-60">
+          Target: {target} steps · Reward: {rewardTypeLabel(challenge.reward_type)} — {challenge.reward_name}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="border border-current/15 p-5">
       <div className="flex items-start justify-between gap-4">
