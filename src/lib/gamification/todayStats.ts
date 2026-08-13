@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { getPosts } from "@/lib/community/queries";
+import { maxSingleDaySteps, bestStepLoggingStreak } from "@/lib/steps/milestones";
 import { evaluateBadges, countEarned, type Badge, type BadgeStatsInput } from "./badges";
 import { resolveRank, type Rank } from "./rank";
 import { todayISODate, type TimeZone } from "@/lib/routines/dates";
@@ -94,6 +95,10 @@ export interface EngagementCounts {
   postCount: number;
   /** Completed sessions all-time = "wins". */
   winsCount: number;
+  /** Highest steps on any single day, best-ever (0 if never logged). */
+  maxSingleDaySteps: number;
+  /** Longest run of consecutive logged step days, best-ever. */
+  bestStepStreak: number;
 }
 
 /**
@@ -106,6 +111,7 @@ export async function gatherEngagement(userId: string): Promise<EngagementCounts
   let nightDates: string[] = [];
   let themedCount = 0;
   let postCount = 0;
+  let stepEntries: { entry_date: string; steps: number }[] = [];
 
   try {
     // Routine/check-in tables live in the `private` schema; community_posts is
@@ -113,24 +119,29 @@ export async function gatherEngagement(userId: string): Promise<EngagementCounts
     // 404s against real PostgREST regardless of RLS (see lib/supabase/server.ts).
     const privateClient = await createClient("private");
     const publicClient = await createClient();
-    const [{ data: mornings }, { data: nights }, { count: themed }, { count: posts }] = await Promise.all([
-      privateClient.from("morning_entries").select("entry_date").eq("user_id", userId).not("completed_at", "is", null),
-      privateClient.from("night_entries").select("entry_date").eq("user_id", userId).not("completed_at", "is", null),
-      privateClient
-        .from("themed_checkins")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .not("completed_at", "is", null),
-      publicClient
-        .from("community_posts")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .eq("is_removed", false),
-    ]);
+    const [{ data: mornings }, { data: nights }, { count: themed }, { count: posts }, { data: steps }] =
+      await Promise.all([
+        privateClient.from("morning_entries").select("entry_date").eq("user_id", userId).not("completed_at", "is", null),
+        privateClient.from("night_entries").select("entry_date").eq("user_id", userId).not("completed_at", "is", null),
+        privateClient
+          .from("themed_checkins")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .not("completed_at", "is", null),
+        publicClient
+          .from("community_posts")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .eq("is_removed", false),
+        // One row per logged day (private, own-rows-only) -- used only to derive
+        // the member's own monotonic step milestones, never aggregated or shared.
+        privateClient.from("step_entries").select("entry_date, steps").eq("user_id", userId),
+      ]);
     morningDates = (mornings ?? []).map((r) => r.entry_date as string);
     nightDates = (nights ?? []).map((r) => r.entry_date as string);
     themedCount = themed ?? 0;
     postCount = posts ?? 0;
+    stepEntries = (steps ?? []).map((r) => ({ entry_date: r.entry_date as string, steps: r.steps as number }));
   } catch {
     // fall through with zero/empty defaults
   }
@@ -146,6 +157,8 @@ export async function gatherEngagement(userId: string): Promise<EngagementCounts
     themedCount,
     postCount,
     winsCount: morningCount + nightCount + themedCount,
+    maxSingleDaySteps: maxSingleDaySteps(stepEntries),
+    bestStepStreak: bestStepLoggingStreak(stepEntries.map((e) => e.entry_date)),
   };
 }
 
@@ -158,6 +171,8 @@ export function badgeStatsFrom(eng: EngagementCounts): BadgeStatsInput {
     themedCount: eng.themedCount,
     postCount: eng.postCount,
     winsCount: eng.winsCount,
+    maxSingleDaySteps: eng.maxSingleDaySteps,
+    bestStepStreak: eng.bestStepStreak,
   };
 }
 

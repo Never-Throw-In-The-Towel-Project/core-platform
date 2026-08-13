@@ -91,7 +91,12 @@ _Track 2 — the engagement flywheel (independent, parallelisable)_
   downvote is added (a peer mental-health space: easy to add later, hard to walk
   back the harm). _Open for Anthony:_ up/down-vs-up-only, and — if a board ever
   outgrows ~200 recent posts — server-side ranking / paging.
-- **D2. Gamification** — _steps + badge persistence shipped._
+- **D2. Gamification** — _foundation shipped; company challenge is the next sub-project._
+  Anthony's **Step Count & Gamification brief** (2026-08-13) now drives this
+  chapter and resolves two of the open decisions below: **no individual
+  leaderboard** (a deliberate call — a **collective team target** instead, so
+  no one is a "loser"), and **rewards are company-funded / HR-set** (NTITT only
+  displays them and confirms the target is hit).
   - _Part 1:_ self-reported **steps** — a private, never-reportable
     `step_entries` metric (own-rows-only RLS, modelled on `sleep_score` /
     `day_rating`; harness-validated live). Log today, see your own 7-day trend.
@@ -101,10 +106,31 @@ _Track 2 — the engagement flywheel (independent, parallelisable)_
     policy), capturing `earned_at`. Awarded on the Today load (re-derived
     server-side, idempotent) with a one-time "new badge" note; surfaced with
     dates on the Journey. Harness-validated live RLS.
-  - _Still to do:_ **rewards**, and **opt-in** leaderboards — the leaderboard
-    opt-in + scope-safety is the next decision, under the privacy invariants
-    below. (A points *ledger* is deferred: points are derived from monotonic
-    counts today and don't yet need their own store.)
+  - _Part 3 (foundation, PR #68):_ steps wired **end-to-end** to the brief §1/§3
+    surfaces — the optional **"Steps today"** field on the Night Routine
+    (best-effort, never mandatory, prefilled); **average daily steps in the
+    30/90-day reviews** (the 90-day adds a first-30-vs-quarter comparison);
+    and three **step-milestone badges** (10K Club, Week Streak, 30 Day Mover),
+    evaluated from monotonic best-ever figures so they can be earned but never
+    lost. All own-rows-only, no schema change, no aggregate path.
+  - _Next — the **company step challenge** (brief §2/§4), its own sub-project:_
+    `public.company_step_challenges` + a private opt-in table → a single
+    service-role **aggregate** (`company_step_totals`) rolling opted-in steps
+    up by `company_id`, extending the existing `aggregate-participation` cron →
+    HR setup + read-only dashboard tile → the staff challenge screen (progress
+    bar, contributors, days left, reward, **private** opt-in toggle) →
+    target-hit notification → the **Anthony-visit reward** option with an email
+    confirmation → the **Team MVP** / **Challenge Complete** badges. Locked
+    scope: **invited clients only** (not the shared self-signup pool), and a
+    **≥5-contributor floor** below which the team total is suppressed, so a
+    small team's aggregate can never reveal one person's steps. Individual
+    counts and opt-in identities are **never** exposed — the dashboard sees
+    only the total, the contributor count, and whether the target was hit.
+  - _Carve-out:_ Apple Health (HealthKit) / Google Fit **auto-sync is native-
+    app only** (a browser can't read those SDKs). The web ships manual entry;
+    a future native shell POSTs into the same `step_entries` table.
+  - _Deferred:_ a points **ledger** — points are derived from monotonic counts
+    today and don't yet need their own store.
 
 **Privacy invariants that must survive this chapter** (from the strategy
 doc): steps / any health metric are `private` and **never-reportable**,
@@ -118,9 +144,11 @@ Studio, and one live day carousel. Everything else plugs into it.
 
 **Open decisions for Anthony** (do not block A1; they shape the surfaces on
 top): challenge day counters vs "no day numbers"; up/down vs up-only votes;
-whether leaderboards are in scope; steps self-reported vs integrated;
 where the carousel lives; AI autonomy (assistive-only for v1); documents
-inline vs download. Full list in the strategy doc.
+inline vs download. Full list in the strategy doc. _Resolved by the Step
+Count & Gamification brief:_ **leaderboards** (no — collective team target)
+and **steps self-reported vs integrated** (self-reported/manual on web now;
+HealthKit/Fit auto-sync is a native-app follow-up).
 
 **Status**: strategy + roadmap written; the first slice (A1 → thin A2 → A3)
 shipped; **B. Challenges** shipped; and the content-OS is now **surfaced in the
