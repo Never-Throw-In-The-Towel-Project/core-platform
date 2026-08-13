@@ -343,8 +343,12 @@ feature-by-feature:
   it day/theme/channel, publish. Self-serve content in, for real.
 - **A3. Day carousel** — one live surface serving a day-tagged, channel-
   scoped, ISO-week-rotated carousel.
-- **B. Challenges** — `challenges` / `challenge_days` / `enrollments` on the
-  spine + day-journey engine.
+- **B. Challenges** — _built._ `challenges` / `challenge_days` (public,
+  ntitt_admin-authored) sequence the spine; `challenge_enrollments` /
+  `challenge_day_completions` (private, own-rows-only) hold participation.
+  Member surface at `/challenges` (browse, join, tick days, progress); Studio
+  authoring at `/community/admin/challenges`. Harness-validated (write-gate +
+  participation-privacy live RLS tests).
 - **C. AI brain v1 (assistive)** — tag suggestions + gap detection wired
   into the Studio.
 - **E. AI brain v2** — personalised ranking, once engagement data exists.
@@ -367,8 +371,14 @@ alongside if a second front is wanted.
 
 ## Open decisions for Anthony (the shortlist that changes the work)
 
-1. **Challenge day counters** — is "Day 12 of 28" *inside an opt-in
-   challenge* acceptable, given the standing "no day numbers" guidance?
+1. **Challenge day counters** — _resolved in the build, still vetoable._ The
+   Challenges slice sidesteps the "you're on day N" failure mode entirely: the
+   data model stores no start-date / expected-day, so progress can only be
+   shown as "X of Y done" (a count that only rises, never "behind"). `day_index`
+   appears only as an authoring **sequence label** ("Day 1, Day 2 …"), never as
+   a countdown against the calendar — consistent with the since-revised Rail
+   "Day N" decision. If Anthony wants the day labels gone too, it's a
+   presentation-only change.
 2. **Community voting** — up/down (Reddit) or up-only "boost" (gentler,
    fits a wellbeing product)?
 3. **Leaderboards** — in scope at all? If yes, opt-in only is

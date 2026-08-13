@@ -59,15 +59,26 @@ _Track 1 — the content spine (critical path)_
   it day/theme/channel, publish. The keystone that lets Anthony self-serve.
 - **A3. Day carousel** — one live day-tagged, channel-scoped, ISO-week-
   rotated carousel surface.
-- **B. Challenges** — `challenges` / `challenge_days` / `enrollments` on the
-  spine + the existing day-journey engine.
+- **B. Challenges** — _built this pass._ `challenges` / `challenge_days`
+  (public, ntitt_admin-authored) sequence the spine; `challenge_enrollments` /
+  `challenge_day_completions` (private, own-rows-only RLS) hold a member's
+  participation. Members browse/join/track at `/challenges`; the Studio authors
+  at `/community/admin/challenges`. Progress is completion-count only — no
+  "expected day", so nothing ever reads as behind (the "no day numbers"
+  principle, enforced by the schema). Harness-validated.
 - **C. AI brain v1 (assistive)** — tag suggestions + gap detection in the
   Studio (assistive-with-confirm, never auto-publish).
 - **E. AI brain v2** — personalised ranking, once engagement data exists.
 
 _Track 2 — the engagement flywheel (independent, parallelisable)_
-- **D1. Community depth** — up/down (or up-only) votes, threaded comments,
-  hot/top/new sorting. No dependency on the content spine.
+- **D1. Community depth** — _threaded comments shipped this pass (part 1)._
+  Two-level replies over the existing flat comments (additive
+  `parent_comment_id`, server-side re-derivation + flatten, harness-validated
+  live RLS proving a reply inherits its parent post's scope). The vote question
+  is resolved **up-only** for now — the existing community *likes* already serve
+  as upvotes, so no downvote is added (a peer mental-health space: easy to add
+  later, hard to walk back the harm). _Still to do:_ **hot/top/new sorting**;
+  the up/down-vs-up-only call remains Anthony's to revisit.
 - **D2. Gamification** — persist points/badges, add steps (self-reported
   first), rewards, and opt-in leaderboards — under the privacy invariants
   below.
@@ -88,8 +99,18 @@ whether leaderboards are in scope; steps self-reported vs integrated;
 where the carousel lives; AI autonomy (assistive-only for v1); documents
 inline vs download. Full list in the strategy doc.
 
-**Status**: strategy + roadmap written this pass; the first slice (A1 → thin
-A2 → A3) is the next build.
+**Status**: strategy + roadmap written; the first slice (A1 → thin A2 → A3)
+shipped; **B. Challenges** shipped; and the content-OS is now **surfaced in the
+daily loop** — the day-tagged, week-rotated carousel and the member's own
+challenge progress both appear on Home, not only in the Library, so the spine
+and challenges are discoverable where members already are each day (pure reads;
+no schema change). Next on the critical path: **C. AI brain v1 (assistive)** —
+Studio tag-suggestions + gap detection. C is the first item needing an external
+dependency (`ANTHROPIC_API_KEY` + a small per-call budget) and is
+assistive-with-confirm — never auto-publish — so it wants Anthony's budget
+go-ahead before wiring. In parallel, **Track 2 · D1 (community depth)** has
+begun — threaded comment replies shipped (up-only votes, reusing the existing
+likes); hot/top/new sorting is the remaining piece.
 
 ---
 

@@ -52,6 +52,9 @@ export default async function ContentStudioPage() {
         <Link href="/community/admin" className="hover:text-foreground">
           Moderation
         </Link>
+        <Link href="/community/admin/challenges" className="hover:text-foreground">
+          Challenges
+        </Link>
         <Link href="/community/admin/podcast-guests" className="hover:text-foreground">
           Podcast guests
         </Link>
