@@ -22,6 +22,15 @@ export interface BadgeStatsInput {
   postCount: number;
   /** Total completed sessions = "wins" ("win the round"). */
   winsCount: number;
+  /**
+   * Highest steps recorded on any single day (0 if steps never logged). The two
+   * step figures below are MONOTONIC -- a best-ever max and a best-ever streak,
+   * derived from the member's own private step_entries -- so the step badges,
+   * like every other badge, can be earned but never lost.
+   */
+  maxSingleDaySteps: number;
+  /** Longest run of consecutive days with a logged step entry (best ever). */
+  bestStepStreak: number;
 }
 
 /** A badge's static identity, independent of whether it's been earned. */
@@ -65,6 +74,21 @@ const CATALOGUE: { def: BadgeDef; isEarned: (s: BadgeStatsInput) => boolean }[] 
   {
     def: { key: "thirty_days", label: "30 Days", description: "Reached your 30-day review." },
     isEarned: (s) => s.activeDayCount >= 30,
+  },
+  // Step milestones (brief §3). Earned from the member's own private steps and,
+  // like all badges here, only shown to them -- the brief's "visible to others
+  // only if the user shares" is a later, separate opt-in surface, never automatic.
+  {
+    def: { key: "steps_10k_club", label: "10K Club", description: "Logged a 10,000-step day." },
+    isEarned: (s) => s.maxSingleDaySteps >= 10000,
+  },
+  {
+    def: { key: "steps_week_streak", label: "Week Streak", description: "Logged steps seven days in a row." },
+    isEarned: (s) => s.bestStepStreak >= 7,
+  },
+  {
+    def: { key: "steps_30_day_mover", label: "30 Day Mover", description: "Logged steps thirty days in a row." },
+    isEarned: (s) => s.bestStepStreak >= 30,
   },
 ];
 

@@ -8,6 +8,8 @@ const ZERO: BadgeStatsInput = {
   themedCount: 0,
   postCount: 0,
   winsCount: 0,
+  maxSingleDaySteps: 0,
+  bestStepStreak: 0,
 };
 
 describe("evaluateBadges", () => {
@@ -24,9 +26,40 @@ describe("evaluateBadges", () => {
   });
 });
 
+describe("step-milestone badges", () => {
+  it("earns 10K Club from a single 10,000-step day, independent of streak", () => {
+    const badges = evaluateBadges({ ...ZERO, maxSingleDaySteps: 10000 });
+    const earned = new Set(badges.filter((b) => b.earned).map((b) => b.key));
+    expect(earned).toEqual(new Set(["steps_10k_club"]));
+  });
+
+  it("does not earn 10K Club below 10,000", () => {
+    const badges = evaluateBadges({ ...ZERO, maxSingleDaySteps: 9999 });
+    expect(badges.find((b) => b.key === "steps_10k_club")!.earned).toBe(false);
+  });
+
+  it("earns Week Streak at 7 consecutive days but not 30 Day Mover yet", () => {
+    const badges = evaluateBadges({ ...ZERO, bestStepStreak: 7 });
+    const earned = new Set(badges.filter((b) => b.earned).map((b) => b.key));
+    expect(earned.has("steps_week_streak")).toBe(true);
+    expect(earned.has("steps_30_day_mover")).toBe(false);
+  });
+
+  it("earns both streak badges at 30 consecutive days", () => {
+    const badges = evaluateBadges({ ...ZERO, bestStepStreak: 30 });
+    const earned = new Set(badges.filter((b) => b.earned).map((b) => b.key));
+    expect(earned.has("steps_week_streak")).toBe(true);
+    expect(earned.has("steps_30_day_mover")).toBe(true);
+  });
+});
+
 describe("badgeLabel", () => {
   it("maps a known key to its label", () => {
     expect(badgeLabel("first_week")).toBe("First Week");
+  });
+
+  it("maps a step badge key to its label", () => {
+    expect(badgeLabel("steps_10k_club")).toBe("10K Club");
   });
   it("falls back to the key for an unknown badge", () => {
     expect(badgeLabel("mystery")).toBe("mystery");
