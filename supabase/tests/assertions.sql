@@ -21,8 +21,8 @@ begin
     raise exception 'RLS disabled on % public/private table(s)', missing;
   end if;
   select count(*) into total from pg_tables where schemaname in ('public','private');
-  if total <> 29 then
-    raise exception 'expected 29 public+private tables (20+9), found %', total;
+  if total <> 30 then
+    raise exception 'expected 30 public+private tables (20+10), found %', total;
   end if;
   raise notice 'PASS  1  RLS enabled on all % public/private tables', total;
 end
@@ -452,6 +452,49 @@ $$;
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select set_config('request.jwt.claim.role', '', false);
+
+-- ============================================================================
+-- LIVE RLS test of step_entries (Track 2 · D2): a member reads and writes ONLY
+-- their own steps -- private and never-reportable, exactly like sleep/day
+-- rating. Reuses usera (Company A) / userb (Company B) from the fixtures above.
+-- ============================================================================
+-- userb logs steps as the bootstrap superuser (bypassing RLS) so we can prove
+-- usera can neither see them nor write them.
+insert into private.step_entries (user_id, entry_date, steps) values
+  ('b0000000-0000-0000-0000-00000000000b', '2026-08-13', 6000);
+
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+set role authenticated;
+do $$
+declare visible int;
+begin
+  -- TEST 1 (must be BLOCKED): logging steps as another user
+  begin
+    insert into private.step_entries (user_id, entry_date, steps)
+    values ('b0000000-0000-0000-0000-00000000000b', '2026-08-12', 1234);
+    raise exception 'FAIL steps-write: a member logged steps for another user';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- TEST 2 (must be ALLOWED): logging your own steps
+  begin
+    insert into private.step_entries (user_id, entry_date, steps)
+    values ('a0000000-0000-0000-0000-00000000000a', '2026-08-13', 9000);
+  exception when insufficient_privilege then
+    raise exception 'FAIL steps-write: a member was blocked from logging their own steps';
+  end;
+
+  -- TEST 3 (must be ISOLATED): usera sees only their own row, never userb's
+  select count(*) into visible from private.step_entries;
+  if visible <> 1 then
+    raise exception 'FAIL steps-read: expected usera to see exactly 1 (own) step row, saw %', visible;
+  end if;
+
+  raise notice 'PASS  6* live: step_entries own-rows-only (self-write allowed, cross-user blocked + isolated)';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
 
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'

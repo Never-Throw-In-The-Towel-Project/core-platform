@@ -91,9 +91,13 @@ _Track 2 — the engagement flywheel (independent, parallelisable)_
   downvote is added (a peer mental-health space: easy to add later, hard to walk
   back the harm). _Open for Anthony:_ up/down-vs-up-only, and — if a board ever
   outgrows ~200 recent posts — server-side ranking / paging.
-- **D2. Gamification** — persist points/badges, add steps (self-reported
-  first), rewards, and opt-in leaderboards — under the privacy invariants
-  below.
+- **D2. Gamification** — _self-reported steps shipped (part 1)._ A private,
+  never-reportable `step_entries` metric (own-rows-only RLS, modelled exactly on
+  `sleep_score` / `day_rating`; harness-validated live). Members log today's
+  steps and see their own 7-day trend on the Journey page; HR sees nothing and
+  no aggregate reads it. _Still to do:_ persist points/badges (currently
+  derived), rewards, and **opt-in** leaderboards — the leaderboard opt-in +
+  scope-safety is the next decision, under the privacy invariants below.
 
 **Privacy invariants that must survive this chapter** (from the strategy
 doc): steps / any health metric are `private` and **never-reportable**,
