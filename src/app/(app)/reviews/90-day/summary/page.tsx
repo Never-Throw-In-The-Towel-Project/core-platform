@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
+import { getRecentSteps } from "@/lib/steps/queries";
+import { stepsStatForRange, addDaysIso } from "@/lib/steps/reviewStats";
 import { PrintButton } from "@/components/PrintButton";
 import type { PeriodicReview } from "@/types/database";
 
@@ -41,6 +43,27 @@ export default async function NinetyDaySummaryPage() {
   const r = review as PeriodicReview;
   const habitSummary = r.extra.habit_summary;
 
+  // Average daily steps across the quarter, with a first-30-days comparison so
+  // the member sees physical progress "alongside mindset progress" (brief §1) --
+  // mirroring how the self-assessment shows the 90-day scores against the 30-day
+  // ones. All read only from the member's own private step_entries; shown to no
+  // one else. Best-effort: any failure, or a member who never logged, hides it.
+  let quarterSteps = { daysLogged: 0, averageDailySteps: null as number | null };
+  let firstMonthSteps = { daysLogged: 0, averageDailySteps: null as number | null };
+  try {
+    const supabase = await createClient("private");
+    const entries = await getRecentSteps(supabase, profile.id, r.period_start);
+    quarterSteps = stepsStatForRange(entries, r.period_start, r.period_end);
+    // The first 30 days of the review period ~= the 30-day-review window.
+    firstMonthSteps = stepsStatForRange(entries, r.period_start, addDaysIso(r.period_start, 29));
+  } catch {
+    // leave zero/null defaults -> block hidden
+  }
+  const stepsDelta =
+    quarterSteps.averageDailySteps !== null && firstMonthSteps.averageDailySteps !== null
+      ? quarterSteps.averageDailySteps - firstMonthSteps.averageDailySteps
+      : null;
+
   return (
     <main className="mx-auto max-w-xl px-6 py-12 print:text-black">
       <div className="mb-6 flex items-center justify-between">
@@ -73,6 +96,29 @@ export default async function NinetyDaySummaryPage() {
                   )}
                 </span>
               ))}
+            </dd>
+          </div>
+        )}
+
+        {quarterSteps.averageDailySteps !== null && (
+          <div>
+            <dt className="font-medium">Average daily steps</dt>
+            <dd className="mt-0.5 opacity-80">
+              <p>
+                This quarter: {quarterSteps.averageDailySteps.toLocaleString()} steps/day
+                <span className="opacity-60"> · over {quarterSteps.daysLogged} logged days</span>
+              </p>
+              {firstMonthSteps.averageDailySteps !== null && (
+                <p className="mt-0.5">
+                  First 30 days: {firstMonthSteps.averageDailySteps.toLocaleString()} steps/day
+                  {stepsDelta !== null && stepsDelta !== 0 && (
+                    <span className="opacity-60">
+                      {" "}
+                      · {stepsDelta > 0 ? "up" : "down"} {Math.abs(stepsDelta).toLocaleString()}/day across the quarter
+                    </span>
+                  )}
+                </p>
+              )}
             </dd>
           </div>
         )}

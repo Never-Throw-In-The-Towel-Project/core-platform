@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
+import { getRecentSteps } from "@/lib/steps/queries";
+import { stepsStatForRange } from "@/lib/steps/reviewStats";
 import { PrintButton } from "@/components/PrintButton";
 import type { PeriodicReview } from "@/types/database";
 
@@ -39,6 +41,20 @@ export default async function ThirtyDaySummaryPage() {
 
   const r = review as PeriodicReview;
 
+  // Average daily steps across the review period (brief §1) -- a purely
+  // personal progress metric, read only from the member's own private
+  // step_entries and shown to no one else. Best-effort: any failure, or a
+  // member who never logged steps, simply hides the block (steps are optional
+  // and no one is ever penalised for not tracking).
+  let stepsStat = { daysLogged: 0, averageDailySteps: null as number | null };
+  try {
+    const supabase = await createClient("private");
+    const entries = await getRecentSteps(supabase, profile.id, r.period_start);
+    stepsStat = stepsStatForRange(entries, r.period_start, r.period_end);
+  } catch {
+    // leave the zero/null default -> block hidden
+  }
+
   return (
     <main className="mx-auto max-w-xl px-6 py-12 print:text-black">
       <div className="mb-6 flex items-center justify-between">
@@ -54,6 +70,16 @@ export default async function ThirtyDaySummaryPage() {
         <Field label="What's working" value={r.whats_working} />
         <Field label="What needs to change" value={r.needs_to_change} />
         {r.top_wins.length > 0 && <Field label="Top wins" value={r.top_wins.join(" · ")} />}
+
+        {stepsStat.averageDailySteps !== null && (
+          <div>
+            <dt className="font-medium">Average daily steps</dt>
+            <dd className="mt-0.5 opacity-80">
+              {stepsStat.averageDailySteps.toLocaleString()} steps/day
+              <span className="opacity-60"> · over {stepsStat.daysLogged} logged days</span>
+            </dd>
+          </div>
+        )}
 
         {r.self_assessment && (
           <div>
