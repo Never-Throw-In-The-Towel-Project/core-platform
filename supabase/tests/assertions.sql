@@ -21,8 +21,8 @@ begin
     raise exception 'RLS disabled on % public/private table(s)', missing;
   end if;
   select count(*) into total from pg_tables where schemaname in ('public','private');
-  if total <> 31 then
-    raise exception 'expected 31 public+private tables (20+11), found %', total;
+  if total <> 34 then
+    raise exception 'expected 34 public+private tables (22+12), found %', total;
   end if;
   raise notice 'PASS  1  RLS enabled on all % public/private tables', total;
 end
@@ -166,6 +166,44 @@ begin
     raise exception 'challenge_enrollments is not an RLS-protected private table';
   end if;
   raise notice 'PASS  5  challenges writes ntitt_admin-gated; enrollments private + RLS on';
+end
+$$;
+
+-- ---- 5c. company step challenge: HR-gated writes, invited-clients-only, ------
+--         private opt-ins, service-role-only aggregate.
+do $$
+declare wc text; ndirect int; nwrite int; optin_rls boolean;
+begin
+  select pg_get_expr(polwithcheck, polrelid) into wc
+    from pg_policy where polrelid = 'public.company_step_challenges'::regclass and polcmd = 'a';
+  if wc is null then raise exception 'no INSERT policy on company_step_challenges'; end if;
+  if position('hr_admin' in wc) = 0 then
+    raise exception 'company_step_challenges INSERT policy is not hr_admin gated: %', wc;
+  end if;
+
+  -- Invited clients only: a CHECK bars the shared self-signup pool id.
+  select count(*) into ndirect from pg_constraint
+    where conrelid = 'public.company_step_challenges'::regclass and contype = 'c'
+      and pg_get_constraintdef(oid) like '%00000000-0000-0000-0000-000000000001%';
+  if ndirect < 1 then
+    raise exception 'company_step_challenges has no CHECK barring the shared self-signup pool';
+  end if;
+
+  -- The aggregate is service-role-write-only: no insert/update/delete policy.
+  select count(*) into nwrite from pg_policy
+    where polrelid = 'public.company_step_totals'::regclass and polcmd in ('a','w','d');
+  if nwrite <> 0 then
+    raise exception 'company_step_totals has % authenticated write policy(ies) -- must be service-role only', nwrite;
+  end if;
+
+  -- Opt-ins are a private, RLS-protected own-rows table.
+  select rowsecurity into optin_rls from pg_tables
+    where schemaname = 'private' and tablename = 'company_step_challenge_optins';
+  if optin_rls is distinct from true then
+    raise exception 'company_step_challenge_optins is not an RLS-protected private table';
+  end if;
+
+  raise notice 'PASS  5c company step challenge: HR-gated writes, invited-clients-only CHECK, aggregate service-role-only, opt-ins private+RLS';
 end
 $$;
 
@@ -544,6 +582,170 @@ end
 $$;
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
+
+-- ============================================================================
+-- LIVE RLS test of the COMPANY STEP CHALLENGE (Track 2 · D2, brief §2): a
+-- company only ever sees an AGGREGATE. An employee can't author a challenge or
+-- write the team total; drafts + other companies' challenges are hidden; opt-in
+-- is own-rows-only and private; HR reads/writes ONLY their own company; and the
+-- shared self-signup pool can never host a challenge. Reuses Company A/B and
+-- usera (Company A) / userb (Company B) from the fixtures above.
+-- ============================================================================
+-- HR admin for Company A (created as an employee by the trigger, then promoted).
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('40000000-0000-0000-0000-00000000000a','hra@a.test','{"display_name":"hra"}'::jsonb);
+update public.profiles set role='hr_admin', company_id='aaaaaaaa-0000-0000-0000-000000000001'
+  where id='40000000-0000-0000-0000-00000000000a';
+
+-- Active + draft challenge on Company A, an active one on Company B, and an
+-- aggregate row for Company A's active challenge.
+insert into public.company_step_challenges
+  (id, company_id, title, target_steps, reward_type, reward_name, starts_on, ends_on, status) values
+  ('5c000000-0000-0000-0000-0000000000c1','aaaaaaaa-0000-0000-0000-000000000001',
+   'October Steps',50000000,'team_experience','Team lunch','2026-10-01','2026-10-31','active'),
+  ('5c000000-0000-0000-0000-0000000000c2','aaaaaaaa-0000-0000-0000-000000000001',
+   'Draft',1000,'prize_draw','Vouchers','2026-11-01','2026-11-30','draft'),
+  ('5c000000-0000-0000-0000-0000000000b1','bbbbbbbb-0000-0000-0000-000000000002',
+   'Company B active',1000,'prize_draw','x','2026-10-01','2026-10-31','active');
+insert into public.company_step_totals
+  (challenge_id, company_id, total_steps, contributor_count, opted_in_count, headcount, target_reached, suppressed) values
+  ('5c000000-0000-0000-0000-0000000000c1','aaaaaaaa-0000-0000-0000-000000000001',1200000,8,10,12,false,false);
+-- userb has an opt-OUT row on Company A's challenge, to prove usera can't see it.
+insert into private.company_step_challenge_optins (user_id, challenge_id, opted_in) values
+  ('b0000000-0000-0000-0000-00000000000b','5c000000-0000-0000-0000-0000000000c1',false);
+
+-- Replicate Supabase's default public-schema grants so RLS -- not a missing
+-- grant -- is the gate (private opt-in grants come from the migration itself).
+grant select, insert, update on public.company_step_challenges to authenticated;
+grant select, insert, update on public.company_step_totals to authenticated;
+
+-- ---- as usera (Company A employee, NOT HR) ----
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+set role authenticated;
+do $$
+declare visible int;
+begin
+  -- BLOCKED: a non-HR employee cannot author a challenge
+  begin
+    insert into public.company_step_challenges
+      (company_id, title, target_steps, reward_type, reward_name, starts_on, ends_on, status)
+    values ('aaaaaaaa-0000-0000-0000-000000000001','sneaky',1000,'prize_draw','x','2026-12-01','2026-12-31','active');
+    raise exception 'FAIL challenge-write: a non-HR employee authored a company challenge';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- VISIBLE: own company's ACTIVE challenge; HIDDEN: its DRAFT and Company B's
+  select count(*) into visible from public.company_step_challenges where id='5c000000-0000-0000-0000-0000000000c1';
+  if visible <> 1 then raise exception 'FAIL challenge-read: active challenge not visible to its company employee'; end if;
+  select count(*) into visible from public.company_step_challenges where id='5c000000-0000-0000-0000-0000000000c2';
+  if visible <> 0 then raise exception 'FAIL challenge-read: a draft challenge leaked to an employee'; end if;
+  select count(*) into visible from public.company_step_challenges where id='5c000000-0000-0000-0000-0000000000b1';
+  if visible <> 0 then raise exception 'FAIL challenge-read: another company''s challenge leaked to an employee'; end if;
+
+  -- VISIBLE: own company's team total (aggregate only)
+  select count(*) into visible from public.company_step_totals where challenge_id='5c000000-0000-0000-0000-0000000000c1';
+  if visible <> 1 then raise exception 'FAIL totals-read: own-company team total not visible to employee'; end if;
+
+  -- BLOCKED: an employee cannot INSERT an aggregate row (no insert policy)
+  begin
+    insert into public.company_step_totals (challenge_id, company_id, total_steps)
+    values ('5c000000-0000-0000-0000-0000000000c2','aaaaaaaa-0000-0000-0000-000000000001',999);
+    raise exception 'FAIL totals-write: an employee inserted an aggregate row';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- BLOCKED (silent): an employee's UPDATE hits no row (no update policy);
+  -- verified unchanged as superuser below.
+  update public.company_step_totals set total_steps=999999999 where challenge_id='5c000000-0000-0000-0000-0000000000c1';
+
+  -- ALLOWED: set my OWN opt-in
+  begin
+    insert into private.company_step_challenge_optins (user_id, challenge_id, opted_in)
+    values ('a0000000-0000-0000-0000-00000000000a','5c000000-0000-0000-0000-0000000000c1',false);
+  exception when insufficient_privilege then
+    raise exception 'FAIL optin-write: a member was blocked from setting their own opt-in';
+  end;
+
+  -- BLOCKED: setting ANOTHER user's opt-in
+  begin
+    insert into private.company_step_challenge_optins (user_id, challenge_id, opted_in)
+    values ('b0000000-0000-0000-0000-00000000000b','5c000000-0000-0000-0000-0000000000c1',true);
+    raise exception 'FAIL optin-write: a member set another user''s opt-in';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- ISOLATED: usera sees only their OWN opt-in row, never userb's
+  select count(*) into visible from private.company_step_challenge_optins;
+  if visible <> 1 then
+    raise exception 'FAIL optin-read: expected usera to see exactly 1 (own) opt-in, saw %', visible;
+  end if;
+
+  raise notice 'PASS  7* live: employee cannot author/write aggregates, draft + other-company hidden, opt-in own-rows-only + private';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+-- the employee's blocked UPDATE must not have changed the aggregate
+do $$
+declare v bigint;
+begin
+  select total_steps into v from public.company_step_totals where challenge_id='5c000000-0000-0000-0000-0000000000c1';
+  if v <> 1200000 then raise exception 'FAIL totals-write: an employee mutated the team total (now %)', v; end if;
+  raise notice 'PASS  7a* the team total is not writable by an employee (unchanged)';
+end
+$$;
+
+-- ---- as the Company A HR admin ----
+select set_config('request.jwt.claim.sub', '40000000-0000-0000-0000-00000000000a', false);
+set role authenticated;
+do $$
+declare visible int;
+begin
+  -- HR sees their own company's challenges (incl. draft) + team total
+  select count(*) into visible from public.company_step_challenges where company_id='aaaaaaaa-0000-0000-0000-000000000001';
+  if visible < 2 then raise exception 'FAIL hr-read: HR cannot see their own company challenges (saw %)', visible; end if;
+  select count(*) into visible from public.company_step_totals where challenge_id='5c000000-0000-0000-0000-0000000000c1';
+  if visible <> 1 then raise exception 'FAIL hr-read: HR cannot see their own company team total'; end if;
+
+  -- ALLOWED: HR authors a challenge for their OWN company
+  begin
+    insert into public.company_step_challenges
+      (company_id, title, target_steps, reward_type, reward_name, starts_on, ends_on, status, created_by)
+    values ('aaaaaaaa-0000-0000-0000-000000000001','HR made',2000000,'charity_donation','Charity','2027-01-01','2027-01-31','draft',
+            '40000000-0000-0000-0000-00000000000a');
+  exception when insufficient_privilege then
+    raise exception 'FAIL hr-write: HR admin blocked from creating their own company challenge';
+  end;
+
+  -- BLOCKED: HR authoring a challenge for ANOTHER company
+  begin
+    insert into public.company_step_challenges
+      (company_id, title, target_steps, reward_type, reward_name, starts_on, ends_on, status)
+    values ('bbbbbbbb-0000-0000-0000-000000000002','cross',1000,'prize_draw','x','2027-01-01','2027-01-31','draft');
+    raise exception 'FAIL hr-write: HR created a challenge for another company';
+  exception when insufficient_privilege then null;
+  end;
+
+  raise notice 'PASS  7b* live: HR admin reads/writes ONLY their own company challenges + totals';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+-- ---- invited-clients-only CHECK: the shared self-signup pool is barred ----
+do $$
+begin
+  begin
+    insert into public.company_step_challenges
+      (company_id, title, target_steps, reward_type, reward_name, starts_on, ends_on)
+    values ('00000000-0000-0000-0000-000000000001','pool',1000,'prize_draw','x','2027-02-01','2027-02-28');
+    raise exception 'FAIL direct-guard: a challenge on the shared self-signup pool was allowed';
+  exception when check_violation then null;
+  end;
+  raise notice 'PASS  7c* the shared self-signup pool cannot host a company step challenge (CHECK)';
+end
+$$;
 
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'
