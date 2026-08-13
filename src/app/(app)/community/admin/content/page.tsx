@@ -2,14 +2,22 @@ import Link from "next/link";
 import { requireNtittAdmin } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { listAllContentForAdmin } from "@/lib/content/queries";
+import { computeCoverageGaps } from "@/lib/content/coverage";
 import { DAY_LABEL } from "@/lib/content/rotation";
 import { ContentStudioForm } from "@/components/admin/ContentStudioForm";
-import type { ContentItem } from "@/types/database";
+import type { ContentItem, VideoCategory } from "@/types/database";
 
 const TYPE_LABEL: Record<ContentItem["type"], string> = {
   video: "Video",
   document: "Document",
   image: "Image",
+};
+
+const CATEGORY_LABEL: Record<VideoCategory, string> = {
+  mental_fitness: "Mental Fitness",
+  physical_fitness: "Physical Fitness",
+  nutrition: "Nutrition",
+  tools_tips: "Tools & Tips",
 };
 
 /**
@@ -66,6 +74,59 @@ export default async function ContentStudioPage() {
       <div className="mt-8">
         <ContentStudioForm companies={companies} />
       </div>
+
+      {(() => {
+        // Deterministic gap detection (no AI, no API key needed): where is
+        // published coverage thin across the Mon–Sun days and the four themes?
+        const coverage = computeCoverageGaps(items);
+        const hasGaps = coverage.emptyDays.length > 0 || coverage.emptyThemes.length > 0;
+        return (
+          <section className="mt-10 border border-rule-border p-5">
+            <h2 className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">Coverage</h2>
+            {coverage.totalPublished === 0 ? (
+              <p className="mt-2 text-sm text-muted">No published content yet — publish a piece to start filling the week.</p>
+            ) : !hasGaps ? (
+              <p className="mt-2 text-sm text-foreground">
+                Every weekday and every theme has published content. Nice and even.
+              </p>
+            ) : (
+              <div className="mt-3 space-y-3 text-sm">
+                {coverage.emptyDays.length > 0 && (
+                  <div>
+                    <span className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">
+                      No day-tagged content for
+                    </span>
+                    <div className="mt-1.5 flex flex-wrap gap-2">
+                      {coverage.emptyDays.map((day) => (
+                        <span key={day} className="border border-rule-border px-2 py-0.5 text-xs font-semibold">
+                          {DAY_LABEL[day]}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {coverage.emptyThemes.length > 0 && (
+                  <div>
+                    <span className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">
+                      No published content in
+                    </span>
+                    <div className="mt-1.5 flex flex-wrap gap-2">
+                      {coverage.emptyThemes.map((theme) => (
+                        <span key={theme} className="border border-rule-border px-2 py-0.5 text-xs font-semibold">
+                          {CATEGORY_LABEL[theme]}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs text-muted">
+                  A member browsing on an empty weekday sees only day-agnostic picks — filling these evens the week out.
+                </p>
+              </div>
+            )}
+          </section>
+        );
+      })()}
 
       <div className="mt-10">
         <h2 className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">

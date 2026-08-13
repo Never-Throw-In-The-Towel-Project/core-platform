@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { createContentItem } from "@/lib/actions/content";
+import { suggestTagsAction } from "@/lib/actions/aiStudio";
 import { initialRoutineState } from "@/lib/actions/routineState";
 import type { ContentType } from "@/types/database";
 
@@ -28,19 +29,66 @@ const DOC_ACCEPT = "application/pdf";
  * right media input shows (Vimeo id for video; a file upload / external link
  * for document/image). Everything is enforced again server-side and by RLS;
  * this is the friendly surface, not the boundary.
+ *
+ * The theme/day/tags fields are controlled so the assistive "Suggest tags"
+ * button can fill them from the title + summary. That is the ONLY thing the AI
+ * does here: it proposes; the admin edits and presses Add. It never publishes.
  */
 export function ContentStudioForm({ companies }: { companies: { id: string; name: string }[] }) {
   const [state, formAction, isPending] = useActionState(createContentItem, initialRoutineState);
   const [type, setType] = useState<ContentType>("video");
   const formRef = useRef<HTMLFormElement>(null);
 
+  // Controlled so the AI suggestion can populate them (and so a suggestion is
+  // always editable before it's committed).
+  const [title, setTitle] = useState("");
+  const [summary, setSummary] = useState("");
+  const [category, setCategory] = useState("mental_fitness");
+  const [dayOfWeek, setDayOfWeek] = useState("");
+  const [tags, setTags] = useState("");
+
+  const [suggestPending, startSuggest] = useTransition();
+  const [suggestNote, setSuggestNote] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+
   useEffect(() => {
-    // Reset the uncontrolled fields on success (same pattern as PostComposer).
-    // The `type` select is left as-is -- an admin adding several items of the
-    // same type shouldn't have it snap back each time -- and resetting it here
-    // would be a setState-in-effect anyway.
+    // formRef.reset() clears the UNCONTROLLED fields (media inputs, channels,
+    // publish) -- a DOM side effect, so it belongs in an effect. The controlled
+    // fields are reset via the during-render pattern below. `type` is left as-is
+    // -- an admin adding several of the same type shouldn't have it snap back.
     if (state.status === "success") formRef.current?.reset();
   }, [state]);
+
+  // Reset the controlled fields on a fresh success by adjusting state during
+  // render (React's documented pattern -- see PostCard) rather than in an
+  // effect, which would trip the cascading-render rule.
+  const [handledState, setHandledState] = useState(state);
+  if (state !== handledState) {
+    setHandledState(state);
+    if (state.status === "success") {
+      setTitle("");
+      setSummary("");
+      setCategory("mental_fitness");
+      setDayOfWeek("");
+      setTags("");
+      setSuggestNote(null);
+    }
+  }
+
+  function handleSuggest() {
+    setSuggestNote(null);
+    startSuggest(async () => {
+      const result = await suggestTagsAction({ title, summary });
+      if (result.status === "ok") {
+        const s = result.suggestion;
+        setCategory(s.category);
+        setDayOfWeek(s.day_of_week != null ? String(s.day_of_week) : "");
+        setTags(s.tags.join(", "));
+        setSuggestNote({ kind: "ok", text: s.rationale || "Suggested — edit anything before you add it." });
+      } else {
+        setSuggestNote({ kind: "error", text: result.message });
+      }
+    });
+  }
 
   return (
     <form ref={formRef} action={formAction} className="space-y-5 border border-rule-border p-5">
@@ -65,7 +113,13 @@ export function ContentStudioForm({ companies }: { companies: { id: string; name
           <label htmlFor="content-category" className={LABEL}>
             Theme
           </label>
-          <select id="content-category" name="category" defaultValue="mental_fitness" className={FIELD}>
+          <select
+            id="content-category"
+            name="category"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className={FIELD}
+          >
             <option value="mental_fitness">Mental Fitness</option>
             <option value="physical_fitness">Physical Fitness</option>
             <option value="nutrition">Nutrition</option>
@@ -78,7 +132,15 @@ export function ContentStudioForm({ companies }: { companies: { id: string; name
         <label htmlFor="content-title" className={LABEL}>
           Title
         </label>
-        <input id="content-title" name="title" required maxLength={200} className={FIELD} />
+        <input
+          id="content-title"
+          name="title"
+          required
+          maxLength={200}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className={FIELD}
+        />
       </div>
 
       {/* Media, by type. */}
@@ -122,12 +184,39 @@ export function ContentStudioForm({ companies }: { companies: { id: string; name
         </div>
       )}
 
+      {/* Assistive tagging: proposes theme, day & tags from the title/summary.
+          The admin confirms and edits -- it never writes or publishes. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <button
+          type="button"
+          onClick={handleSuggest}
+          disabled={suggestPending || title.trim().length === 0}
+          className="border border-rule-border px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-brand-accent-deep transition-colors hover:bg-foreground/[0.03] disabled:opacity-40"
+        >
+          {suggestPending ? "Suggesting…" : "Suggest theme, day & tags"}
+        </button>
+        {suggestNote && (
+          <p
+            className={`text-xs ${suggestNote.kind === "error" ? "text-brand-accent-deep" : "text-muted"}`}
+            role="status"
+          >
+            {suggestNote.text}
+          </p>
+        )}
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="content-day" className={LABEL}>
             Day of week
           </label>
-          <select id="content-day" name="dayOfWeek" defaultValue="" className={FIELD}>
+          <select
+            id="content-day"
+            name="dayOfWeek"
+            value={dayOfWeek}
+            onChange={(e) => setDayOfWeek(e.target.value)}
+            className={FIELD}
+          >
             {DAYS.map((d) => (
               <option key={d.value} value={d.value}>
                 {d.label}
@@ -139,7 +228,14 @@ export function ContentStudioForm({ companies }: { companies: { id: string; name
           <label htmlFor="content-tags" className={LABEL}>
             Tags
           </label>
-          <input id="content-tags" name="tags" placeholder="grief, sleep, comma-separated" className={FIELD} />
+          <input
+            id="content-tags"
+            name="tags"
+            placeholder="grief, sleep, comma-separated"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+            className={FIELD}
+          />
         </div>
       </div>
 
@@ -147,7 +243,15 @@ export function ContentStudioForm({ companies }: { companies: { id: string; name
         <label htmlFor="content-summary" className={LABEL}>
           Summary <span className="font-semibold normal-case tracking-normal text-muted">(optional)</span>
         </label>
-        <textarea id="content-summary" name="summary" rows={2} maxLength={1000} className={`${FIELD} resize-y`} />
+        <textarea
+          id="content-summary"
+          name="summary"
+          rows={2}
+          maxLength={1000}
+          value={summary}
+          onChange={(e) => setSummary(e.target.value)}
+          className={`${FIELD} resize-y`}
+        />
       </div>
 
       <fieldset>
