@@ -6,7 +6,7 @@ import { initialRoutineState } from "@/lib/actions/routineState";
 
 const DAY_SCALE = Array.from({ length: 10 }, (_, i) => i + 1);
 
-export function NightRoutineForm() {
+export function NightRoutineForm({ initialSteps = null }: { initialSteps?: number | null }) {
   const [state, formAction, isPending] = useActionState(submitNightEntry, initialRoutineState);
   const [dayRating, setDayRating] = useState<number | null>(null);
 
@@ -91,6 +91,26 @@ export function NightRoutineForm() {
           rows={2}
           className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
         />
+      </label>
+
+      <label className="block text-sm">
+        <span className="font-medium">
+          Steps today <span className="font-normal opacity-60">(optional)</span>
+        </span>
+        <input
+          type="number"
+          name="steps"
+          inputMode="numeric"
+          min={0}
+          max={200000}
+          step={1}
+          defaultValue={initialSteps ?? undefined}
+          placeholder="e.g. 8,000"
+          className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+        />
+        <span className="mt-1 block text-xs opacity-60">
+          Private to you. Never shared or reported.
+        </span>
       </label>
 
       <p className="text-center text-sm italic opacity-80">
