@@ -33,7 +33,9 @@ type PageResult<T> = { data: T[] | null; error: { message?: string } | null };
 
 /** Read every row of a query, paging past PostgREST's max_rows cap. Throws on
  *  any page error so the caller never aggregates a partial result. `makeQuery`
- *  must build a FRESH query each call (supabase-js builders aren't re-runnable). */
+ *  must build a FRESH query each call (supabase-js builders aren't re-runnable)
+ *  and MUST `.order()` on a unique column -- range paging without a total order
+ *  can skip or duplicate rows across pages. */
 async function fetchAll<T>(makeQuery: (from: number, to: number) => PromiseLike<PageResult<T>>): Promise<T[]> {
   const out: T[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
@@ -75,6 +77,7 @@ export async function GET(request: NextRequest) {
         .from("company_step_challenges")
         .select("id, company_id, title, target_steps, starts_on, ends_on")
         .eq("status", "active")
+        .order("id")
         .range(from, to)
     );
     activeChallenges = all.filter((c) => c.company_id !== DIRECT_COMPANY_ID);
@@ -94,7 +97,7 @@ export async function GET(request: NextRequest) {
   const hrAdminsByCompany = new Map<string, string[]>();
   try {
     const profiles = await fetchAll<{ id: string; company_id: string }>((from, to) =>
-      publicClient.from("profiles").select("id, company_id").eq("role", "employee").in("company_id", companyIds).range(from, to)
+      publicClient.from("profiles").select("id, company_id").eq("role", "employee").in("company_id", companyIds).order("id").range(from, to)
     );
     for (const p of profiles) {
       if (!employeesByCompany.has(p.company_id)) employeesByCompany.set(p.company_id, []);
@@ -103,12 +106,12 @@ export async function GET(request: NextRequest) {
 
     const challengeIds = activeChallenges.map((c) => c.id);
     const priorTotals = await fetchAll<{ challenge_id: string; target_reached: boolean }>((from, to) =>
-      publicClient.from("company_step_totals").select("challenge_id, target_reached").in("challenge_id", challengeIds).range(from, to)
+      publicClient.from("company_step_totals").select("challenge_id, target_reached").in("challenge_id", challengeIds).order("challenge_id").range(from, to)
     );
     for (const r of priorTotals) priorReached.set(r.challenge_id, r.target_reached);
 
     const hrProfiles = await fetchAll<{ id: string; company_id: string }>((from, to) =>
-      publicClient.from("profiles").select("id, company_id").eq("role", "hr_admin").in("company_id", companyIds).range(from, to)
+      publicClient.from("profiles").select("id, company_id").eq("role", "hr_admin").in("company_id", companyIds).order("id").range(from, to)
     );
     for (const p of hrProfiles) {
       if (!hrAdminsByCompany.has(p.company_id)) hrAdminsByCompany.set(p.company_id, []);
@@ -132,7 +135,7 @@ export async function GET(request: NextRequest) {
 
       // Opt-OUTS only (default opted-in). Paged: a huge company could exceed max_rows.
       const optRows = await fetchAll<{ user_id: string; opted_in: boolean }>((from, to) =>
-        privateClient.from("company_step_challenge_optins").select("user_id, opted_in").eq("challenge_id", challenge.id).range(from, to)
+        privateClient.from("company_step_challenge_optins").select("user_id, opted_in").eq("challenge_id", challenge.id).order("id").range(from, to)
       );
       const optedOut = new Set(optRows.filter((r) => r.opted_in === false).map((r) => r.user_id));
       const optedInUsers = employees.filter((id) => !optedOut.has(id));
@@ -151,6 +154,7 @@ export async function GET(request: NextRequest) {
             .in("user_id", batch)
             .gte("entry_date", challenge.starts_on)
             .lte("entry_date", challenge.ends_on)
+            .order("id")
             .range(from, to)
         );
         for (const row of stepRows) {
