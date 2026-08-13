@@ -61,7 +61,10 @@ export async function suggestContentTags(title: string, summary: string): Promis
 
   const response = await client.messages.create({
     model: AI_MODEL,
-    max_tokens: 1024,
+    // Headroom so thinking + the JSON both fit: on the current Opus, max_tokens
+    // caps thinking AND output together, and thinking is on by default. 2048 is
+    // ample for a small tag object while staying cheap.
+    max_tokens: 2048,
     system: SYSTEM_PROMPT,
     // Low effort: this is a light extraction, not a reasoning task -- keeps it
     // fast and cheap. Structured outputs guarantee the JSON shape.
