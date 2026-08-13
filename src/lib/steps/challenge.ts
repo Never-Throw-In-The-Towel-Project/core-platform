@@ -72,17 +72,18 @@ export function progressPercent(totalSteps: number, targetSteps: number): number
 }
 
 /**
- * Reward types HR can select when setting up a challenge (brief §2). The
+ * Reward types HR can select when setting up a challenge (brief §2/§4). The
  * company funds and administers the reward; NTITT only displays it and confirms
- * when the target is hit. `anthony_visit` is a valid reward_type in the schema
- * but intentionally NOT offered here yet -- it needs the confirm-with-Anthony
- * flow (a later slice) before it can go live, so it isn't a plain launch option.
+ * when the target is hit. `anthony_visit` is special: picking it does NOT launch
+ * immediately -- the challenge is created 'pending_confirmation' and Anthony is
+ * emailed a signed link to confirm availability, which flips it live.
  */
 export const CHALLENGE_REWARD_TYPES = [
   { value: "team_experience", label: "Team experience (team lunch, day out)" },
   { value: "extra_day_off", label: "Extra day off" },
   { value: "charity_donation", label: "Charity donation in the company's name" },
   { value: "prize_draw", label: "Prize draw (e.g. vouchers)" },
+  { value: "anthony_visit", label: "Anthony Hutton in-person visit (needs his confirmation)" },
 ] as const;
 
 const REWARD_TYPE_LABELS: Record<string, string> = {

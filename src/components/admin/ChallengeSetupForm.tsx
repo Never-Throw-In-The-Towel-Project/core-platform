@@ -84,9 +84,14 @@ export function ChallengeSetupForm() {
         )}
         {state.status === "success" && (
           <p className="text-sm font-semibold sm:col-span-2" role="status">
-            Challenge launched — staff can now opt in and start contributing.
+            {state.message ?? "Challenge launched — staff can now opt in and start contributing."}
           </p>
         )}
+
+        <p className="text-xs text-muted sm:col-span-2">
+          Choosing the Anthony Hutton visit emails him to confirm availability first; the challenge goes live
+          once he confirms. Every other reward launches straight away.
+        </p>
 
         <div className="sm:col-span-2">
           <button

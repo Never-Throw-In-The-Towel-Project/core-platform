@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyCronRequest } from "@/lib/auth/cron";
 import { DIRECT_COMPANY_ID } from "@/lib/tenant/constants";
 import { computeStepTotals } from "@/lib/steps/challenge";
+import { sendTargetHitEmail } from "@/lib/steps/challengeNotify";
 
 /**
  * The private -> public aggregation for the COMPANY STEP CHALLENGE (brief §2).
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
 
   const { data: challenges, error: challengesError } = await publicClient
     .from("company_step_challenges")
-    .select("id, company_id, target_steps, starts_on, ends_on")
+    .select("id, company_id, title, target_steps, starts_on, ends_on")
     .eq("status", "active");
   if (challengesError) {
     return NextResponse.json({ error: "failed to load challenges" }, { status: 500 });
@@ -64,8 +65,33 @@ export async function GET(request: NextRequest) {
     employeesByCompany.get(cid)!.push(p.id as string);
   }
 
+  // Prior target_reached per challenge, so the "target hit" HR notification
+  // fires exactly once -- on the transition to reached -- not every day after.
+  const challengeIds = activeChallenges.map((c) => c.id as string);
+  const { data: priorTotals } = await publicClient
+    .from("company_step_totals")
+    .select("challenge_id, target_reached")
+    .in("challenge_id", challengeIds);
+  const priorReached = new Map(
+    (priorTotals ?? []).map((r) => [r.challenge_id as string, r.target_reached as boolean])
+  );
+
+  // company_id -> its hr_admin user_ids, for that notification.
+  const { data: hrProfiles } = await publicClient
+    .from("profiles")
+    .select("id, company_id")
+    .eq("role", "hr_admin")
+    .in("company_id", companyIds);
+  const hrAdminsByCompany = new Map<string, string[]>();
+  for (const p of hrProfiles ?? []) {
+    const cid = p.company_id as string;
+    if (!hrAdminsByCompany.has(cid)) hrAdminsByCompany.set(cid, []);
+    hrAdminsByCompany.get(cid)!.push(p.id as string);
+  }
+
   const now = new Date().toISOString();
   const totalsRows = [];
+  const targetHitNotices: { companyId: string; title: string; total: number; target: number }[] = [];
 
   for (const challenge of activeChallenges) {
     const employees = employeesByCompany.get(challenge.company_id as string) ?? [];
@@ -113,6 +139,17 @@ export async function GET(request: NextRequest) {
       suppressed: result.suppressed,
       updated_at: now,
     });
+
+    // Transition to reached (and not suppressed) -> notify HR once.
+    const wasReached = priorReached.get(challenge.id as string) ?? false;
+    if (!wasReached && result.targetReached && !result.suppressed) {
+      targetHitNotices.push({
+        companyId: challenge.company_id as string,
+        title: challenge.title as string,
+        total: result.totalSteps,
+        target: Number(challenge.target_steps),
+      });
+    }
   }
 
   if (totalsRows.length > 0) {
@@ -121,5 +158,34 @@ export async function GET(request: NextRequest) {
       .upsert(totalsRows, { onConflict: "challenge_id" });
   }
 
-  return NextResponse.json({ ok: true, challengesProcessed: totalsRows.length });
+  // Fire target-hit notifications to each company's HR admins -- aggregate
+  // figures only, never an individual. Best-effort: each hr_admin's email is
+  // resolved via the service-role auth admin API; a send failure is counted,
+  // never thrown.
+  let targetHitNotified = 0;
+  for (const notice of targetHitNotices) {
+    const hrIds = hrAdminsByCompany.get(notice.companyId) ?? [];
+    if (hrIds.length === 0) continue;
+    const { data: company } = await publicClient
+      .from("companies")
+      .select("name")
+      .eq("id", notice.companyId)
+      .maybeSingle();
+    const companyName = (company?.name as string) ?? "Your company";
+    for (const hrId of hrIds) {
+      const { data: userData } = await publicClient.auth.admin.getUserById(hrId);
+      const email = userData?.user?.email;
+      if (!email) continue;
+      const ok = await sendTargetHitEmail({
+        to: email,
+        companyName,
+        title: notice.title,
+        totalSteps: notice.total,
+        targetSteps: notice.target,
+      });
+      if (ok) targetHitNotified += 1;
+    }
+  }
+
+  return NextResponse.json({ ok: true, challengesProcessed: totalsRows.length, targetHitNotified });
 }

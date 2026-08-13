@@ -4,6 +4,6 @@
 export type RoutineActionState =
   | { status: "idle" }
   | { status: "error"; message: string }
-  | { status: "success" };
+  | { status: "success"; message?: string };
 
 export const initialRoutineState: RoutineActionState = { status: "idle" };

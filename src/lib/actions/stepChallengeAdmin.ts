@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireHrAdmin } from "@/lib/auth/dal";
 import { DIRECT_COMPANY_ID } from "@/lib/tenant/constants";
+import { buildChallengeConfirmUrl } from "@/lib/steps/challengeConfirm";
+import { sendAnthonyVisitEmail } from "@/lib/steps/challengeNotify";
 import { type RoutineActionState } from "./routineState";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter valid start and end dates.");
@@ -13,9 +15,13 @@ const CreateChallengeSchema = z
   .object({
     title: z.string().trim().min(1).max(120),
     targetSteps: z.coerce.number().int().min(1).max(100_000_000_000),
-    // anthony_visit is deliberately NOT offered here -- it needs the
-    // confirm-with-Anthony flow before it can go live (a later slice).
-    rewardType: z.enum(["team_experience", "extra_day_off", "charity_donation", "prize_draw"]),
+    rewardType: z.enum([
+      "team_experience",
+      "extra_day_off",
+      "charity_donation",
+      "prize_draw",
+      "anthony_visit",
+    ]),
     rewardName: z.string().trim().min(1).max(200),
     startsOn: isoDate,
     endsOn: isoDate,
@@ -56,19 +62,31 @@ export async function createChallengeAction(
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
   }
 
+  // The Anthony-visit reward doesn't launch immediately: the challenge is
+  // created 'pending_confirmation' and Anthony is emailed a signed link to
+  // confirm his availability, which flips it to 'active' (brief §4). Every other
+  // reward launches straight to 'active'.
+  const isAnthonyVisit = parsed.data.rewardType === "anthony_visit";
+  const status = isAnthonyVisit ? "pending_confirmation" : "active";
+
+  let newChallengeId: string | null = null;
   try {
     const supabase = await createClient();
-    const { error } = await supabase.from("company_step_challenges").insert({
-      company_id: profile.company_id,
-      title: parsed.data.title,
-      target_steps: parsed.data.targetSteps,
-      reward_type: parsed.data.rewardType,
-      reward_name: parsed.data.rewardName,
-      starts_on: parsed.data.startsOn,
-      ends_on: parsed.data.endsOn,
-      status: "active",
-      created_by: profile.id,
-    });
+    const { data: inserted, error } = await supabase
+      .from("company_step_challenges")
+      .insert({
+        company_id: profile.company_id,
+        title: parsed.data.title,
+        target_steps: parsed.data.targetSteps,
+        reward_type: parsed.data.rewardType,
+        reward_name: parsed.data.rewardName,
+        starts_on: parsed.data.startsOn,
+        ends_on: parsed.data.endsOn,
+        status,
+        created_by: profile.id,
+      })
+      .select("id")
+      .single();
     if (error) {
       if (error.code === "23505") {
         return {
@@ -78,10 +96,33 @@ export async function createChallengeAction(
       }
       return { status: "error", message: "Something went wrong creating the challenge. Please try again." };
     }
+    newChallengeId = inserted?.id ?? null;
+
+    if (isAnthonyVisit && newChallengeId) {
+      // Best-effort: email Anthony a signed confirm link. A send failure never
+      // fails the create -- the challenge simply waits in 'pending_confirmation'.
+      const [{ data: company }, confirmUrl] = await Promise.all([
+        supabase.from("companies").select("name").eq("id", profile.company_id).maybeSingle(),
+        buildChallengeConfirmUrl(newChallengeId),
+      ]);
+      await sendAnthonyVisitEmail({
+        companyName: (company?.name as string) ?? "Your company",
+        title: parsed.data.title,
+        startsOn: parsed.data.startsOn,
+        endsOn: parsed.data.endsOn,
+        confirmUrl,
+      });
+    }
   } catch {
     return { status: "error", message: "Something went wrong creating the challenge. Please try again." };
   }
 
   revalidatePath("/dashboard");
-  return { status: "success" };
+  return isAnthonyVisit
+    ? {
+        status: "success",
+        message:
+          "Anthony has been emailed to confirm availability — the challenge goes live once he confirms.",
+      }
+    : { status: "success" };
 }
