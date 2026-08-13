@@ -91,7 +91,7 @@ _Track 2 — the engagement flywheel (independent, parallelisable)_
   downvote is added (a peer mental-health space: easy to add later, hard to walk
   back the harm). _Open for Anthony:_ up/down-vs-up-only, and — if a board ever
   outgrows ~200 recent posts — server-side ranking / paging.
-- **D2. Gamification** — _foundation shipped; company challenge is the next sub-project._
+- **D2. Gamification** — _shipped: steps end-to-end, badges, and the company step challenge._
   Anthony's **Step Count & Gamification brief** (2026-08-13) now drives this
   chapter and resolves two of the open decisions below: **no individual
   leaderboard** (a deliberate call — a **collective team target** instead, so
@@ -113,19 +113,22 @@ _Track 2 — the engagement flywheel (independent, parallelisable)_
     and three **step-milestone badges** (10K Club, Week Streak, 30 Day Mover),
     evaluated from monotonic best-ever figures so they can be earned but never
     lost. All own-rows-only, no schema change, no aggregate path.
-  - _Next — the **company step challenge** (brief §2/§4), its own sub-project:_
-    `public.company_step_challenges` + a private opt-in table → a single
-    service-role **aggregate** (`company_step_totals`) rolling opted-in steps
-    up by `company_id`, extending the existing `aggregate-participation` cron →
-    HR setup + read-only dashboard tile → the staff challenge screen (progress
-    bar, contributors, days left, reward, **private** opt-in toggle) →
-    target-hit notification → the **Anthony-visit reward** option with an email
-    confirmation → the **Team MVP** / **Challenge Complete** badges. Locked
-    scope: **invited clients only** (not the shared self-signup pool), and a
-    **≥5-contributor floor** below which the team total is suppressed, so a
-    small team's aggregate can never reveal one person's steps. Individual
-    counts and opt-in identities are **never** exposed — the dashboard sees
-    only the total, the contributor count, and whether the target was hit.
+  - _Part 4 — the **company step challenge** (brief §2/§4), shipped end-to-end
+    (PRs #69–#73):_ `public.company_step_challenges` (HR-authored, **invited
+    clients only** via a CHECK barring the shared self-signup pool) + a private
+    opt-in table (default opted-in; opting out invisible) → a single service-role
+    **aggregate** (`company_step_totals`, daily cron) with a **≥5-contributor
+    floor** below which the team total is suppressed and stored as 0, so a small
+    team's aggregate can never reveal one person. On top: HR **setup + a
+    read-only dashboard tile** (team total, opt-in rate, target hit); the **staff
+    screen** (progress bar, contributors, days left, reward, **private** opt-in
+    toggle); a **target-hit email** to HR (aggregate only, once, on transition);
+    the **Anthony-visit reward** via an HMAC-signed confirm link (the challenge
+    stays `pending_confirmation` until he taps it); and, at challenge end,
+    **Challenge Complete** to every contributor when the target is hit plus a
+    **private Team MVP** award to the single top contributor (own-rows-only, so
+    no ranking is ever exposed). Individual step counts and opt-in identities are
+    **never** exposed — proven with live RLS tests in the migration harness.
   - _Carve-out:_ Apple Health (HealthKit) / Google Fit **auto-sync is native-
     app only** (a browser can't read those SDKs). The web ships manual entry;
     a future native shell POSTs into the same `step_entries` table.

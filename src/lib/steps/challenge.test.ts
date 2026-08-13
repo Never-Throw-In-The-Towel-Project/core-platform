@@ -4,6 +4,7 @@ import {
   optedInPercent,
   daysRemaining,
   progressPercent,
+  pickChallengeAwards,
   STEP_CHALLENGE_MIN_CONTRIBUTORS,
 } from "./challenge";
 
@@ -70,5 +71,43 @@ describe("progressPercent", () => {
     expect(progressPercent(2000, 1000)).toBe(100);
     expect(progressPercent(0, 1000)).toBe(0);
     expect(progressPercent(100, 0)).toBe(0);
+  });
+});
+
+describe("pickChallengeAwards", () => {
+  const sums = (o: Record<string, number>): [string, number][] => Object.entries(o);
+
+  it("picks the single top contributor as MVP", () => {
+    const a = pickChallengeAwards(sums({ u1: 1000, u2: 9000, u3: 5000 }), true, false);
+    expect(a.mvp).toBe("u2");
+  });
+
+  it("ignores zero-step members for MVP and Challenge Complete", () => {
+    const a = pickChallengeAwards(sums({ u1: 0, u2: 3000, u3: 0 }), true, false);
+    expect(a.mvp).toBe("u2");
+    expect(a.completeUsers).toEqual(["u2"]);
+  });
+
+  it("awards Challenge Complete to every contributor when the target is hit", () => {
+    const a = pickChallengeAwards(sums({ u1: 1000, u2: 2000 }), true, false);
+    expect(new Set(a.completeUsers)).toEqual(new Set(["u1", "u2"]));
+  });
+
+  it("awards no Challenge Complete when the target wasn't hit (but MVP still stands)", () => {
+    const a = pickChallengeAwards(sums({ u1: 1000, u2: 2000 }), false, false);
+    expect(a.completeUsers).toEqual([]);
+    expect(a.mvp).toBe("u2");
+  });
+
+  it("awards no Challenge Complete when suppressed, even if 'reached'", () => {
+    // suppressed implies the total was hidden; never award a collective badge off it
+    const a = pickChallengeAwards(sums({ u1: 1000, u2: 2000 }), true, true);
+    expect(a.completeUsers).toEqual([]);
+  });
+
+  it("returns a null MVP when no one contributed", () => {
+    const a = pickChallengeAwards(sums({ u1: 0, u2: 0 }), false, false);
+    expect(a.mvp).toBeNull();
+    expect(a.completeUsers).toEqual([]);
   });
 });

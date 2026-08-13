@@ -71,6 +71,41 @@ export function progressPercent(totalSteps: number, targetSteps: number): number
   return Math.max(0, Math.min(100, Math.round((totalSteps / targetSteps) * 100)));
 }
 
+export interface ChallengeAwards {
+  /** The single top contributor by steps -- the private "Team MVP" -- or null. */
+  mvp: string | null;
+  /** Who earns "Challenge Complete": every contributor, but only if the team
+   *  actually hit the target (and the total wasn't suppressed). */
+  completeUsers: string[];
+}
+
+/**
+ * Decide the challenge-end badge awards from each member's step sum. Pure, so
+ * the privacy-sensitive "who is the MVP" rule is unit-tested away from the DB.
+ * MVP is the strict argmax (first-seen wins a tie); only members who actually
+ * contributed ( > 0 ) are eligible for anything. Challenge Complete is gated on
+ * the team hitting the (unsuppressed) target -- a collective outcome.
+ */
+export function pickChallengeAwards(
+  sums: Iterable<[string, number]>,
+  targetReached: boolean,
+  suppressed: boolean
+): ChallengeAwards {
+  const contributors: string[] = [];
+  let mvp: string | null = null;
+  let mvpSum = 0;
+  for (const [userId, steps] of sums) {
+    if (steps > 0) {
+      contributors.push(userId);
+      if (steps > mvpSum) {
+        mvpSum = steps;
+        mvp = userId;
+      }
+    }
+  }
+  return { mvp, completeUsers: targetReached && !suppressed ? contributors : [] };
+}
+
 /**
  * Reward types HR can select when setting up a challenge (brief §2/§4). The
  * company funds and administers the reward; NTITT only displays it and confirms
