@@ -6,6 +6,7 @@ import { getJourneyStats, getWeeklyRatingAverages } from "@/lib/routines/journey
 import { getMondayOfWeek, todayISODate, weekdayNameOrWeekend } from "@/lib/routines/dates";
 import { getRecentSteps } from "@/lib/steps/queries";
 import { lastNDates, buildStepsWeek } from "@/lib/steps/week";
+import { getActiveChallengeBrief } from "@/lib/steps/challengeQueries";
 import { StepsCard } from "@/components/journey/StepsCard";
 import { getEarnedBadges, type EarnedBadge } from "@/lib/gamification/earnedBadges";
 import { badgeLabel } from "@/lib/gamification/badges";
@@ -101,6 +102,16 @@ export default async function JourneyPage() {
   const stepsWeek = buildStepsWeek(stepDates, stepEntries);
   const stats = await getJourneyStats(profile.id, activeDayCount);
 
+  // The member's company's active step challenge, if any -- a lightweight entry
+  // point to the full challenge screen. Best-effort: any failure just hides it.
+  let activeChallenge: { id: string; title: string } | null = null;
+  try {
+    const publicClient = await createClient();
+    activeChallenge = await getActiveChallengeBrief(publicClient, profile.company_id);
+  } catch {
+    activeChallenge = null;
+  }
+
   const reviews = (weeklyReviews as WeeklyReview[] | null) ?? [];
   const recentReviews = reviews.slice(0, 5);
   const ratingsByWeek = await getWeeklyRatingAverages(
@@ -181,6 +192,17 @@ export default async function JourneyPage() {
         </div>
 
         <div className="space-y-6">
+          {activeChallenge && (
+            <Link
+              href="/challenge"
+              className="block border border-current/10 p-4 transition-colors hover:bg-current/[0.03]"
+            >
+              <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Company challenge</p>
+              <p className="mt-1 font-semibold">{activeChallenge.title}</p>
+              <p className="mt-1 text-sm text-brand-accent">See the team&apos;s progress →</p>
+            </Link>
+          )}
+
           <StepsCard week={stepsWeek} />
 
           <div>
