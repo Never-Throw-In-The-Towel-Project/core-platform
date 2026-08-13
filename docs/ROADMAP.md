@@ -91,13 +91,20 @@ _Track 2 — the engagement flywheel (independent, parallelisable)_
   downvote is added (a peer mental-health space: easy to add later, hard to walk
   back the harm). _Open for Anthony:_ up/down-vs-up-only, and — if a board ever
   outgrows ~200 recent posts — server-side ranking / paging.
-- **D2. Gamification** — _self-reported steps shipped (part 1)._ A private,
-  never-reportable `step_entries` metric (own-rows-only RLS, modelled exactly on
-  `sleep_score` / `day_rating`; harness-validated live). Members log today's
-  steps and see their own 7-day trend on the Journey page; HR sees nothing and
-  no aggregate reads it. _Still to do:_ persist points/badges (currently
-  derived), rewards, and **opt-in** leaderboards — the leaderboard opt-in +
-  scope-safety is the next decision, under the privacy invariants below.
+- **D2. Gamification** — _steps + badge persistence shipped._
+  - _Part 1:_ self-reported **steps** — a private, never-reportable
+    `step_entries` metric (own-rows-only RLS, modelled on `sleep_score` /
+    `day_rating`; harness-validated live). Log today, see your own 7-day trend.
+  - _Part 2:_ **persisted badges** — badges were derived every load; now the
+    first time one is earned it's recorded in `private.earned_badges`
+    (own-rows-only, insert-and-read only, **revoke-proof** — no update/delete
+    policy), capturing `earned_at`. Awarded on the Today load (re-derived
+    server-side, idempotent) with a one-time "new badge" note; surfaced with
+    dates on the Journey. Harness-validated live RLS.
+  - _Still to do:_ **rewards**, and **opt-in** leaderboards — the leaderboard
+    opt-in + scope-safety is the next decision, under the privacy invariants
+    below. (A points *ledger* is deferred: points are derived from monotonic
+    counts today and don't yet need their own store.)
 
 **Privacy invariants that must survive this chapter** (from the strategy
 doc): steps / any health metric are `private` and **never-reportable**,

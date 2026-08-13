@@ -7,6 +7,8 @@ import { getMondayOfWeek, todayISODate, weekdayNameOrWeekend } from "@/lib/routi
 import { getRecentSteps } from "@/lib/steps/queries";
 import { lastNDates, buildStepsWeek } from "@/lib/steps/week";
 import { StepsCard } from "@/components/journey/StepsCard";
+import { getEarnedBadges, type EarnedBadge } from "@/lib/gamification/earnedBadges";
+import { badgeLabel } from "@/lib/gamification/badges";
 import type { PeriodicReview, ReviewType, StepEntry, WeeklyReview } from "@/types/database";
 
 const REVIEW_FIELDS: { key: keyof WeeklyReview; label: string }[] = [
@@ -69,6 +71,7 @@ export default async function JourneyPage() {
   let weeklyReviews: WeeklyReview[] | null = null;
   let periodicReviews: PeriodicReview[] | null = null;
   let stepEntries: StepEntry[] = [];
+  let earnedBadges: EarnedBadge[] = [];
   try {
     const supabase = await createClient("private");
     const [weeklyResult, periodicResult] = await Promise.all([
@@ -87,10 +90,12 @@ export default async function JourneyPage() {
     weeklyReviews = weeklyResult.data as WeeklyReview[] | null;
     periodicReviews = periodicResult.data as PeriodicReview[] | null;
     stepEntries = await getRecentSteps(supabase, profile.id, stepDates[0]);
+    earnedBadges = await getEarnedBadges(supabase, profile.id);
   } catch {
     weeklyReviews = null;
     periodicReviews = null;
     stepEntries = [];
+    earnedBadges = [];
   }
 
   const stepsWeek = buildStepsWeek(stepDates, stepEntries);
@@ -177,6 +182,31 @@ export default async function JourneyPage() {
 
         <div className="space-y-6">
           <StepsCard week={stepsWeek} />
+
+          <div>
+            <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Badges</p>
+            {earnedBadges.length === 0 ? (
+              <p className="mt-2 text-sm opacity-70">No badges yet — keep going.</p>
+            ) : (
+              <ul className="mt-2 space-y-2">
+                {earnedBadges.map((badge) => (
+                  <li
+                    key={badge.badge_key}
+                    className="flex items-center justify-between gap-3 border border-current/10 px-3 py-2 text-sm"
+                  >
+                    <span className="font-semibold">{badgeLabel(badge.badge_key)}</span>
+                    <span className="shrink-0 text-xs opacity-60">
+                      {new Date(badge.earned_at).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           <div>
             <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Milestones</p>

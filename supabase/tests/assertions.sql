@@ -21,8 +21,8 @@ begin
     raise exception 'RLS disabled on % public/private table(s)', missing;
   end if;
   select count(*) into total from pg_tables where schemaname in ('public','private');
-  if total <> 30 then
-    raise exception 'expected 30 public+private tables (20+10), found %', total;
+  if total <> 31 then
+    raise exception 'expected 31 public+private tables (20+11), found %', total;
   end if;
   raise notice 'PASS  1  RLS enabled on all % public/private tables', total;
 end
@@ -491,6 +491,55 @@ begin
   end if;
 
   raise notice 'PASS  6* live: step_entries own-rows-only (self-write allowed, cross-user blocked + isolated)';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+-- ============================================================================
+-- LIVE RLS test of earned_badges (Track 2 · D2): a member reads and awards ONLY
+-- their own badges, and a badge cannot be revoked (no update/delete policy).
+-- Reuses usera / userb from the fixtures above.
+-- ============================================================================
+insert into private.earned_badges (user_id, badge_key) values
+  ('b0000000-0000-0000-0000-00000000000b', 'first_week');
+
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+set role authenticated;
+do $$
+declare visible int;
+begin
+  -- TEST 1 (must be BLOCKED): awarding a badge to another user
+  begin
+    insert into private.earned_badges (user_id, badge_key)
+    values ('b0000000-0000-0000-0000-00000000000b', 'ten_days');
+    raise exception 'FAIL badges-write: a member awarded a badge to another user';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- TEST 2 (must be ALLOWED): awarding your own badge
+  begin
+    insert into private.earned_badges (user_id, badge_key)
+    values ('a0000000-0000-0000-0000-00000000000a', 'first_week');
+  exception when insufficient_privilege then
+    raise exception 'FAIL badges-write: a member was blocked from earning their own badge';
+  end;
+
+  -- TEST 3 (must be REVOKE-PROOF): no delete policy -> a member cannot remove a badge
+  begin
+    delete from private.earned_badges where user_id = 'a0000000-0000-0000-0000-00000000000a';
+    -- RLS with no DELETE policy makes the row invisible to the delete, so it
+    -- affects 0 rows rather than erroring; assert the badge is still there.
+  exception when insufficient_privilege then null;
+  end;
+
+  -- TEST 4 (must be ISOLATED + intact): usera sees only their own badge
+  select count(*) into visible from private.earned_badges;
+  if visible <> 1 then
+    raise exception 'FAIL badges-read: expected usera to see exactly 1 (own) badge, saw %', visible;
+  end if;
+
+  raise notice 'PASS  6b* live: earned_badges own-rows-only, cross-user award blocked, revoke-proof';
 end
 $$;
 reset role;
