@@ -1,11 +1,19 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getComments, getPosts } from "@/lib/community/queries";
+import type { FeedSort } from "@/lib/community/sort";
 import { PostCard } from "./PostCard";
 import { PostComposer } from "./PostComposer";
 import { CommunityGuidelines } from "./CommunityGuidelines";
 import { CommunitySidebar } from "./CommunitySidebar";
 import { CommunityRightRail } from "./CommunityRightRail";
 import type { CommunityScope, Profile } from "@/types/database";
+
+const SORT_TABS: { key: FeedSort; label: string }[] = [
+  { key: "new", label: "New" },
+  { key: "top", label: "Top" },
+  { key: "hot", label: "Hot" },
+];
 
 /**
  * Shared by /community and /community/company -- the design reference's
@@ -20,12 +28,16 @@ export async function CommunityFeedView({
   heading,
   composerPlaceholder,
   emptyMessage,
+  sort,
+  basePath,
 }: {
   profile: Profile;
   scope: CommunityScope;
   heading: string;
   composerPlaceholder: string;
   emptyMessage: string;
+  sort: FeedSort;
+  basePath: string;
 }) {
   if (!profile.community_opt_in) {
     return <CommunityGuidelines showAccept />;
@@ -44,7 +56,7 @@ export async function CommunityFeedView({
     const supabase = await createClient();
 
     const [postsResult, companyResult, podcastResult] = await Promise.all([
-      getPosts(supabase, { scope, board: "feed", companyId: profile.company_id, viewerUserId: profile.id }),
+      getPosts(supabase, { scope, board: "feed", companyId: profile.company_id, viewerUserId: profile.id, sort }),
       supabase.from("companies").select("name").eq("id", profile.company_id).maybeSingle(),
       supabase
         .from("podcast_episodes")
@@ -84,6 +96,30 @@ export async function CommunityFeedView({
         <div className="mt-4">
           <PostComposer scope={scope} board="feed" placeholder={composerPlaceholder} />
         </div>
+
+        {/* Sort the feed: New (default), Top (most-liked), Hot (recency-weighted
+            popularity). Plain links so it works without JS and each sort is a
+            shareable URL; "new" points at the bare path to keep it canonical. */}
+        <nav aria-label="Sort the feed" className="mt-5 flex gap-5 border-b border-rule-hairline">
+          {SORT_TABS.map((tab) => {
+            const active = sort === tab.key;
+            return (
+              <Link
+                key={tab.key}
+                href={tab.key === "new" ? basePath : `${basePath}?sort=${tab.key}`}
+                aria-current={active ? "page" : undefined}
+                className={`-mb-px border-b-2 pb-2 text-xs font-extrabold uppercase tracking-[0.14em] transition-colors ${
+                  active
+                    ? "border-brand-accent text-foreground"
+                    : "border-transparent text-muted hover:text-foreground"
+                }`}
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
+        </nav>
+
         <div className="mt-2">
           {posts.length === 0 && <p className="py-8 text-sm text-muted">{emptyMessage}</p>}
           {posts.map((post, i) => (

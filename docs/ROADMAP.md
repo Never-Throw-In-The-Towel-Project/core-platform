@@ -71,14 +71,17 @@ _Track 1 — the content spine (critical path)_
 - **E. AI brain v2** — personalised ranking, once engagement data exists.
 
 _Track 2 — the engagement flywheel (independent, parallelisable)_
-- **D1. Community depth** — _threaded comments shipped this pass (part 1)._
-  Two-level replies over the existing flat comments (additive
+- **D1. Community depth** — _threaded comments + new/top/hot feed sorting
+  shipped._ Two-level replies over the existing flat comments (additive
   `parent_comment_id`, server-side re-derivation + flatten, harness-validated
-  live RLS proving a reply inherits its parent post's scope). The vote question
-  is resolved **up-only** for now — the existing community *likes* already serve
-  as upvotes, so no downvote is added (a peer mental-health space: easy to add
-  later, hard to walk back the harm). _Still to do:_ **hot/top/new sorting**;
-  the up/down-vs-up-only call remains Anthony's to revisit.
+  live RLS proving a reply inherits its parent post's scope). Feed sorting —
+  **New** (default), **Top** (most-liked), **Hot** (recency-weighted popularity)
+  — as plain shareable-URL tabs, ranked in-app over a recent candidate window
+  (no schema change; no untested DB aggregate ordering). The vote question is
+  resolved **up-only** — the existing community *likes* serve as upvotes, so no
+  downvote is added (a peer mental-health space: easy to add later, hard to walk
+  back the harm). _Open for Anthony:_ up/down-vs-up-only, and — if a board ever
+  outgrows ~200 recent posts — server-side ranking / paging.
 - **D2. Gamification** — persist points/badges, add steps (self-reported
   first), rewards, and opt-in leaderboards — under the privacy invariants
   below.
@@ -108,9 +111,10 @@ no schema change). Next on the critical path: **C. AI brain v1 (assistive)** —
 Studio tag-suggestions + gap detection. C is the first item needing an external
 dependency (`ANTHROPIC_API_KEY` + a small per-call budget) and is
 assistive-with-confirm — never auto-publish — so it wants Anthony's budget
-go-ahead before wiring. In parallel, **Track 2 · D1 (community depth)** has
-begun — threaded comment replies shipped (up-only votes, reusing the existing
-likes); hot/top/new sorting is the remaining piece.
+go-ahead before wiring. In parallel, **Track 2 · D1 (community depth)** is
+essentially done — threaded comment replies and new/top/hot feed sorting both
+shipped (up-only votes, reusing the existing likes); only the up/down decision
+is left to Anthony.
 
 ---
 
