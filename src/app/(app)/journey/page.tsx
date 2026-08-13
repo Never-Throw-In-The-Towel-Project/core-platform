@@ -3,8 +3,11 @@ import { getProfile } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveDayCount } from "@/lib/routines/dayState";
 import { getJourneyStats, getWeeklyRatingAverages } from "@/lib/routines/journey";
-import { getMondayOfWeek, weekdayNameOrWeekend } from "@/lib/routines/dates";
-import type { PeriodicReview, ReviewType, WeeklyReview } from "@/types/database";
+import { getMondayOfWeek, todayISODate, weekdayNameOrWeekend } from "@/lib/routines/dates";
+import { getRecentSteps } from "@/lib/steps/queries";
+import { lastNDates, buildStepsWeek } from "@/lib/steps/week";
+import { StepsCard } from "@/components/journey/StepsCard";
+import type { PeriodicReview, ReviewType, StepEntry, WeeklyReview } from "@/types/database";
 
 const REVIEW_FIELDS: { key: keyof WeeklyReview; label: string }[] = [
   { key: "habits_to_double_down", label: "Which habits am I going to double down on?" },
@@ -58,8 +61,14 @@ export default async function JourneyPage() {
   // Degrading to empty history is the same safe direction this page
   // already takes for a genuinely new user ("Nothing here yet -- keep
   // going."), not a distinct case worth crashing this read-only page over.
+  // The member's own last 7 days of steps (private, never-reportable). The date
+  // window is computed in the member's own timezone; the fetch runs under the
+  // private client, in the same guarded block as the reviews.
+  const stepDates = lastNDates(todayISODate(new Date(), profile.timezone), 7);
+
   let weeklyReviews: WeeklyReview[] | null = null;
   let periodicReviews: PeriodicReview[] | null = null;
+  let stepEntries: StepEntry[] = [];
   try {
     const supabase = await createClient("private");
     const [weeklyResult, periodicResult] = await Promise.all([
@@ -77,10 +86,14 @@ export default async function JourneyPage() {
     ]);
     weeklyReviews = weeklyResult.data as WeeklyReview[] | null;
     periodicReviews = periodicResult.data as PeriodicReview[] | null;
+    stepEntries = await getRecentSteps(supabase, profile.id, stepDates[0]);
   } catch {
     weeklyReviews = null;
     periodicReviews = null;
+    stepEntries = [];
   }
+
+  const stepsWeek = buildStepsWeek(stepDates, stepEntries);
   const stats = await getJourneyStats(profile.id, activeDayCount);
 
   const reviews = (weeklyReviews as WeeklyReview[] | null) ?? [];
@@ -163,6 +176,8 @@ export default async function JourneyPage() {
         </div>
 
         <div className="space-y-6">
+          <StepsCard week={stepsWeek} />
+
           <div>
             <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Milestones</p>
             <div className="mt-2 space-y-3">

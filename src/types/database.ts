@@ -205,6 +205,18 @@ export interface ChallengeWithProgress extends Challenge {
   completed_days: number;
 }
 
+// Self-reported daily steps (Track 2 · D2). A PRIVATE, never-reportable health
+// metric -- own-rows-only, exactly like sleep_score / day_rating. See the
+// step_entries migration.
+export interface StepEntry {
+  id: string;
+  user_id: string;
+  entry_date: string;
+  steps: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface WorkoutWeek {
   id: string;
   bank_position: number;
