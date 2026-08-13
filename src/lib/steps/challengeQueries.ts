@@ -38,6 +38,63 @@ export interface StaffChallengeView {
   optedIn: boolean;
 }
 
+export interface AdminChallengeView {
+  challenge: StaffChallenge;
+  /** The aggregate row, or null until the job has run for this challenge. */
+  totals: StaffChallengeTotals | null;
+}
+
+function mapChallenge(row: Record<string, unknown>): StaffChallenge {
+  return {
+    id: row.id as string,
+    title: row.title as string,
+    target_steps: Number(row.target_steps),
+    reward_type: row.reward_type as string,
+    reward_name: row.reward_name as string,
+    starts_on: row.starts_on as string,
+    ends_on: row.ends_on as string,
+    status: row.status as string,
+  };
+}
+
+function mapTotals(row: Record<string, unknown> | null): StaffChallengeTotals | null {
+  if (!row) return null;
+  return {
+    total_steps: Number(row.total_steps),
+    contributor_count: row.contributor_count as number,
+    opted_in_count: row.opted_in_count as number,
+    headcount: row.headcount as number,
+    target_reached: row.target_reached as boolean,
+    suppressed: row.suppressed as boolean,
+  };
+}
+
+/**
+ * The HR-admin view of their company's active challenge + the team aggregate.
+ * Reads only the aggregate (never an individual, never who opted in) via the
+ * hr_admin read policies. Returns null when the company has no active challenge.
+ */
+export async function getAdminChallengeView(
+  publicClient: AnyClient,
+  companyId: string
+): Promise<AdminChallengeView | null> {
+  const { data: challenge } = await publicClient
+    .from("company_step_challenges")
+    .select("id, title, target_steps, reward_type, reward_name, starts_on, ends_on, status")
+    .eq("company_id", companyId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (!challenge) return null;
+
+  const { data: totals } = await publicClient
+    .from("company_step_totals")
+    .select("total_steps, contributor_count, opted_in_count, headcount, target_reached, suppressed")
+    .eq("challenge_id", challenge.id)
+    .maybeSingle();
+
+  return { challenge: mapChallenge(challenge), totals: mapTotals(totals) };
+}
+
 /** The member's company's active challenge (id + title only), for entry points. */
 export async function getActiveChallengeBrief(
   publicClient: AnyClient,

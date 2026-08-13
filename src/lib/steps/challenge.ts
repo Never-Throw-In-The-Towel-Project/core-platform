@@ -70,3 +70,30 @@ export function progressPercent(totalSteps: number, targetSteps: number): number
   if (targetSteps <= 0) return 0;
   return Math.max(0, Math.min(100, Math.round((totalSteps / targetSteps) * 100)));
 }
+
+/**
+ * Reward types HR can select when setting up a challenge (brief §2). The
+ * company funds and administers the reward; NTITT only displays it and confirms
+ * when the target is hit. `anthony_visit` is a valid reward_type in the schema
+ * but intentionally NOT offered here yet -- it needs the confirm-with-Anthony
+ * flow (a later slice) before it can go live, so it isn't a plain launch option.
+ */
+export const CHALLENGE_REWARD_TYPES = [
+  { value: "team_experience", label: "Team experience (team lunch, day out)" },
+  { value: "extra_day_off", label: "Extra day off" },
+  { value: "charity_donation", label: "Charity donation in the company's name" },
+  { value: "prize_draw", label: "Prize draw (e.g. vouchers)" },
+] as const;
+
+const REWARD_TYPE_LABELS: Record<string, string> = {
+  team_experience: "Team experience",
+  extra_day_off: "Extra day off",
+  charity_donation: "Charity donation",
+  prize_draw: "Prize draw",
+  anthony_visit: "Anthony Hutton in-person visit",
+};
+
+/** Human label for a stored reward_type (falls back to the raw value). */
+export function rewardTypeLabel(value: string): string {
+  return REWARD_TYPE_LABELS[value] ?? value;
+}
