@@ -2,6 +2,17 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CommunityBoard, CommunityComment, CommunityPost, CommunityScope } from "@/types/database";
+import { sortPosts, type FeedSort } from "@/lib/community/sort";
+
+// The feed pulls a recent candidate window and ranks it in application code
+// (lib/community/sort.ts) rather than ordering by a likes aggregate in the DB --
+// the same "provably correct by reading, no untested PostgREST aggregate" stance
+// as the rest of this file. Consequence (documented, not silent): "top"/"hot"
+// rank within the most recent FEED_CANDIDATE_LIMIT posts, and FEED_PAGE_SIZE are
+// shown. For a company-scale wellbeing community that window is comfortably the
+// whole active feed; if a board ever outgrows it, this is where paging goes.
+const FEED_CANDIDATE_LIMIT = 200;
+const FEED_PAGE_SIZE = 50;
 
 // See the same note in src/lib/dashboard/aggregates.ts on why this is
 // intentionally loose rather than the client's real schema-union generics.
@@ -84,7 +95,7 @@ async function getDisplayNames(supabase: AnySupabaseClient, userIds: string[]): 
  */
 export async function getPosts(
   supabase: AnySupabaseClient,
-  params: { scope: CommunityScope; board: CommunityBoard; companyId?: string; viewerUserId: string }
+  params: { scope: CommunityScope; board: CommunityBoard; companyId?: string; viewerUserId: string; sort?: FeedSort }
 ): Promise<PostWithMeta[]> {
   let query = supabase
     .from("community_posts")
@@ -98,8 +109,10 @@ export async function getPosts(
     // post reappears inline in the normal feed when an admin browses it. The
     // moderation queue reads its own path and is unaffected.
     .eq("is_removed", false)
+    // Always fetch the candidate window newest-first; the requested sort is
+    // applied in-app below over that window.
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(FEED_CANDIDATE_LIMIT);
 
   if (params.scope === "company" && params.companyId) {
     query = query.eq("company_id", params.companyId);
@@ -129,7 +142,7 @@ export async function getPosts(
     commentCounts.set(comment.post_id, (commentCounts.get(comment.post_id) ?? 0) + 1);
   }
 
-  return (posts as CommunityPost[]).map((post) => ({
+  const withMeta: PostWithMeta[] = (posts as CommunityPost[]).map((post) => ({
     ...post,
     authorDisplayName: authorInfo.get(post.user_id)?.displayName ?? "Someone",
     authorCompanyName: authorInfo.get(post.user_id)?.companyName ?? null,
@@ -137,6 +150,11 @@ export async function getPosts(
     likedByViewer: likedByViewer.has(post.id),
     commentCount: commentCounts.get(post.id) ?? 0,
   }));
+
+  // Rank the candidate window by the requested sort, then take the page. "new"
+  // is a no-op on the already-newest-first fetch; "top"/"hot" reorder by likes
+  // and recency-weighted popularity (see lib/community/sort.ts).
+  return sortPosts(withMeta, params.sort ?? "new", Date.now()).slice(0, FEED_PAGE_SIZE);
 }
 
 export async function getComments(
