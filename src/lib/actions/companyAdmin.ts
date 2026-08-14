@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireNtittAdmin } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { RESERVED_SUBDOMAINS } from "@/lib/tenant/resolve";
 import { type RoutineActionState } from "./routineState";
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -15,7 +16,13 @@ const optionalHex = z.union([z.string().trim().regex(HEX_COLOR, "Use a #RRGGBB c
 
 const CreateCompanySchema = z.object({
   name: z.string().trim().min(1, "Enter a company name.").max(120),
-  slug: z.string().trim().min(1, "Enter a slug.").max(63).regex(SLUG, "Slug: lowercase letters, numbers and hyphens only."),
+  slug: z
+    .string()
+    .trim()
+    .min(1, "Enter a slug.")
+    .max(63)
+    .regex(SLUG, "Slug: lowercase letters, numbers and hyphens only.")
+    .refine((s) => !RESERVED_SUBDOMAINS.has(s), "That subdomain is reserved -- pick another slug."),
   supportContactName: z.string().trim().max(120).optional(),
   supportContactEmail: z.union([z.email(), z.literal("")]).optional(),
   supportContactPhone: z.string().trim().max(40).optional(),

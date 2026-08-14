@@ -13,12 +13,17 @@ import { type RoutineActionState } from "./routineState";
  * steps, badges, challenge participation, opt-ins) plus the public community
  * posts/comments/likes/reports and push subscriptions -- all ON DELETE CASCADE.
  *
- * The only refs that do NOT cascade are nullable authorship/moderator columns
- * (created_by / removed_by / resolved_by) that exist for admins who authored
- * content or moderated. We null those first so the profiles delete is never
- * blocked, AND so the person's authorship is anonymised rather than left under
- * their id. Irreversible -- gated behind a typed "DELETE" confirmation, and it
- * only ever acts on the caller's own id (session.userId, never a form value).
+ * Two kinds of reference do NOT cascade and are handled explicitly first:
+ *   - Nullable authorship/moderator columns (created_by / removed_by /
+ *     resolved_by), which exist for admins who authored content or moderated --
+ *     nulled so the profiles delete isn't blocked and authorship is anonymised.
+ *   - private.support_requests.user_id is ON DELETE SET NULL (a request can be
+ *     submitted anonymously), so a plain cascade would leave the row behind
+ *     with the person's name / contact / dispatch payload intact. We delete the
+ *     caller's own support requests outright so no residual PII survives.
+ *
+ * Irreversible -- gated behind a typed "DELETE" confirmation, and it only ever
+ * acts on the caller's own id (session.userId, never a form value).
  */
 export async function deleteAccount(
   _prevState: RoutineActionState,
@@ -42,6 +47,11 @@ export async function deleteAccount(
     await admin.from("community_posts").update({ removed_by: null }).eq("removed_by", uid);
     await admin.from("community_comments").update({ removed_by: null }).eq("removed_by", uid);
     await admin.from("community_reports").update({ resolved_by: null }).eq("resolved_by", uid);
+
+    // support_requests.user_id is SET NULL (not cascade), so the row would
+    // otherwise survive the delete with the person's name / contact / dispatch
+    // payload. Delete the caller's own requests so no residual PII remains.
+    await createAdminClient("private").from("support_requests").delete().eq("user_id", uid);
 
     const { error } = await admin.auth.admin.deleteUser(uid);
     if (error) {

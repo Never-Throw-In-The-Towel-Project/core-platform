@@ -2,7 +2,10 @@ import { createClient } from "@supabase/supabase-js";
 import { escapeFilterValue } from "@/lib/supabase/filterEscape";
 import type { Company } from "@/types/database";
 
-const RESERVED_SUBDOMAINS = new Set(["app", "www"]);
+// Subdomains that never resolve to a tenant: "app"/"www" are the un-branded
+// default host. Exported so company creation can reject them as slugs -- a
+// company with one of these slugs could never have its subdomain resolve.
+export const RESERVED_SUBDOMAINS = new Set(["app", "www"]);
 
 /**
  * Pulls the tenant slug out of a request's Host header, for both production

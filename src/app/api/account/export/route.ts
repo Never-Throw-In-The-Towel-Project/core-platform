@@ -11,15 +11,26 @@ export const dynamic = "force-dynamic";
 
 type AnyClient = Awaited<ReturnType<typeof createClient>>;
 
-// Read a table defensively: a wrong/absent table name yields [] rather than
-// failing the whole export.
-async function rows(client: AnyClient, table: string, ownUserId?: string): Promise<unknown[]> {
+// Read a table defensively: a query error yields [] but is recorded in
+// `warnings`, so a partial export is signalled to the member (in the payload)
+// rather than silently handed over as a "complete" copy.
+async function rows(
+  client: AnyClient,
+  table: string,
+  warnings: string[],
+  ownUserId?: string
+): Promise<unknown[]> {
   try {
     let q = client.from(table).select("*");
     if (ownUserId) q = q.eq("user_id", ownUserId);
-    const { data } = await q;
+    const { data, error } = await q;
+    if (error) {
+      warnings.push(`${table}: ${error.message}`);
+      return [];
+    }
     return data ?? [];
-  } catch {
+  } catch (e) {
+    warnings.push(`${table}: ${e instanceof Error ? e.message : "read failed"}`);
     return [];
   }
 }
@@ -30,11 +41,13 @@ export async function GET() {
 
   const pub = await createClient();
   const priv = await createClient("private");
+  const warnings: string[] = [];
 
   const [
     morningEntries,
     nightEntries,
     themedCheckins,
+    sundaySetups,
     weeklyReviews,
     periodicReviews,
     stepEntries,
@@ -42,21 +55,24 @@ export async function GET() {
     challengeEnrollments,
     challengeDayCompletions,
     stepChallengeOptins,
+    supportRequests,
     communityPosts,
     communityComments,
   ] = await Promise.all([
-    rows(priv, "morning_entries"),
-    rows(priv, "night_entries"),
-    rows(priv, "themed_checkins"),
-    rows(priv, "weekly_reviews"),
-    rows(priv, "periodic_reviews"),
-    rows(priv, "step_entries"),
-    rows(priv, "earned_badges"),
-    rows(priv, "challenge_enrollments"),
-    rows(priv, "challenge_day_completions"),
-    rows(priv, "company_step_challenge_optins"),
-    rows(pub, "community_posts", profile.id),
-    rows(pub, "community_comments", profile.id),
+    rows(priv, "morning_entries", warnings),
+    rows(priv, "night_entries", warnings),
+    rows(priv, "themed_checkins", warnings),
+    rows(priv, "sunday_setups", warnings),
+    rows(priv, "weekly_reviews", warnings),
+    rows(priv, "periodic_reviews", warnings),
+    rows(priv, "step_entries", warnings),
+    rows(priv, "earned_badges", warnings),
+    rows(priv, "challenge_enrollments", warnings),
+    rows(priv, "challenge_day_completions", warnings),
+    rows(priv, "company_step_challenge_optins", warnings),
+    rows(priv, "support_requests", warnings),
+    rows(pub, "community_posts", warnings, profile.id),
+    rows(pub, "community_comments", warnings, profile.id),
   ]);
 
   const payload = {
@@ -64,11 +80,15 @@ export async function GET() {
       product: "Never Throw In The Towel",
       generatedAt: new Date().toISOString(),
       note: "Your personal data, as held by NTITT. Private entries here are visible only to you.",
+      // Only present when one or more sections failed to read -- so a partial
+      // export is never mistaken for a complete one.
+      ...(warnings.length > 0 ? { incompleteSections: warnings } : {}),
     },
     profile,
     morningEntries,
     nightEntries,
     themedCheckins,
+    sundaySetups,
     weeklyReviews,
     periodicReviews,
     stepEntries,
@@ -76,6 +96,7 @@ export async function GET() {
     challengeEnrollments,
     challengeDayCompletions,
     stepChallengeOptins,
+    supportRequests,
     communityPosts,
     communityComments,
   };
