@@ -369,7 +369,7 @@ const PodcastOptInSchema = z.discriminatedUnion("optIn", [
 /**
  * "Podcast guest opt-in -- a way for users to express interest... feeds
  * into a private list for Anthony to review, not a public sign-up" -- see
- * src/app/(app)/community/admin/podcast-guests for that list.
+ * src/app/admin/podcast for that list.
  *
  * Consent process (found missing in a full-brief review): the brief
  * requires a written explanation of what's recorded/shared, an anonymity

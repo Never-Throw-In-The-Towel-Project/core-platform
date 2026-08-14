@@ -191,7 +191,7 @@ export async function createChallenge(
     return { status: "error", message: "Something went wrong saving this. Please try again." };
   }
 
-  revalidatePath("/community/admin/challenges");
+  revalidatePath("/admin/challenges");
   revalidatePath("/challenges");
   return { status: "success" };
 }
@@ -243,7 +243,7 @@ export async function addChallengeDay(
     return { status: "error", message: "Something went wrong. Please try again." };
   }
 
-  revalidatePath(`/community/admin/challenges/${data.challengeId}`);
+  revalidatePath(`/admin/challenges/${data.challengeId}`);
   revalidatePath(`/challenges/${data.challengeId}`);
   return { status: "success" };
 }
@@ -269,7 +269,7 @@ export async function deleteChallengeDay(
     return { status: "error", message: "Couldn’t remove that day. Please try again." };
   }
 
-  revalidatePath(`/community/admin/challenges/${parsed.data.challengeId}`);
+  revalidatePath(`/admin/challenges/${parsed.data.challengeId}`);
   revalidatePath(`/challenges/${parsed.data.challengeId}`);
   return { status: "success" };
 }
@@ -298,8 +298,8 @@ export async function setChallengePublished(
     return { status: "error", message: "Couldn’t update that. Please try again." };
   }
 
-  revalidatePath(`/community/admin/challenges/${parsed.data.challengeId}`);
-  revalidatePath("/community/admin/challenges");
+  revalidatePath(`/admin/challenges/${parsed.data.challengeId}`);
+  revalidatePath("/admin/challenges");
   revalidatePath("/challenges");
   return { status: "success" };
 }

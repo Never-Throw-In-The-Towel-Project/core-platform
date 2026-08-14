@@ -6,9 +6,9 @@ import { CreateCompanyForm } from "@/components/admin/CreateCompanyForm";
 /**
  * ntitt_admin-only: provisions an account for any company and any role,
  * including hr_admin and other ntitt_admin accounts -- see
- * src/lib/actions/invite.ts. Gated the same way as the moderation queue
- * ((app)/community/admin) -- requireNtittAdmin() on the page itself, not a
- * layout, since (app)'s own layout already covers "is signed in at all".
+ * src/lib/actions/invite.ts. The /admin layout gates the whole Control Tower
+ * with requireNtittAdmin(); this page re-asserts it as defence in depth
+ * (matches the rest of the codebase).
  */
 export default async function InviteStaffPage() {
   await requireNtittAdmin();

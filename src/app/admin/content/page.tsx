@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireNtittAdmin } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { listAllContentForAdmin } from "@/lib/content/queries";
@@ -57,20 +56,6 @@ export default async function ContentStudioPage() {
       <p className="mt-1 text-sm text-muted">
         Add content, tag it by day and theme, target it to channels, and publish.
       </p>
-      <nav className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs font-semibold text-muted" aria-label="Admin tools">
-        <Link href="/community/admin" className="hover:text-foreground">
-          Moderation
-        </Link>
-        <Link href="/community/admin/challenges" className="hover:text-foreground">
-          Challenges
-        </Link>
-        <Link href="/community/admin/podcast-guests" className="hover:text-foreground">
-          Podcast guests
-        </Link>
-        <Link href="/admin/invite" className="hover:text-foreground">
-          Invite
-        </Link>
-      </nav>
 
       <div className="mt-8">
         <ContentStudioForm companies={companies} />
