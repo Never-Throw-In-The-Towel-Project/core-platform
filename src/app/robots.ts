@@ -22,6 +22,7 @@ export default function robots(): MetadataRoute.Robots {
         "/reviews",
         "/settings",
         "/dashboard",
+        "/workspace",
         "/admin",
         "/checkin",
         "/morning-routine",
