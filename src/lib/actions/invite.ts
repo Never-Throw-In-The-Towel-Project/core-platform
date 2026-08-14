@@ -5,9 +5,21 @@ import { requireHrAdmin, requireNtittAdmin } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { type RoutineActionState } from "./routineState";
 
-function buildInviteRedirect(): string {
-  return new URL("/auth/callback", process.env.NEXT_PUBLIC_SITE_URL).toString();
+// Null (not a throw) when NEXT_PUBLIC_SITE_URL is unset/invalid, so a
+// misconfigured deploy surfaces the friendly error below instead of crashing
+// the invite action uncaught (these actions have no surrounding try/catch, and
+// an invite with a broken callback link is worse than a clear failure).
+function buildInviteRedirect(): string | null {
+  const base = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!base) return null;
+  try {
+    return new URL("/auth/callback", base).toString();
+  } catch {
+    return null;
+  }
 }
+
+const INVITE_MISCONFIGURED = "Invites aren't set up correctly yet. Please contact NTITT support.";
 
 /** Friendly copy for the one error case an admin can actually act on. */
 function inviteErrorMessage(message: string): string {
@@ -50,6 +62,11 @@ export async function inviteEmployee(
     return { status: "error", message: "Please enter a valid email and name." };
   }
 
+  const redirectTo = buildInviteRedirect();
+  if (!redirectTo) {
+    return { status: "error", message: INVITE_MISCONFIGURED };
+  }
+
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.inviteUserByEmail(parsed.data.email, {
     data: {
@@ -57,7 +74,7 @@ export async function inviteEmployee(
       role: "employee",
       display_name: parsed.data.displayName,
     },
-    redirectTo: buildInviteRedirect(),
+    redirectTo,
   });
 
   if (error || !data.user) {
@@ -116,6 +133,11 @@ export async function inviteStaffMember(
     return { status: "error", message: "Please fill in every field correctly." };
   }
 
+  const redirectTo = buildInviteRedirect();
+  if (!redirectTo) {
+    return { status: "error", message: INVITE_MISCONFIGURED };
+  }
+
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.inviteUserByEmail(parsed.data.email, {
     data: {
@@ -123,7 +145,7 @@ export async function inviteStaffMember(
       role: parsed.data.role,
       display_name: parsed.data.displayName,
     },
-    redirectTo: buildInviteRedirect(),
+    redirectTo,
   });
 
   if (error || !data.user) {

@@ -1,6 +1,6 @@
 import { ProgressRing } from "./ProgressRing";
 import { StoryRail, type Story } from "./StoryRail";
-import type { Rank } from "@/lib/gamification/rank";
+import { displayRankName, type Rank } from "@/lib/gamification/rank";
 
 /**
  * The ink progress band that heads the Today screen: the review ring, the
@@ -36,7 +36,7 @@ export function ProgressBand({
           <ProgressRing pct={ringPct} label={`toward your ${reviewLabel}`} />
           <div>
             <h2 className="text-2xl font-extrabold leading-none tracking-tight sm:text-[28px]">
-              {rank.name}
+              {displayRankName(rank)}
             </h2>
             <p className="mt-1.5 text-sm text-muted-on-ink-2">
               {streak} day streak · {winsCount} wins · {badgesEarned} badges

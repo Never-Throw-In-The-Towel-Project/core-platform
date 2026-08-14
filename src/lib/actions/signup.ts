@@ -63,14 +63,15 @@ export async function signUp(
   const requestedNext = formData.get("next");
   const next =
     typeof requestedNext === "string" && isSafeRedirectPath(requestedNext) ? requestedNext : "/onboarding";
-  const callbackUrl = new URL("/auth/callback", process.env.NEXT_PUBLIC_SITE_URL);
-  callbackUrl.searchParams.set("next", next);
 
   // Wrapped in try/catch: see signInWithMagicLink's comment (lib/actions/
   // auth.ts) on why createClient() and auth-js can both throw outside the
-  // `{ error }` contract.
+  // `{ error }` contract -- and why `new URL()` (which throws on an
+  // unset/invalid NEXT_PUBLIC_SITE_URL) belongs inside it too.
   let signUpResult;
   try {
+    const callbackUrl = new URL("/auth/callback", process.env.NEXT_PUBLIC_SITE_URL);
+    callbackUrl.searchParams.set("next", next);
     const supabase = await createClient();
     signUpResult = await supabase.auth.signUp({
       email: parsed.data.email,
