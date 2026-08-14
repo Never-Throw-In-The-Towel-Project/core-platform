@@ -6,7 +6,7 @@ import { DIRECT_COMPANY_ID } from "@/lib/tenant/constants";
 import { InviteStaffForm } from "@/components/admin/InviteStaffForm";
 import { NewCompanyWizard } from "@/components/admin/NewCompanyWizard";
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "ntitt.co.uk";
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "neverthrowinthetowel.uk";
 
 type CompanyRow = { id: string; name: string; slug: string; primary_color: string | null };
 

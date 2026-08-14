@@ -19,13 +19,13 @@ host, so the experience matches the person.
 
 | Host | Who lands here | Journey | Serves |
 |---|---|---|---|
-| **`ntitt.co.uk`** (+ `app.`, `www.`) | Public visitors · Direct members | **The Core** | public marketing + the member wellbeing app (NTITT-branded) |
-| **`{company}.ntitt.co.uk`** | Partner staff · their HR | **The Company** | the member app (company-branded) + the HR cockpit |
-| **`admin.ntitt.co.uk`** | NTITT team only | **The Control Tower** | content authoring, moderation, company management — `ntitt_admin` only |
+| **`neverthrowinthetowel.uk`** (+ `app.`, `www.`) | Public visitors · Direct members | **The Core** | public marketing + the member wellbeing app (NTITT-branded) |
+| **`{company}.neverthrowinthetowel.uk`** | Partner staff · their HR | **The Company** | the member app (company-branded) + the HR cockpit |
+| **`admin.neverthrowinthetowel.uk`** | NTITT team only | **The Control Tower** | content authoring, moderation, company management — `ntitt_admin` only |
 
 The member app deliberately appears on both the Core and Company hosts — same
 code, branding switched by host (`resolveCompanyForHost`). HR live entirely on
-their company subdomain; they never touch `admin.ntitt.co.uk`.
+their company subdomain; they never touch `admin.neverthrowinthetowel.uk`.
 
 ## Decisions (locked)
 
@@ -34,10 +34,10 @@ their company subdomain; they never touch `admin.ntitt.co.uk`.
    challenges; content is 100% NTITT-curated and identical for everyone. No
    company content-curation surface, no company "groups" model. (Additive later
    if wanted.)
-3. **Open public signup** — anyone can self-register on `ntitt.co.uk` and use
+3. **Open public signup** — anyone can self-register on `neverthrowinthetowel.uk` and use
    the full member app (the "Direct" cohort). No tiering/entitlements.
 4. HR cockpit is named **"{Company} Workspace"**, at `/workspace`.
-5. NTITT admin site is **"NTITT Admin"**, at `admin.ntitt.co.uk`.
+5. NTITT admin site is **"NTITT Admin"**, at `admin.neverthrowinthetowel.uk`.
 6. Direct members do **not** get a "My Company" community space (it would pool
    unrelated strangers); real companies keep theirs.
 
@@ -70,20 +70,20 @@ Old URLs 301 → new URLs so nothing breaks.
 1. **Host → journey routing** (proxy): add `admin` to `RESERVED_SUBDOMAINS`; on
    the `admin.` host require `ntitt_admin` at the edge *and* the `/admin` layout;
    company hosts brand by host (already works). Once domains are live, a
-   host-rewrite lets `admin.ntitt.co.uk/*` serve the `/admin/*` tree at clean
+   host-rewrite lets `admin.neverthrowinthetowel.uk/*` serve the `/admin/*` tree at clean
    root URLs, and lands HR on `/workspace`.
 2. **Role-aware landing** (auth callback): after login, branch on role —
-   `ntitt_admin` → `admin.ntitt.co.uk`, `hr_admin` → `/workspace`, `employee` →
+   `ntitt_admin` → `admin.neverthrowinthetowel.uk`, `hr_admin` → `/workspace`, `employee` →
    `/home`. (Today everyone lands on `/home`.)
 3. **Cross-subdomain SSO** (infra + code): set the Supabase auth-cookie domain to
-   `.ntitt.co.uk` so one session is valid across all three hosts; attach
-   `admin.ntitt.co.uk` + wildcard `*.ntitt.co.uk` in Vercel. **Hard prerequisite
+   `.neverthrowinthetowel.uk` so one session is valid across all three hosts; attach
+   `admin.neverthrowinthetowel.uk` + wildcard `*.neverthrowinthetowel.uk` in Vercel. **Hard prerequisite
    for the subdomain model.**
 
 ## Company management — self-serve, zero-tech onboarding (Control Tower centrepiece)
 
 Because the app resolves host→company from the DB at request time, and the
-**`*.ntitt.co.uk` wildcard** (set up once) makes every subdomain resolve
+**`*.neverthrowinthetowel.uk` wildcard** (set up once) makes every subdomain resolve
 automatically with auto-SSL, **creating a company row = a live branded portal**,
 with no DNS/Vercel/deploy step per company. NTITT onboards partners with no
 engineering support.
@@ -91,7 +91,7 @@ engineering support.
 `/admin/companies` becomes a proper self-serve console:
 
 - **"New Company" wizard**: type the name → slug + **live portal-URL preview**
-  auto-generate ("live at **kpsnacks**.ntitt.co.uk"), with uniqueness +
+  auto-generate ("live at **kpsnacks**.neverthrowinthetowel.uk"), with uniqueness +
   reserved-word checks; upload a logo + pick brand colours (live preview);
   enter the **HR admin's email** → on submit, the company is created **and** the
   first HR admin is invited by email, in one step.
@@ -101,7 +101,7 @@ engineering support.
 
 **Exception:** a vanity custom domain (e.g. `wellbeing.kpsnacks.com`) inherently
 needs a one-time DNS + Vercel handshake per client (`companies.custom_domain`
-already supports it). The standard `{slug}.ntitt.co.uk` portal is instant and
+already supports it). The standard `{slug}.neverthrowinthetowel.uk` portal is instant and
 code-free. *(Open: support vanity domains at launch, or defer.)*
 
 ## Access model
@@ -126,7 +126,7 @@ schema; no admin role ever reads it. HR see only one-way `company_*` aggregates.
 
 - **Phase 0 — Infra foundation** *(mostly ops, some code)*: Vercel domains
   (`admin.` + `*.` wildcard); Supabase auth redirect allow-list for the
-  subdomains; Supabase cookie domain `.ntitt.co.uk` (code, prod-only); reserve
+  subdomains; Supabase cookie domain `.neverthrowinthetowel.uk` (code, prod-only); reserve
   the `admin` subdomain. Verify SSO across hosts.
 - **Phase 1 — Control Tower**: create `src/app/admin/` + guarded layout + nav;
   relocate the five admin surfaces (301s from old URLs); strip admin links from

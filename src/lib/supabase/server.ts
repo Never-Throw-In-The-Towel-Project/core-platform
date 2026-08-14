@@ -1,6 +1,7 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import { cookieDomainForHost } from "@/lib/tenant/resolve";
 
 /**
  * Supabase client for Server Components / Server Actions / Route Handlers.
@@ -25,6 +26,11 @@ import { createServerClient } from "@supabase/ssr";
  */
 export async function createClient(schema: "public" | "private" = "public") {
   const cookieStore = await cookies();
+  // Cross-subdomain SSO: scope the session cookie to `.neverthrowinthetowel.uk`
+  // when we're on a real host under the root domain, so a login here is valid on
+  // admin. and every {company}. subdomain. Undefined on localhost / *.vercel.app
+  // previews, where a parent-domain cookie would be rejected. See resolve.ts.
+  const cookieDomain = cookieDomainForHost((await headers()).get("host") ?? "");
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,7 +44,7 @@ export async function createClient(schema: "public" | "private" = "public") {
         setAll(cookiesToSet) {
           try {
             for (const { name, value, options } of cookiesToSet) {
-              cookieStore.set(name, value, options);
+              cookieStore.set(name, value, cookieDomain ? { ...options, domain: cookieDomain } : options);
             }
           } catch {
             // Called from a Server Component render (not a Server Action or

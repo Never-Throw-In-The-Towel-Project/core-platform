@@ -10,7 +10,7 @@ const SECTIONS = [
 ];
 
 /**
- * Control Tower home -- the landing for admin.ntitt.co.uk. Guard is also on the
+ * Control Tower home -- the landing for admin.neverthrowinthetowel.uk. Guard is also on the
  * layout; kept here as defence in depth (matches the codebase pattern).
  */
 export default async function AdminHomePage() {

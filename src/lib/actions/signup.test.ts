@@ -7,7 +7,7 @@ vi.mock("@/lib/tenant/resolve", () => ({
   resolveCompanyForHost: (...args: unknown[]) => resolveCompanyForHost(...args),
 }));
 
-const headersMock = vi.fn(() => new Map([["host", "ntitt.co.uk"]]));
+const headersMock = vi.fn(() => new Map([["host", "neverthrowinthetowel.uk"]]));
 vi.mock("next/headers", () => ({
   headers: () => Promise.resolve(headersMock()),
 }));
@@ -50,9 +50,9 @@ const validFields = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://app.ntitt.co.uk");
+  vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://app.neverthrowinthetowel.uk");
   resolveCompanyForHost.mockResolvedValue(null);
-  headersMock.mockReturnValue(new Map([["host", "ntitt.co.uk"]]));
+  headersMock.mockReturnValue(new Map([["host", "neverthrowinthetowel.uk"]]));
   profilesUpsertMock.mockResolvedValue({ error: null });
 });
 
