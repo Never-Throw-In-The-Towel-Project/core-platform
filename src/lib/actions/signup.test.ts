@@ -45,6 +45,7 @@ const validFields = {
   password: "password123",
   confirmPassword: "password123",
   displayName: "New User",
+  consent: "yes",
 };
 
 beforeEach(() => {
@@ -60,6 +61,21 @@ describe("signUp", () => {
     resolveCompanyForHost.mockResolvedValue({ id: "partner-co", slug: "acme" });
 
     const state = await signUp(initialRoutineState, formData(validFields));
+
+    expect(state.status).toBe("error");
+    expect(signUpMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses without consent to the terms and privacy policy", async () => {
+    const state = await signUp(
+      initialRoutineState,
+      formData({
+        email: validFields.email,
+        password: validFields.password,
+        confirmPassword: validFields.confirmPassword,
+        displayName: validFields.displayName,
+      })
+    );
 
     expect(state.status).toBe("error");
     expect(signUpMock).not.toHaveBeenCalled();
