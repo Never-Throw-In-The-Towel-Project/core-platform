@@ -13,6 +13,13 @@ describe("isPublicPath", () => {
     expect(isPublicPath("/signup/anything")).toBe(true);
   });
 
+  it("treats the public legal pages as reachable while logged out", () => {
+    // Regression guard: these were added under (marketing) + linked from the
+    // footer and signup, but must not be gated behind /login.
+    expect(isPublicPath("/privacy")).toBe(true);
+    expect(isPublicPath("/terms")).toBe(true);
+  });
+
   it("does not match an unrelated gated path", () => {
     expect(isPublicPath("/home")).toBe(false);
     expect(isPublicPath("/signup-not-a-real-path")).toBe(false);
