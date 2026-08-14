@@ -11,6 +11,8 @@ const MARKETING_PATHS = [
   "/what-i-do/pop-up-barbershop",
   "/documentary",
   "/podcast",
+  "/privacy",
+  "/terms",
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

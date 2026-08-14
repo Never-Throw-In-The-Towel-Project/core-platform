@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyCronRequest } from "@/lib/auth/cron";
 import { localMinutesSinceMidnight, todayISODate, weekdayNameOrWeekend } from "@/lib/routines/dates";
-import { sendPushToSubscription, type PushSubscriptionTarget } from "@/lib/notifications/sendPush";
+import { isPushConfigured, sendPushToSubscription, type PushSubscriptionTarget } from "@/lib/notifications/sendPush";
 import type { PushNotificationType } from "@/types/database";
 
 // Matches this route's own schedule in vercel.json -- a user's configured
@@ -54,6 +54,17 @@ const FILTER_COLUMN: Record<PushNotificationType, keyof ProfileNotificationRow> 
 export async function GET(request: NextRequest) {
   if (!(await verifyCronRequest(request))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  // Check web-push config ONCE, before the loop writes any dedup rows. If VAPID
+  // is misconfigured, sendPushToSubscription would silently no-op -- but the
+  // loop inserts a push_notification_log row *before* each send, so a silent
+  // failure would mark every due reminder "sent today" (dedup), deliver
+  // nothing, and still return ok:true, permanently suppressing that day's
+  // reminders. Bail loudly instead: a 503 surfaces in monitoring and no dedup
+  // rows are written, so reminders resume the moment the config is fixed.
+  if (!isPushConfigured()) {
+    return NextResponse.json({ ok: false, error: "push_not_configured" }, { status: 503 });
   }
 
   const now = new Date();

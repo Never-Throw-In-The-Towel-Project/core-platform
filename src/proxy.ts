@@ -39,7 +39,11 @@ import { extractTenantSlug } from "@/lib/tenant/resolve";
 // /documentary, /podcast, and /what-i-do are the public marketing site (see
 // src/app/(marketing)/) -- the free "taster" that explicitly must not
 // require signing in, since the actual paid content lives behind /login.
-export const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth/callback", "/documentary", "/podcast", "/what-i-do"];
+// /privacy and /terms are the public legal pages (same marketing group,
+// linked from its footer) -- they MUST be reachable while logged out, both
+// for the footer links and because signup links to them before an account
+// exists. Any new public route under (marketing) needs adding here too.
+export const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth/callback", "/documentary", "/podcast", "/what-i-do", "/privacy", "/terms"];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -118,6 +122,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api/|_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|.*\\.(?:svg|png|jpg|jpeg|ico)$).*)",
+    "/((?!api/|_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|sw.js|.*\\.(?:svg|png|jpg|jpeg|ico)$).*)",
   ],
 };

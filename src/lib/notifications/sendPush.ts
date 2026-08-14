@@ -3,21 +3,40 @@ import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 let configured = false;
+let loggedMisconfig = false;
 
-// Returns false (rather than throwing) when the VAPID env vars are absent or
-// invalid. web-push's setVapidDetails validates and THROWS on a missing/bad
-// subject or key; left unguarded that throw propagated out of the dispatch cron
-// and crashed the whole run the first time any notification was due. Now an
-// unconfigured push setup simply makes every send a no-op.
-function ensureConfigured(): boolean {
+/**
+ * Returns whether web push is configured, without throwing. web-push's
+ * setVapidDetails validates and THROWS on a missing/bad subject or key; left
+ * unguarded that throw propagated out of the dispatch cron and crashed the
+ * whole run the first time any notification was due.
+ *
+ * Exported so the dispatch cron can check this ONCE up front and bail loudly
+ * before it writes any per-user dedup rows -- otherwise a silent no-op here
+ * combined with the cron's "insert dedup log, then send" ordering would mark
+ * every reminder "sent today", deliver nothing, and still report success,
+ * permanently suppressing that day's reminders. A misconfiguration is logged
+ * (once) so it surfaces in monitoring instead of vanishing.
+ */
+export function isPushConfigured(): boolean {
   if (configured) return true;
   const subject = process.env.VAPID_SUBJECT;
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
-  if (!subject || !publicKey || !privateKey) return false;
+  if (!subject || !publicKey || !privateKey) {
+    if (!loggedMisconfig) {
+      console.error("[sendPush] web push not configured: VAPID_SUBJECT / NEXT_PUBLIC_VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY missing");
+      loggedMisconfig = true;
+    }
+    return false;
+  }
   try {
     webpush.setVapidDetails(subject, publicKey, privateKey);
-  } catch {
+  } catch (error) {
+    if (!loggedMisconfig) {
+      console.error("[sendPush] web push not configured: invalid VAPID details", error);
+      loggedMisconfig = true;
+    }
     return false;
   }
   configured = true;
@@ -46,7 +65,7 @@ export async function sendPushToSubscription(
   subscription: PushSubscriptionTarget,
   payload: PushPayload
 ): Promise<void> {
-  if (!ensureConfigured()) return; // web push not configured -> no-op, never crash the cron
+  if (!isPushConfigured()) return; // web push not configured -> no-op, never crash the cron
 
   try {
     await webpush.sendNotification(
