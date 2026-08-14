@@ -13,7 +13,12 @@ const ContentSchema = z.object({
   category: z.enum(["mental_fitness", "physical_fitness", "nutrition", "tools_tips"]),
   summary: z.string().trim().max(1000).optional(),
   dayOfWeek: z.number().int().min(1).max(7).optional(),
-  vimeoId: z.string().trim().min(1).max(64).optional(),
+  vimeoId: z
+    .string()
+    .trim()
+    .regex(/^\d+$/, "Enter the numeric Vimeo ID only (e.g. 123456789), not a URL.")
+    .max(64)
+    .optional(),
   externalUrl: z
     .string()
     .trim()
@@ -132,12 +137,98 @@ export async function createContentItem(
         // than reporting a clean success or a total failure.
         return {
           status: "error",
-          message: "Saved the content, but couldn’t set its channels. Edit it to set them again.",
+          message: "Saved the content, but couldn’t set its channels. Delete it and recreate it to try again.",
         };
       }
     }
   } catch {
     return { status: "error", message: "Something went wrong saving this. Please try again." };
+  }
+
+  revalidatePath("/community/admin/content");
+  revalidatePath("/content");
+  return { status: "success" };
+}
+
+const ContentPublishSchema = z.object({
+  id: z.string().uuid(),
+  published: z.enum(["true", "false"]),
+});
+
+/**
+ * Publish / unpublish an existing content item. ntitt_admin only (friendly check
+ * here; the content_items UPDATE RLS policy is the real gate). Lets a bad or
+ * out-of-date piece be pulled from members without deleting it -- there was
+ * previously no way to change is_published after creation.
+ */
+export async function setContentItemPublished(
+  _prevState: RoutineActionState,
+  formData: FormData
+): Promise<RoutineActionState> {
+  await verifySession();
+  const profile = await getProfile();
+  if (profile.role !== "ntitt_admin") {
+    return { status: "error", message: "You don’t have access to the content studio." };
+  }
+
+  const parsed = ContentPublishSchema.safeParse({
+    id: formData.get("id"),
+    published: formData.get("published"),
+  });
+  if (!parsed.success) {
+    return { status: "error", message: "Couldn’t update that item." };
+  }
+
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("content_items")
+      .update({ is_published: parsed.data.published === "true" })
+      .eq("id", parsed.data.id);
+    if (error) {
+      return { status: "error", message: "Couldn’t update that item. Please try again." };
+    }
+  } catch {
+    return { status: "error", message: "Couldn’t update that item. Please try again." };
+  }
+
+  revalidatePath("/community/admin/content");
+  revalidatePath("/content");
+  return { status: "success" };
+}
+
+const ContentIdSchema = z.object({ id: z.string().uuid() });
+
+/**
+ * Delete a content item. ntitt_admin only. Its channel placements cascade away
+ * (FK on delete cascade) and any challenge day pointing at it degrades to a bare
+ * prompt (FK on delete set null), so deleting a piece never breaks a challenge.
+ * This is the in-app fix for a mistyped Vimeo ID / wrong item that previously
+ * needed raw SQL.
+ */
+export async function deleteContentItem(
+  _prevState: RoutineActionState,
+  formData: FormData
+): Promise<RoutineActionState> {
+  await verifySession();
+  const profile = await getProfile();
+  if (profile.role !== "ntitt_admin") {
+    return { status: "error", message: "You don’t have access to the content studio." };
+  }
+
+  const parsed = ContentIdSchema.safeParse({ id: formData.get("id") });
+  if (!parsed.success) {
+    return { status: "error", message: "Couldn’t delete that item." };
+  }
+
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("content_items").delete().eq("id", parsed.data.id);
+    if (error) {
+      return { status: "error", message: "Couldn’t delete that item. Please try again." };
+    }
+  } catch {
+    return { status: "error", message: "Couldn’t delete that item. Please try again." };
   }
 
   revalidatePath("/community/admin/content");

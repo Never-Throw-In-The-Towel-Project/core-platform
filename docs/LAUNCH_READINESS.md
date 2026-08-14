@@ -57,11 +57,13 @@ legal copy only NTITT can supply).
   personal-data export (Arts. 15/20).
 
 ### Content & operational config
-- 🛠️ **No edit / unpublish / delete for content items.** Only `createContentItem`
-  exists; a wrong Vimeo ID or theme can only be fixed via raw SQL — and a live
-  error message already tells admins to "edit it" on a screen that doesn't exist.
-- 🛠️ **Vimeo IDs are unvalidated free text** → a mistyped ID renders a broken
-  player on the member watch page with no fallback.
+- ✅ **DONE — Unpublish / delete for content items.** Per-item Publish/Unpublish +
+  Delete controls in the Studio list (`setContentItemPublished` / `deleteContentItem`,
+  RLS-gated). A bad item can now be pulled or fixed (delete + recreate) without SQL;
+  the placement-failure message no longer points at a non-existent edit screen.
+  _(A full field-edit form is a nice-to-have follow-up; delete + recreate covers fixes.)_
+- ✅ **DONE — Vimeo IDs are validated** on create (numeric-only), so a mistyped ID or
+  a pasted URL is rejected at the form instead of rendering a broken player.
 - 📝 **The catalogue ships empty.** No seeded content/challenges; the headline
   search-first Library is barren on day one. Needs a real launch catalogue loaded.
 - ⚙️ **Provision prod env vars** (full list below). Several **silently no-op** when

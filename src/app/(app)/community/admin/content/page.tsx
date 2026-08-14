@@ -5,6 +5,7 @@ import { listAllContentForAdmin } from "@/lib/content/queries";
 import { computeCoverageGaps } from "@/lib/content/coverage";
 import { DAY_LABEL } from "@/lib/content/rotation";
 import { ContentStudioForm } from "@/components/admin/ContentStudioForm";
+import { ContentItemActions } from "@/components/admin/ContentItemActions";
 import type { ContentItem, VideoCategory } from "@/types/database";
 
 const TYPE_LABEL: Record<ContentItem["type"], string> = {
@@ -156,6 +157,7 @@ export default async function ContentStudioPage() {
                 >
                   {item.is_published ? "Live" : "Draft"}
                 </span>
+                <ContentItemActions id={item.id} isPublished={item.is_published} title={item.title} />
               </li>
             ))}
           </ul>
