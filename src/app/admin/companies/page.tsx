@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireNtittAdmin } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -81,6 +82,12 @@ export default async function CompaniesPage() {
                       {admins.length > 0 ? `HR: ${admins.join(", ")}` : "No HR admin yet"}
                     </p>
                   </div>
+                  <Link
+                    href={`/admin/companies/${c.id}`}
+                    className="shrink-0 text-xs font-semibold text-brand-accent-deep hover:underline"
+                  >
+                    Edit
+                  </Link>
                 </li>
               );
             })}

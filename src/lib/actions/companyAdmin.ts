@@ -178,3 +178,68 @@ export async function createCompanyWithHr(
     message: `Created “${d.name}” — portal live at ${d.slug}.${root}, and invited ${d.hrEmail} as HR admin.`,
   };
 }
+
+const UpdateCompanySchema = z.object({
+  companyId: z.string().uuid(),
+  name: z.string().trim().min(1, "Enter a company name.").max(120),
+  welcomeCopy: z.string().trim().max(2000).optional(),
+  supportContactName: z.string().trim().max(120).optional(),
+  supportContactEmail: z.union([z.email(), z.literal("")]).optional(),
+  supportContactPhone: z.string().trim().max(40).optional(),
+  primaryColor: optionalHex,
+  accentColor: optionalHex,
+});
+
+/**
+ * ntitt_admin-only: edit an existing company's branding, welcome copy and
+ * support-contact routing. The slug is deliberately NOT editable -- it's the
+ * company's portal identity ({slug}.ntitt.co.uk) and its bookmarks; changing it
+ * would silently break every existing link. Same service-role trust model as
+ * createCompany (companies has no UPDATE RLS policy), gated by requireNtittAdmin.
+ */
+export async function updateCompany(
+  _prevState: RoutineActionState,
+  formData: FormData
+): Promise<RoutineActionState> {
+  await requireNtittAdmin();
+
+  const parsed = UpdateCompanySchema.safeParse({
+    companyId: formData.get("companyId"),
+    name: formData.get("name"),
+    welcomeCopy: formData.get("welcomeCopy") ?? undefined,
+    supportContactName: formData.get("supportContactName") ?? undefined,
+    supportContactEmail: formData.get("supportContactEmail") ?? undefined,
+    supportContactPhone: formData.get("supportContactPhone") ?? undefined,
+    primaryColor: formData.get("primaryColor") ?? undefined,
+    accentColor: formData.get("accentColor") ?? undefined,
+  });
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+  const d = parsed.data;
+
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("companies")
+      .update({
+        name: d.name,
+        welcome_copy: d.welcomeCopy || null,
+        support_contact_name: d.supportContactName || null,
+        support_contact_email: d.supportContactEmail || null,
+        support_contact_phone: d.supportContactPhone || null,
+        primary_color: d.primaryColor || null,
+        accent_color: d.accentColor || null,
+      })
+      .eq("id", d.companyId);
+    if (error) {
+      return { status: "error", message: "Couldn't save changes. Please try again." };
+    }
+  } catch {
+    return { status: "error", message: "Couldn't save changes. Please try again." };
+  }
+
+  revalidatePath("/admin/companies");
+  revalidatePath(`/admin/companies/${d.companyId}`);
+  return { status: "success", message: "Changes saved." };
+}
