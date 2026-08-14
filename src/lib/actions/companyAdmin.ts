@@ -85,6 +85,6 @@ export async function createCompany(
   }
 
   // So the new company appears immediately in the invite form's dropdown.
-  revalidatePath("/admin/invite");
+  revalidatePath("/admin/companies");
   return { status: "success", message: `Created “${d.name}”. You can now invite staff into it below.` };
 }

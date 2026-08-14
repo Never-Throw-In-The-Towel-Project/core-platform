@@ -45,20 +45,6 @@ export default async function AdminChallengesPage() {
       <p className="mt-1 text-sm text-muted">
         Create a guided programme, then open it to sequence its days from the content library.
       </p>
-      <nav className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs font-semibold text-muted" aria-label="Admin tools">
-        <Link href="/community/admin" className="hover:text-foreground">
-          Moderation
-        </Link>
-        <Link href="/community/admin/content" className="hover:text-foreground">
-          Content
-        </Link>
-        <Link href="/community/admin/podcast-guests" className="hover:text-foreground">
-          Podcast guests
-        </Link>
-        <Link href="/admin/invite" className="hover:text-foreground">
-          Invite
-        </Link>
-      </nav>
 
       <div className="mt-8">
         <ChallengeStudioForm />
@@ -76,7 +62,7 @@ export default async function AdminChallengesPage() {
               const count = dayCounts.get(c.id) ?? 0;
               return (
                 <li key={c.id} className="flex items-center gap-3 py-3">
-                  <Link href={`/community/admin/challenges/${c.id}`} className="min-w-0 flex-1 group">
+                  <Link href={`/admin/challenges/${c.id}`} className="min-w-0 flex-1 group">
                     <span className="block truncate font-extrabold leading-tight tracking-tight group-hover:text-brand-accent-deep">
                       {c.title}
                     </span>

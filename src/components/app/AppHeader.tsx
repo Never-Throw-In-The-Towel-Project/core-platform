@@ -60,17 +60,9 @@ export function AppHeader({
               </Link>
             )}
             {profile.role === "ntitt_admin" && (
-              <>
-                <Link href="/community/admin/content" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
-                  Studio
-                </Link>
-                <Link href="/community/admin" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
-                  Moderation
-                </Link>
-                <Link href="/admin/invite" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
-                  Invite
-                </Link>
-              </>
+              <Link href="/admin" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
+                NTITT Admin
+              </Link>
             )}
             <Link href="/settings" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
               Settings

@@ -54,7 +54,7 @@ export default async function AdminChallengeEditorPage({ params }: { params: Pro
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
       <Link
-        href="/community/admin/challenges"
+        href="/admin/challenges"
         className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-brand-accent-deep hover:underline"
       >
         ← All challenges

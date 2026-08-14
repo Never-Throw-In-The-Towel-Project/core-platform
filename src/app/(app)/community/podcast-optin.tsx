@@ -15,7 +15,7 @@ const ANONYMITY_LABEL: Record<PodcastGuestAnonymityPreference, string> = {
  * "Podcast guest opt-in -- a way for users to express interest in sharing
  * their story on the monthly podcast. This feeds into a private list for
  * Anthony to review, not a public sign-up" (brief). The private list itself
- * is src/app/(app)/community/admin/podcast-guests.
+ * is src/app/admin/podcast.
  *
  * Consent process (brief, "required before recording" -- "protects the
  * guest and protects the platform legally"): a written explanation of

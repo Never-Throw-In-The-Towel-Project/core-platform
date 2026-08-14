@@ -11,6 +11,19 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "6mb",
     },
   },
+  // The NTITT admin tools moved out of the member app (/community/admin/*,
+  // /admin/invite) into the dedicated /admin Control Tower (see
+  // docs/PLATFORM_STRUCTURE.md). Permanent redirects keep old links working.
+  async redirects() {
+    return [
+      { source: "/community/admin", destination: "/admin/moderation", permanent: true },
+      { source: "/community/admin/content", destination: "/admin/content", permanent: true },
+      { source: "/community/admin/challenges", destination: "/admin/challenges", permanent: true },
+      { source: "/community/admin/challenges/:id", destination: "/admin/challenges/:id", permanent: true },
+      { source: "/community/admin/podcast-guests", destination: "/admin/podcast", permanent: true },
+      { source: "/admin/invite", destination: "/admin/companies", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

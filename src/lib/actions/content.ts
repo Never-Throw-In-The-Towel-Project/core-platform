@@ -145,7 +145,7 @@ export async function createContentItem(
     return { status: "error", message: "Something went wrong saving this. Please try again." };
   }
 
-  revalidatePath("/community/admin/content");
+  revalidatePath("/admin/content");
   revalidatePath("/content");
   return { status: "success" };
 }
@@ -192,7 +192,7 @@ export async function setContentItemPublished(
     return { status: "error", message: "Couldn’t update that item. Please try again." };
   }
 
-  revalidatePath("/community/admin/content");
+  revalidatePath("/admin/content");
   revalidatePath("/content");
   return { status: "success" };
 }
@@ -231,7 +231,7 @@ export async function deleteContentItem(
     return { status: "error", message: "Couldn’t delete that item. Please try again." };
   }
 
-  revalidatePath("/community/admin/content");
+  revalidatePath("/admin/content");
   revalidatePath("/content");
   return { status: "success" };
 }
