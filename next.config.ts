@@ -22,6 +22,8 @@ const nextConfig: NextConfig = {
       { source: "/community/admin/challenges/:id", destination: "/admin/challenges/:id", permanent: true },
       { source: "/community/admin/podcast-guests", destination: "/admin/podcast", permanent: true },
       { source: "/admin/invite", destination: "/admin/companies", permanent: true },
+      // The HR dashboard moved into the "{Company} Workspace" site.
+      { source: "/dashboard", destination: "/workspace", permanent: true },
     ];
   },
 };

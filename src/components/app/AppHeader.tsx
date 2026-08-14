@@ -55,8 +55,8 @@ export function AppHeader({
             </span>
 
             {profile.role === "hr_admin" && (
-              <Link href="/dashboard" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
-                Dashboard
+              <Link href="/workspace" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
+                Workspace
               </Link>
             )}
             {profile.role === "ntitt_admin" && (

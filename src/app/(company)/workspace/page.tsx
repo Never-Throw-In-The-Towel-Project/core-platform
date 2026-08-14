@@ -35,7 +35,7 @@ function overallPercent(week: { morningPercent: number | null; nightPercent: num
  * 30/90-day review completion. Every number here comes from the public
  * aggregate tables (company_support_counts, company_daily_participation,
  * company_review_completions) -- see docs/ARCHITECTURE.md "Privacy
- * boundary". There is no query on this page, or anywhere under (admin),
+ * boundary". There is no query on this page, or anywhere under (company),
  * that reaches into `private`.
  */
 export default async function DashboardPage() {

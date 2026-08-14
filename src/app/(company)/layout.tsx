@@ -1,0 +1,48 @@
+import Link from "next/link";
+import { requireHrAdmin } from "@/lib/auth/dal";
+import { createClient } from "@/lib/supabase/server";
+import { AskForSupport } from "@/components/AskForSupport";
+import { resolveHelplineNumber } from "@/lib/support/helpline";
+
+/**
+ * The Company HR site -- "{Company} Workspace", at /workspace. Its own shell,
+ * distinct from the member app and the NTITT Control Tower. requireHrAdmin()
+ * gates the whole group at the layout.
+ *
+ * Note what this layout deliberately does NOT do: there is no query anywhere
+ * under (company) that reaches into the `private` schema. The dashboard is
+ * served entirely from public.company_* aggregate tables -- see
+ * docs/ARCHITECTURE.md "Privacy boundary". That's not a convention to remember,
+ * it's a fact enforced by RLS: no policy on any private table ever grants
+ * hr_admin access, so there is no query that *could* leak an individual's data.
+ */
+export default async function CompanyLayout({ children }: { children: React.ReactNode }) {
+  const profile = await requireHrAdmin();
+
+  // The company name brands the workspace header. Best-effort: a transient
+  // failure just falls back to a generic label, never crashes the HR site.
+  let companyName = "Your company";
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.from("companies").select("name").eq("id", profile.company_id).maybeSingle();
+    if (data?.name) companyName = data.name;
+  } catch {
+    // keep the default label
+  }
+
+  return (
+    <div className="flex min-h-full flex-1 flex-col">
+      <header className="flex items-center justify-between border-b border-black/10 px-6 py-4">
+        <div>
+          <p className="text-sm font-bold tracking-tight">{companyName} Workspace</p>
+          <p className="text-xs opacity-60">HR admin · {profile.display_name}</p>
+        </div>
+        <Link href="/home" className="text-sm underline opacity-80">
+          My Today screen
+        </Link>
+      </header>
+      <div className="flex-1">{children}</div>
+      <AskForSupport helplineNumber={resolveHelplineNumber()} />
+    </div>
+  );
+}

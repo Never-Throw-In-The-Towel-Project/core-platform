@@ -141,7 +141,7 @@ export async function createChallengeAction(
     return { status: "error", message: "Something went wrong creating the challenge. Please try again." };
   }
 
-  revalidatePath("/dashboard");
+  revalidatePath("/workspace");
   return isAnthonyVisit
     ? {
         status: "success",

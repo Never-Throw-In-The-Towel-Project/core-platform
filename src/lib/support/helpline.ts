@@ -11,7 +11,7 @@ import "server-only";
  * `helplineNumber` prop was defined but never actually passed by either
  * layout that renders it, so every user saw the literal placeholder text
  * "the helpline" with no real number -- see (app)/layout.tsx and
- * (admin)/layout.tsx. `HELPLINE_NUMBER` lets a real deployment override
+ * (company)/layout.tsx. `HELPLINE_NUMBER` lets a real deployment override
  * this (e.g. a company's own EAP crisis line); Samaritans is the correct
  * default for this platform's UK deployment (every seeded/testimonial
  * company is UK-based) and is always safe to show even unconfigured.

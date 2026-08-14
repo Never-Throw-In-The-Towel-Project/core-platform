@@ -74,7 +74,7 @@ export const getProfile = cache(async (): Promise<Profile> => {
   return profile;
 });
 
-/** For (admin) routes: verifies the session AND that the user is an hr_admin. */
+/** For (company) routes: verifies the session AND that the user is an hr_admin. */
 export const requireHrAdmin = cache(async (): Promise<Profile> => {
   const profile = await getProfile();
 
