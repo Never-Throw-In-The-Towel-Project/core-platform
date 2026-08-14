@@ -47,14 +47,15 @@ legal copy only NTITT can supply).
   _Deferred: the first launch is UK-only, so this is a fast-follow — becomes
   launch-blocking only when onboarding non-UK users._
 
-### Legal / compliance (📝 needs NTITT's copy; 🛠️ we build the surface)
-- **Privacy policy / data-processing notice** — none exists; UK GDPR requires one
-  before collecting data.
-- **Terms of Service** — none exists.
-- **Signup consent** — `SignupForm` captures name/email/password with no consent
-  checkbox and no link to terms/privacy.
-- **In-product GDPR rights** — Settings has no account deletion (Art. 17) or
-  personal-data export (Arts. 15/20).
+### Legal / compliance (📝 NTITT's solicitor replaces the copy; 🛠️ we built the surface)
+- ✅ **DONE (draft) — Privacy policy** at `/privacy` and **Terms** at `/terms`, with a
+  prominent "Draft — pending legal review" banner. Starter copy drawn from the
+  platform's actual behaviour; **📝 your solicitor must review + replace before launch.**
+- ✅ **DONE — Signup consent.** A required "I agree to the Terms and Privacy Policy"
+  checkbox (linked) on `/signup`, re-validated server-side. Footer links added.
+- 🛠️ **In-product GDPR rights** — account deletion (Art. 17) + personal-data export
+  (Arts. 15/20) in Settings. _In progress — next PR (kept separate as deletion is
+  irreversible and needs cascade verification)._
 
 ### Content & operational config
 - ✅ **DONE — Unpublish / delete for content items.** Per-item Publish/Unpublish +
@@ -95,9 +96,8 @@ Feature-optional: `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` (AI Studio assist),
 Samaritans), `NEXT_PUBLIC_APP_ROOT_DOMAIN`.
 
 ### SEO / discoverability (🛠️)
-- **No Open Graph / Twitter tags and no `metadataBase`** — sharing any link yields
-  a bare text preview.
-- **No `robots.ts` / `sitemap.ts`** — nothing guides crawlers.
+- ✅ **DONE — Open Graph / Twitter tags + `metadataBase` + a title template** (lane 1).
+- ✅ **DONE — `robots.ts` + `sitemap.ts`** for the public marketing routes (lane 1).
 
 ---
 

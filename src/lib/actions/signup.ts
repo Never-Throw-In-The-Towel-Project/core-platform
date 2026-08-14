@@ -50,6 +50,13 @@ export async function signUp(
     return { status: "error", message: "Self-service signup isn't available here. Please sign in instead." };
   }
 
+  // Consent to Terms + Privacy is required to create an account (the form
+  // checkbox is `required`, but a server action is reachable independently of
+  // its page, so re-check here -- same defence-in-depth as the host guard above).
+  if (formData.get("consent") !== "yes") {
+    return { status: "error", message: "Please agree to the Terms of Service and Privacy Policy to continue." };
+  }
+
   const parsed = SignupSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),

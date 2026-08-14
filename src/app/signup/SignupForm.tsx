@@ -57,6 +57,14 @@ export function SignupForm({ next }: { next?: string }) {
           className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
         />
       </label>
+      <label className="flex items-start gap-2 text-sm">
+        <input name="consent" type="checkbox" required value="yes" className="mt-1 shrink-0" />
+        <span>
+          I agree to the{" "}
+          <Link href="/terms" target="_blank" className="underline">Terms of Service</Link> and{" "}
+          <Link href="/privacy" target="_blank" className="underline">Privacy Policy</Link>.
+        </span>
+      </label>
       {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
       <button
         type="submit"
