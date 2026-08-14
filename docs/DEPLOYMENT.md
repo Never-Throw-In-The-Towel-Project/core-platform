@@ -46,7 +46,7 @@ touches the schema; see `supabase/tests/README.md`.
 3. **Authentication → Sign In / Providers**: confirm email (magic link) is
    enabled; that's the only auth method this app uses.
 4. **Authentication → URL Configuration**:
-   - Site URL: the real production URL (e.g. `https://app.ntitt.co.uk`).
+   - Site URL: the real production URL (e.g. `https://app.neverthrowinthetowel.uk`).
    - Redirect URLs: add the production URL and any preview/staging URLs you
      want magic links to work from.
    - Confirm signups: `enable_signup` is `true` in `supabase/config.toml` —
@@ -176,7 +176,7 @@ for later accounts.
    keypair generated (`npx web-push generate-vapid-keys`) — they're blank
    placeholders in `.env.example`.
 3. **Settings → Domains**: point the production domain
-   (`app.ntitt.co.uk`, per `NEXT_PUBLIC_APP_ROOT_DOMAIN`) and any
+   (`app.neverthrowinthetowel.uk`, per `NEXT_PUBLIC_APP_ROOT_DOMAIN`) and any
    co-branded subdomains at this project.
 4. **Settings → Cron Jobs / plan tier**: `vercel.json` defines 3 cron jobs,
    one of which (`monitor-support-response-time`) runs every 15 minutes.

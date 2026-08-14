@@ -263,7 +263,7 @@ on. Co-branding is a presentation-layer override on top:
   `welcome_copy`, `slug` (subdomain), and an optional `custom_domain` for
   flagship clients.
 - `src/lib/tenant/resolve.ts` resolves a request's Host header to a company
-  (subdomain slug, e.g. `kpsnacks.ntitt.co.uk`, or a custom domain).
+  (subdomain slug, e.g. `kpsnacks.neverthrowinthetowel.uk`, or a custom domain).
 - `src/lib/theme/ThemeProvider.tsx` overrides four `--brand-*` CSS custom
   properties (defined with NTITT defaults in `globals.css`) per company.
   Every component should reference `--brand-*` tokens (Tailwind classes like

@@ -6,10 +6,13 @@ describe("extractTenantSlug", () => {
     expect(extractTenantSlug("neverthrowinthetowel.uk")).toBeNull();
   });
 
-  it("returns null for the app.*, www.* and admin.* reserved subdomains", () => {
+  it("returns null for the app.*, www.*, admin.* and direct.* reserved subdomains", () => {
     expect(extractTenantSlug("app.neverthrowinthetowel.uk")).toBeNull();
     expect(extractTenantSlug("www.neverthrowinthetowel.uk")).toBeNull();
     expect(extractTenantSlug("admin.neverthrowinthetowel.uk")).toBeNull();
+    // "direct" is the self-signup pool company's slug -- must not resolve as a
+    // tenant, or direct.<root> mis-brands and blocks signup.
+    expect(extractTenantSlug("direct.neverthrowinthetowel.uk")).toBeNull();
   });
 
   it("returns the slug for a real partner subdomain", () => {

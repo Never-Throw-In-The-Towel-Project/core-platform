@@ -63,7 +63,17 @@ export async function provisionInvite(params: {
     { onConflict: "id" }
   );
   if (profileError) {
-    return { ok: false, message: "Invite sent, but finishing account setup failed. Please try again." };
+    // Roll back the half-provisioned account. inviteUserByEmail already created
+    // the auth.users row (and a default employee/DIRECT_COMPANY profile via the
+    // handle_new_user trigger) and it rejects an already-registered email -- so
+    // without this, no retry could ever finish provisioning, and the invitee
+    // could accept the emailed link and sign in as a plain employee in NTITT
+    // Direct (wrong role, wrong tenant), unfixable from any in-app flow.
+    // Deleting the auth user invalidates that emailed link and lets the caller
+    // retry cleanly. Best-effort: if the delete itself fails, still report the
+    // original setup failure rather than throw.
+    await admin.auth.admin.deleteUser(data.user.id).catch(() => {});
+    return { ok: false, message: "Couldn't finish setting up the invite. Please try again." };
   }
   return { ok: true };
 }

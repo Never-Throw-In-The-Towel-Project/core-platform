@@ -6,5 +6,18 @@
  * post-login redirect agree on what's safe.
  */
 export function isSafeRedirectPath(path: string): boolean {
-  return path.startsWith("/") && !path.startsWith("//") && !path.includes("://");
+  // Must be an absolute-path reference to THIS origin. The backslash check is
+  // load-bearing: browsers (and the WHATWG URL parser) fold `\` -> `/` in
+  // http(s) URLs, so `/\evil.com` -- which passes the `//` and `://` checks --
+  // resolves to the protocol-relative `//evil.com` -> `https://evil.com`. Since
+  // signInWithPassword()/signUp() pass a validated `next` straight to
+  // redirect() without origin-prefixing, that was a real open redirect: a
+  // victim signs in on the genuine site with their real password and is then
+  // bounced to an attacker host. Reject any backslash to close it.
+  return (
+    path.startsWith("/") &&
+    !path.startsWith("//") &&
+    !path.includes("\\") &&
+    !path.includes("://")
+  );
 }
