@@ -55,19 +55,19 @@ export function AppHeader({
             </span>
 
             {profile.role === "hr_admin" && (
-              <Link href="/dashboard" className="hidden text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground md:inline">
-                HR
+              <Link href="/dashboard" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
+                Dashboard
               </Link>
             )}
             {profile.role === "ntitt_admin" && (
               <>
-                <Link href="/community/admin/content" className="hidden text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground md:inline">
+                <Link href="/community/admin/content" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
                   Studio
                 </Link>
-                <Link href="/community/admin" className="hidden text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground md:inline">
+                <Link href="/community/admin" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
                   Moderation
                 </Link>
-                <Link href="/admin/invite" className="hidden text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground md:inline">
+                <Link href="/admin/invite" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
                   Invite
                 </Link>
               </>
