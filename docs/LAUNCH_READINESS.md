@@ -53,9 +53,11 @@ legal copy only NTITT can supply).
   platform's actual behaviour; **📝 your solicitor must review + replace before launch.**
 - ✅ **DONE — Signup consent.** A required "I agree to the Terms and Privacy Policy"
   checkbox (linked) on `/signup`, re-validated server-side. Footer links added.
-- 🛠️ **In-product GDPR rights** — account deletion (Art. 17) + personal-data export
-  (Arts. 15/20) in Settings. _In progress — next PR (kept separate as deletion is
-  irreversible and needs cascade verification)._
+- ✅ **DONE — In-product GDPR rights** in Settings: **personal-data export** (Arts.
+  15/20 — a JSON download of the member's own profile, routines, reviews, steps,
+  badges and community posts) and **account deletion** (Art. 17 — typed-DELETE
+  confirmation; cascades all the member's data, anonymises any authorship refs
+  first so it works for any user).
 
 ### Content & operational config
 - ✅ **DONE — Unpublish / delete for content items.** Per-item Publish/Unpublish +
