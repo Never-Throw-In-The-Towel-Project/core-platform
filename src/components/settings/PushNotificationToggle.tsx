@@ -1,76 +1,24 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { subscribeToPush, unsubscribeFromPush } from "@/lib/actions/pushSubscription";
-
-// The Push API wants the VAPID public key as a raw Uint8Array, not the
-// base64url string NEXT_PUBLIC_VAPID_PUBLIC_KEY is stored as.
-// `new Uint8Array(length)` (rather than `Uint8Array.from(...)`) guarantees
-// a plain ArrayBuffer-backed array -- lib.dom types Uint8Array.from's result
-// as backed by the broader ArrayBufferLike (which includes SharedArrayBuffer),
-// which PushSubscriptionOptionsInit.applicationServerKey's BufferSource type
-// doesn't accept.
-function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = atob(base64);
-  const bytes = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; i++) {
-    bytes[i] = rawData.charCodeAt(i);
-  }
-  return bytes;
-}
+import { unsubscribeFromPush } from "@/lib/actions/pushSubscription";
+import { enablePushSubscription, isPushSupported } from "@/lib/notifications/pushClient";
 
 export function PushNotificationToggle({ initiallySubscribed }: { initiallySubscribed: boolean }) {
   const [subscribed, setSubscribed] = useState(initiallySubscribed);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const supported =
-    typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window;
+  const supported = isPushSupported();
 
   function handleEnable() {
     setError(null);
     startTransition(async () => {
-      try {
-        const permission = await Notification.requestPermission();
-        if (permission !== "granted") {
-          setError("Notifications permission wasn't granted.");
-          return;
-        }
-
-        const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-        if (!vapidPublicKey) {
-          setError("Push notifications aren't configured yet.");
-          return;
-        }
-
-        const registration = await navigator.serviceWorker.register("/sw.js");
-        await navigator.serviceWorker.ready;
-
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-        });
-
-        const json = subscription.toJSON();
-        if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
-          setError("Something went wrong enabling notifications. Please try again.");
-          return;
-        }
-
-        const result = await subscribeToPush({
-          endpoint: json.endpoint,
-          keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
-        });
-
-        if (result.ok) {
-          setSubscribed(true);
-        } else {
-          setError("Something went wrong saving this. Please try again.");
-        }
-      } catch {
-        setError("Something went wrong enabling notifications. Please try again.");
+      const result = await enablePushSubscription();
+      if (result.ok) {
+        setSubscribed(true);
+      } else {
+        setError(result.error ?? "Something went wrong. Please try again.");
       }
     });
   }
