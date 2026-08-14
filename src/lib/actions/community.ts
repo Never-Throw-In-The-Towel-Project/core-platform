@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { verifySession, getProfile } from "@/lib/auth/dal";
 import { uploadCommunityImage } from "@/lib/community/imageUpload";
+import { badgeLabel } from "@/lib/gamification/badges";
 import { type RoutineActionState } from "./routineState";
 
 const PostSchema = z.object({
@@ -81,6 +82,85 @@ export async function submitCommunityPost(
 
   revalidatePath("/community", "layout");
   return { status: "success" };
+}
+
+const ShareBadgeSchema = z.object({ badgeKey: z.string().trim().min(1).max(64) });
+
+/**
+ * Conscious badge sharing (brief §3): a member CHOOSES to surface a badge they
+ * earned privately (private.earned_badges) onto the community wins board.
+ * Guards, in order:
+ *   - must have opted into the community (RLS enforces the same on the insert);
+ *   - must ACTUALLY own the badge -- read under the private, own-rows-only
+ *     client, so a forged badge_key from the form can't be shared;
+ *   - deduped so the same badge can't be posted twice.
+ * Only the badge label + the member's display name become public -- no steps, no
+ * challenge details, nothing else private is exposed. company_id and user_id
+ * come from the caller's own profile, never the client (same pattern as posting).
+ */
+export async function shareBadgeAction(
+  _prevState: RoutineActionState,
+  formData: FormData
+): Promise<RoutineActionState> {
+  await verifySession();
+  const profile = await getProfile();
+
+  if (!profile.community_opt_in) {
+    return { status: "error", message: "Join the community first, then you can share a badge." };
+  }
+
+  const parsed = ShareBadgeSchema.safeParse({ badgeKey: formData.get("badgeKey") });
+  if (!parsed.success) {
+    return { status: "error", message: "That badge couldn't be shared." };
+  }
+  const badgeKey = parsed.data.badgeKey;
+
+  try {
+    // Ownership check. earned_badges is private + own-rows-only, so this both
+    // authorises the share and blocks sharing a badge you don't have.
+    const privateClient = await createClient("private");
+    const { data: earned } = await privateClient
+      .from("earned_badges")
+      .select("badge_key")
+      .eq("user_id", profile.id)
+      .eq("badge_key", badgeKey)
+      .maybeSingle();
+    if (!earned) {
+      return { status: "error", message: "You haven't earned that badge yet." };
+    }
+
+    const supabase = await createClient();
+
+    // Don't let the same badge be shared twice.
+    const { data: already } = await supabase
+      .from("community_posts")
+      .select("id")
+      .eq("user_id", profile.id)
+      .eq("shared_badge_key", badgeKey)
+      .eq("is_removed", false)
+      .limit(1);
+    if (already && already.length > 0) {
+      return { status: "error", message: "You've already shared this badge." };
+    }
+
+    const { error } = await supabase.from("community_posts").insert({
+      user_id: profile.id,
+      company_id: profile.company_id,
+      scope: "global",
+      board: "wins",
+      body: `🏅 I earned the “${badgeLabel(badgeKey)}” badge!`,
+      shared_badge_key: badgeKey,
+    });
+    if (error) {
+      return { status: "error", message: "Couldn't share right now. Please try again." };
+    }
+  } catch {
+    return { status: "error", message: "Couldn't share right now. Please try again." };
+  }
+
+  revalidatePath("/community", "layout");
+  revalidatePath("/journey");
+  return { status: "success", message: "Shared to the wins board!" };
 }
 
 const CommentSchema = z.object({

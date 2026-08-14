@@ -8,6 +8,7 @@ import { getRecentSteps } from "@/lib/steps/queries";
 import { lastNDates, buildStepsWeek } from "@/lib/steps/week";
 import { getActiveChallengeBrief } from "@/lib/steps/challengeQueries";
 import { StepsCard } from "@/components/journey/StepsCard";
+import { ShareBadgeButton } from "@/components/journey/ShareBadgeButton";
 import { getEarnedBadges, type EarnedBadge } from "@/lib/gamification/earnedBadges";
 import { badgeLabel } from "@/lib/gamification/badges";
 import type { PeriodicReview, ReviewType, StepEntry, WeeklyReview } from "@/types/database";
@@ -73,6 +74,9 @@ export default async function JourneyPage() {
   let periodicReviews: PeriodicReview[] | null = null;
   let stepEntries: StepEntry[] = [];
   let earnedBadges: EarnedBadge[] = [];
+  // badge_keys the member has already shared to the wins board (public schema),
+  // so each badge renders as "Share" or "Shared" rather than offering a duplicate.
+  let sharedBadgeKeys = new Set<string>();
   try {
     const supabase = await createClient("private");
     const [weeklyResult, periodicResult] = await Promise.all([
@@ -92,6 +96,16 @@ export default async function JourneyPage() {
     periodicReviews = periodicResult.data as PeriodicReview[] | null;
     stepEntries = await getRecentSteps(supabase, profile.id, stepDates[0]);
     earnedBadges = await getEarnedBadges(supabase, profile.id);
+
+    // Which badges are already on the wins board (public.community_posts).
+    const publicClient = await createClient();
+    const { data: sharedRows } = await publicClient
+      .from("community_posts")
+      .select("shared_badge_key")
+      .eq("user_id", profile.id)
+      .not("shared_badge_key", "is", null)
+      .eq("is_removed", false);
+    sharedBadgeKeys = new Set((sharedRows ?? []).map((r) => r.shared_badge_key as string));
   } catch {
     weeklyReviews = null;
     periodicReviews = null;
@@ -210,23 +224,37 @@ export default async function JourneyPage() {
             {earnedBadges.length === 0 ? (
               <p className="mt-2 text-sm opacity-70">No badges yet — keep going.</p>
             ) : (
-              <ul className="mt-2 space-y-2">
-                {earnedBadges.map((badge) => (
-                  <li
-                    key={badge.badge_key}
-                    className="flex items-center justify-between gap-3 border border-current/10 px-3 py-2 text-sm"
-                  >
-                    <span className="font-semibold">{badgeLabel(badge.badge_key)}</span>
-                    <span className="shrink-0 text-xs opacity-60">
-                      {new Date(badge.earned_at).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <>
+                {profile.community_opt_in ? (
+                  <p className="mt-1 text-xs opacity-60">
+                    Your badges are private. Share one to celebrate it on the community wins board.
+                  </p>
+                ) : null}
+                <ul className="mt-2 space-y-2">
+                  {earnedBadges.map((badge) => (
+                    <li
+                      key={badge.badge_key}
+                      className="flex items-center justify-between gap-3 border border-current/10 px-3 py-2 text-sm"
+                    >
+                      <span className="font-semibold">{badgeLabel(badge.badge_key)}</span>
+                      <div className="flex shrink-0 items-center gap-3">
+                        {sharedBadgeKeys.has(badge.badge_key) ? (
+                          <span className="text-xs text-brand-accent-deep">Shared ✓</span>
+                        ) : profile.community_opt_in ? (
+                          <ShareBadgeButton badgeKey={badge.badge_key} />
+                        ) : null}
+                        <span className="text-xs opacity-60">
+                          {new Date(badge.earned_at).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </div>
 

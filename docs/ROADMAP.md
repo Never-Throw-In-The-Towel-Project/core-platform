@@ -91,7 +91,7 @@ _Track 2 — the engagement flywheel (independent, parallelisable)_
   downvote is added (a peer mental-health space: easy to add later, hard to walk
   back the harm). _Open for Anthony:_ up/down-vs-up-only, and — if a board ever
   outgrows ~200 recent posts — server-side ranking / paging.
-- **D2. Gamification** — _shipped: steps end-to-end, badges, and the company step challenge._
+- **D2. Gamification** — _shipped in full: steps end-to-end, badges (with conscious sharing), and the company step challenge._
   Anthony's **Step Count & Gamification brief** (2026-08-13) now drives this
   chapter and resolves two of the open decisions below: **no individual
   leaderboard** (a deliberate call — a **collective team target** instead, so
@@ -129,6 +129,13 @@ _Track 2 — the engagement flywheel (independent, parallelisable)_
     **private Team MVP** award to the single top contributor (own-rows-only, so
     no ranking is ever exposed). Individual step counts and opt-in identities are
     **never** exposed — proven with live RLS tests in the migration harness.
+  - _Part 5 — **conscious badge sharing** (brief §3):_ badges stay private on the
+    member's Journey; a **Share** control lets them CHOOSE to surface one onto the
+    community **wins board** (a normal `community_posts` row carrying the
+    `shared_badge_key`, deduped, and only after verifying they actually earned it
+    under the own-rows-only private client). Nothing is shared automatically; only
+    the badge label + display name go public. This completes the brief's
+    "visible to others only if the user shares" line.
   - _Carve-out:_ Apple Health (HealthKit) / Google Fit **auto-sync is native-
     app only** (a browser can't read those SDKs). The web ships manual entry;
     a future native shell POSTs into the same `step_entries` table.

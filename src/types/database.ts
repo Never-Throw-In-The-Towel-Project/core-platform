@@ -351,6 +351,9 @@ export interface CommunityPost {
   board: CommunityBoard;
   body: string;
   image_url: string | null;
+  // Set when this post is a member's conscious share of a badge they earned
+  // (private.earned_badges); NULL for an ordinary post. See the share action.
+  shared_badge_key: string | null;
   is_removed: boolean;
   removed_by: string | null;
   removed_at: string | null;

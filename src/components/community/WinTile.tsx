@@ -1,4 +1,5 @@
 import { getIsoWeekNumber } from "@/lib/routines/dates";
+import { badgeLabel } from "@/lib/gamification/badges";
 import type { PostWithMeta } from "@/lib/community/queries";
 
 /**
@@ -17,6 +18,11 @@ export function WinTile({ post }: { post: PostWithMeta }) {
         <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-brand-accent-deep">
           Week {week}
         </p>
+        {post.shared_badge_key ? (
+          <span className="mt-2 inline-block rounded-full border border-brand-accent/40 px-2 py-0.5 text-[11px] font-semibold text-brand-accent-deep">
+            🏅 {badgeLabel(post.shared_badge_key)}
+          </span>
+        ) : null}
         <p className="mt-2 text-sm">{post.body}</p>
       </div>
       <p className="mt-3 text-xs text-muted">
