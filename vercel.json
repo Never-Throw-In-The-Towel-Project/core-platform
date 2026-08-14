@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/jobs/aggregate-step-challenges",
-      "schedule": "0 2 * * *"
+      "schedule": "30 2 * * *"
     },
     {
       "path": "/api/jobs/monitor-support-response-time",

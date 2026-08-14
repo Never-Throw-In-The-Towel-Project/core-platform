@@ -4,14 +4,24 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 let configured = false;
 
-function ensureConfigured() {
-  if (configured) return;
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT!,
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-    process.env.VAPID_PRIVATE_KEY!
-  );
+// Returns false (rather than throwing) when the VAPID env vars are absent or
+// invalid. web-push's setVapidDetails validates and THROWS on a missing/bad
+// subject or key; left unguarded that throw propagated out of the dispatch cron
+// and crashed the whole run the first time any notification was due. Now an
+// unconfigured push setup simply makes every send a no-op.
+function ensureConfigured(): boolean {
+  if (configured) return true;
+  const subject = process.env.VAPID_SUBJECT;
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+  if (!subject || !publicKey || !privateKey) return false;
+  try {
+    webpush.setVapidDetails(subject, publicKey, privateKey);
+  } catch {
+    return false;
+  }
   configured = true;
+  return true;
 }
 
 export type PushSubscriptionTarget = {
@@ -36,7 +46,7 @@ export async function sendPushToSubscription(
   subscription: PushSubscriptionTarget,
   payload: PushPayload
 ): Promise<void> {
-  ensureConfigured();
+  if (!ensureConfigured()) return; // web push not configured -> no-op, never crash the cron
 
   try {
     await webpush.sendNotification(

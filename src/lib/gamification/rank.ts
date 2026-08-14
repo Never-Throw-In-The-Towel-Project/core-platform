@@ -27,3 +27,14 @@ export function resolveRank(activeDayCount: number): Rank {
   // Canonical from the handoff.
   return { name: "Contender", confirmed: true };
 }
+
+/**
+ * The rank name that is safe to SHOW a user. A provisional (not-yet-signed-off)
+ * tier name falls back to the canonical "Contender" so unapproved copy never
+ * reaches a user before Anthony signs the ladder off. Once the names are
+ * confirmed (flip `confirmed: true` above), this returns them unchanged -- so
+ * approving the ladder is still the one-line change this file promises.
+ */
+export function displayRankName(rank: Rank): string {
+  return rank.confirmed ? rank.name : "Contender";
+}

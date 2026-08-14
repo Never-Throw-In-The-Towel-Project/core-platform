@@ -33,10 +33,17 @@ export async function GET(request: NextRequest) {
   const privateClient = createAdminClient("private");
   const publicClient = createAdminClient();
 
-  const { data: pending } = await privateClient
+  const { data: pending, error: pendingError } = await privateClient
     .from("support_requests")
     .select("id, company_id, contact_display_name, urgency, contact_method, delivery_status, created_at")
     .eq("status", "new");
+
+  // Fail loud, not silent: a swallowed error here would skip every overdue
+  // escalation for this run with no signal -- unacceptable for a safety-critical
+  // flow. A 500 surfaces in logs/monitoring and the 15-min cron retries.
+  if (pendingError) {
+    return NextResponse.json({ error: "failed to load pending support requests" }, { status: 500 });
+  }
 
   const overdue = (pending ?? []).filter((row) => {
     const deliveryStatus = row.delivery_status as DeliveryStatus;

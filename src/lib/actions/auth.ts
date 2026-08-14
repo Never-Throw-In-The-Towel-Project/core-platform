@@ -45,8 +45,6 @@ export async function signInWithMagicLink(
   const requestedNext = formData.get("next");
   const next =
     typeof requestedNext === "string" && isSafeRedirectPath(requestedNext) ? requestedNext : null;
-  const callbackUrl = new URL("/auth/callback", process.env.NEXT_PUBLIC_SITE_URL);
-  if (next) callbackUrl.searchParams.set("next", next);
 
   // Wrapped in try/catch, not just the `{ error }` return Supabase's own
   // typings promise: createClient() throws synchronously if the URL/key are
@@ -56,8 +54,12 @@ export async function signInWithMagicLink(
   // return value when it recognizes the failure as an AuthError -- anything
   // it doesn't recognize is re-thrown. Either would otherwise surface as an
   // unhandled exception here and crash to Next's generic error page instead
-  // of this form's own inline message.
+  // of this form's own inline message. `new URL()` is inside the try too: an
+  // unset/invalid NEXT_PUBLIC_SITE_URL throws a TypeError here that would
+  // otherwise crash uncaught (it sits before the createClient call).
   try {
+    const callbackUrl = new URL("/auth/callback", process.env.NEXT_PUBLIC_SITE_URL);
+    if (next) callbackUrl.searchParams.set("next", next);
     const supabase = await createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email: parsed.data,
