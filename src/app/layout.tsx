@@ -1,19 +1,22 @@
 import type { Metadata } from "next";
-import { Archivo, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
+import { GeistMono } from "geist/font/mono";
 import { headers } from "next/headers";
 import "./globals.css";
 import { resolveCompanyForHost } from "@/lib/tenant/resolve";
 import { ThemeProvider } from "@/lib/theme/ThemeProvider";
 
-const archivo = Archivo({
+// Self-hosted (was next/font/google) so the Turbopack build never fetches from
+// fonts.gstatic.com -- that fetch flaked intermittently in CI ("Can't resolve
+// @vercel/turbopack-next/internal/font/google/font"). Same typefaces: Archivo
+// variable (its weight axis covers the 400/600/800 we use) bundled in the repo,
+// and Geist Mono from the official `geist` package. Variable names are
+// unchanged (--font-archivo / --font-geist-mono), so globals.css is untouched.
+const archivo = localFont({
+  src: "./fonts/archivo-latin.woff2",
   variable: "--font-archivo",
-  weight: ["400", "600", "800"],
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: "100 900",
+  display: "swap",
 });
 
 // Canonical public origin for absolute URLs in metadata (Open Graph, sitemap,
@@ -56,7 +59,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${archivo.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${archivo.variable} ${GeistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider company={company}>{children}</ThemeProvider>
