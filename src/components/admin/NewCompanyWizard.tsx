@@ -5,7 +5,7 @@ import { createCompanyWithHr } from "@/lib/actions/companyAdmin";
 import { initialRoutineState } from "@/lib/actions/routineState";
 
 // NEXT_PUBLIC_* is inlined at build, so the live URL preview needs no round-trip.
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "ntitt.co.uk";
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "neverthrowinthetowel.uk";
 
 // Mirror of the server-side SLUG rule (companyAdmin.ts) so the preview matches
 // what will actually be created.

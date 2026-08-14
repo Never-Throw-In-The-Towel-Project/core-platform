@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 // The public marketing routes (src/app/(marketing)). Kept as an explicit list —
 // the app routes are auth-gated and deliberately excluded from the sitemap.
-const SITE_ORIGIN = `https://${process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "ntitt.co.uk"}`;
+const SITE_ORIGIN = `https://${process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "neverthrowinthetowel.uk"}`;
 
 const MARKETING_PATHS = [
   "",

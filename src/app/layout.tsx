@@ -22,7 +22,7 @@ const archivo = localFont({
 // Canonical public origin for absolute URLs in metadata (Open Graph, sitemap,
 // robots). Falls back to the production domain so a share preview never resolves
 // against a bare relative path when the env var is unset.
-const SITE_ORIGIN = `https://${process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "ntitt.co.uk"}`;
+const SITE_ORIGIN = `https://${process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "neverthrowinthetowel.uk"}`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_ORIGIN),
@@ -69,7 +69,7 @@ export default async function RootLayout({
          * route to the right support contact (the hostname-resolved
          * `company` above is only for pre-auth branding, e.g. the login
          * page's logo/colors, and isn't necessarily the user's employer on
-         * the default app.ntitt.co.uk domain). See docs/ARCHITECTURE.md.
+         * the default app.neverthrowinthetowel.uk domain). See docs/ARCHITECTURE.md.
          */}
       </body>
     </html>

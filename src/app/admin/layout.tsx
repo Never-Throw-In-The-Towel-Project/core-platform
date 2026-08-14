@@ -16,7 +16,7 @@ import { AdminNav } from "@/components/admin/AdminNav";
  * Own light shell (bg-background/text-foreground), like the marketing group,
  * overriding the root layout's dark default -- an admin tool, not the dark
  * member app. Once the domains are live this tree is served at the root of
- * admin.ntitt.co.uk (see docs/PLATFORM_STRUCTURE.md).
+ * admin.neverthrowinthetowel.uk (see docs/PLATFORM_STRUCTURE.md).
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const profile = await requireNtittAdmin();

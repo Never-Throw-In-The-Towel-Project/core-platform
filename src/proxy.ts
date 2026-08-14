@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { extractTenantSlug } from "@/lib/tenant/resolve";
+import { extractTenantSlug, cookieDomainForHost } from "@/lib/tenant/resolve";
 
 // Next.js 16 renamed Middleware to Proxy (same functionality, same file
 // conventions) -- this is that file, not legacy middleware.ts.
@@ -52,6 +52,19 @@ export function isPublicPath(pathname: string): boolean {
 export async function proxy(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
   const tenantSlug = extractTenantSlug(host);
+  // Parent-domain scope for refreshed session cookies -> cross-subdomain SSO
+  // (undefined on localhost / *.vercel.app, where it must not be applied).
+  const cookieDomain = cookieDomainForHost(host);
+
+  // The NTITT Control Tower subdomain: its bare root lands on the Control Tower
+  // rather than the public marketing home. The /admin tree itself serves
+  // normally on this host (requireNtittAdmin on the /admin layout enforces the
+  // role); this is only the "/" convenience redirect.
+  const hostname = host.split(":")[0].toLowerCase();
+  const rootDomain = (process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN ?? "neverthrowinthetowel.uk").toLowerCase();
+  if (hostname === `admin.${rootDomain}` && request.nextUrl.pathname === "/") {
+    return NextResponse.redirect(new URL("/admin", request.url));
+  }
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-ntitt-tenant-slug", tenantSlug ?? "");
@@ -89,7 +102,7 @@ export async function proxy(request: NextRequest) {
             }
             response = NextResponse.next({ request: { headers: requestHeaders } });
             for (const { name, value, options } of cookiesToSet) {
-              response.cookies.set(name, value, options);
+              response.cookies.set(name, value, cookieDomain ? { ...options, domain: cookieDomain } : options);
             }
           },
         },

@@ -3,20 +3,22 @@ import { escapeFilterValue } from "@/lib/supabase/filterEscape";
 import type { Company } from "@/types/database";
 
 // Subdomains that never resolve to a tenant: "app"/"www" are the un-branded
-// default host. Exported so company creation can reject them as slugs -- a
-// company with one of these slugs could never have its subdomain resolve.
-export const RESERVED_SUBDOMAINS = new Set(["app", "www"]);
+// default host, "admin" is the NTITT Control Tower (admin.neverthrowinthetowel.uk).
+// Exported so company creation can reject them as slugs -- a company with one of
+// these slugs could never have its subdomain resolve (and "admin" would collide
+// with the Control Tower host).
+export const RESERVED_SUBDOMAINS = new Set(["app", "www", "admin"]);
 
 /**
  * Pulls the tenant slug out of a request's Host header, for both production
- * (`kpsnacks.ntitt.co.uk`) and local dev (`kpsnacks.localhost:3000`).
- * Returns null for the un-branded default app (`app.ntitt.co.uk`,
- * `ntitt.co.uk` itself, or bare `localhost`) — those get default NTITT
+ * (`kpsnacks.neverthrowinthetowel.uk`) and local dev (`kpsnacks.localhost:3000`).
+ * Returns null for the un-branded default app (`app.neverthrowinthetowel.uk`,
+ * `neverthrowinthetowel.uk` itself, or bare `localhost`) — those get default NTITT
  * branding, not a company theme.
  */
 export function extractTenantSlug(host: string): string | null {
   const hostname = host.split(":")[0].toLowerCase();
-  const rootDomain = (process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN ?? "ntitt.co.uk").toLowerCase();
+  const rootDomain = (process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN ?? "neverthrowinthetowel.uk").toLowerCase();
 
   let candidate: string | null = null;
 
@@ -34,6 +36,24 @@ export function extractTenantSlug(host: string): string | null {
 }
 
 /**
+ * The parent-domain scope for the auth session cookie -- what makes cross-
+ * subdomain SSO work (one login valid across neverthrowinthetowel.uk, admin.,
+ * and every {company}. host). Returns undefined when the request host is NOT
+ * under the app's root domain (localhost, *.vercel.app previews), because a
+ * `.neverthrowinthetowel.uk` cookie set on those hosts would be rejected by the
+ * browser and break sign-in. Applied wherever session cookies are written:
+ * src/proxy.ts (session refresh) and src/lib/supabase/server.ts (login/actions).
+ */
+export function cookieDomainForHost(host: string): string | undefined {
+  const hostname = host.split(":")[0].toLowerCase();
+  const rootDomain = (process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN ?? "neverthrowinthetowel.uk").toLowerCase();
+  if (hostname === rootDomain || hostname.endsWith(`.${rootDomain}`)) {
+    return `.${rootDomain}`;
+  }
+  return undefined;
+}
+
+/**
  * Resolves a request's Host header to a company (by subdomain slug or a
  * flagship client's custom domain). Company branding is public-readable
  * (see the migration's "companies are publicly readable" policy), so the
@@ -48,7 +68,7 @@ export async function resolveCompanyForHost(host: string): Promise<Company | nul
   const hostname = host.split(":")[0].toLowerCase();
   const slug = extractTenantSlug(host);
 
-  if (!slug && !hostname.endsWith(process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN ?? "ntitt.co.uk")) {
+  if (!slug && !hostname.endsWith(process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN ?? "neverthrowinthetowel.uk")) {
     // Not a recognized subdomain pattern at all -- still check for a
     // flagship client's custom domain (e.g. wellbeing.some-client.com).
   } else if (!slug) {

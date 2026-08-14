@@ -1,22 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { extractTenantSlug } from "./resolve";
+import { extractTenantSlug, cookieDomainForHost } from "./resolve";
 
 describe("extractTenantSlug", () => {
   it("returns null for the bare root domain", () => {
-    expect(extractTenantSlug("ntitt.co.uk")).toBeNull();
+    expect(extractTenantSlug("neverthrowinthetowel.uk")).toBeNull();
   });
 
-  it("returns null for the app.* and www.* reserved subdomains", () => {
-    expect(extractTenantSlug("app.ntitt.co.uk")).toBeNull();
-    expect(extractTenantSlug("www.ntitt.co.uk")).toBeNull();
+  it("returns null for the app.*, www.* and admin.* reserved subdomains", () => {
+    expect(extractTenantSlug("app.neverthrowinthetowel.uk")).toBeNull();
+    expect(extractTenantSlug("www.neverthrowinthetowel.uk")).toBeNull();
+    expect(extractTenantSlug("admin.neverthrowinthetowel.uk")).toBeNull();
   });
 
   it("returns the slug for a real partner subdomain", () => {
-    expect(extractTenantSlug("acme.ntitt.co.uk")).toBe("acme");
+    expect(extractTenantSlug("acme.neverthrowinthetowel.uk")).toBe("acme");
   });
 
   it("strips a port before matching", () => {
-    expect(extractTenantSlug("acme.ntitt.co.uk:3000")).toBe("acme");
+    expect(extractTenantSlug("acme.neverthrowinthetowel.uk:3000")).toBe("acme");
   });
 
   it("supports local dev via .localhost", () => {
@@ -28,10 +29,25 @@ describe("extractTenantSlug", () => {
   });
 
   it("returns null for a dotted (multi-level) candidate", () => {
-    expect(extractTenantSlug("staging.acme.ntitt.co.uk")).toBeNull();
+    expect(extractTenantSlug("staging.acme.neverthrowinthetowel.uk")).toBeNull();
   });
 
   it("returns null for an unrelated host", () => {
     expect(extractTenantSlug("example.com")).toBeNull();
+  });
+});
+
+describe("cookieDomainForHost", () => {
+  it("scopes to the parent domain on the root and its subdomains", () => {
+    expect(cookieDomainForHost("neverthrowinthetowel.uk")).toBe(".neverthrowinthetowel.uk");
+    expect(cookieDomainForHost("admin.neverthrowinthetowel.uk")).toBe(".neverthrowinthetowel.uk");
+    expect(cookieDomainForHost("kpsnacks.neverthrowinthetowel.uk:443")).toBe(".neverthrowinthetowel.uk");
+  });
+
+  it("is undefined off the root domain, so localhost + preview logins still work", () => {
+    expect(cookieDomainForHost("localhost:3000")).toBeUndefined();
+    expect(cookieDomainForHost("core-platform-psi.vercel.app")).toBeUndefined();
+    // A lookalike suffix must not match (guards against a forged Host header).
+    expect(cookieDomainForHost("evilneverthrowinthetowel.uk")).toBeUndefined();
   });
 });

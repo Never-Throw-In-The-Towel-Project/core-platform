@@ -8,7 +8,7 @@ import { SignupForm } from "./SignupForm";
 /**
  * Direct/public signup only. Authoritative guard against provisioning a
  * partner co-branded company (DB-backed, so it also catches a flagship
- * client's custom_domain, not just an *.ntitt.co.uk subdomain -- a cheap
+ * client's custom_domain, not just an *.neverthrowinthetowel.uk subdomain -- a cheap
  * hostname check in proxy.ts alone can't see custom domains) -- redirects
  * to /login instead, preserving the host so it lands on that org's own
  * co-branded sign-in. lib/actions/signup.ts repeats this same check

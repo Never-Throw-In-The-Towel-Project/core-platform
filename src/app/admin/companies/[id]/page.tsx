@@ -4,7 +4,7 @@ import { requireNtittAdmin } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { EditCompanyForm, type EditableCompany } from "@/components/admin/EditCompanyForm";
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "ntitt.co.uk";
+const ROOT_DOMAIN = process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "neverthrowinthetowel.uk";
 
 /**
  * Control Tower › Companies › edit one company. ntitt_admin only (the /admin

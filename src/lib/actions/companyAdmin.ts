@@ -10,7 +10,7 @@ import { type RoutineActionState } from "./routineState";
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 // Subdomain-safe: lowercase letters, digits and internal hyphens (no leading/
-// trailing hyphen). This becomes {slug}.ntitt.co.uk.
+// trailing hyphen). This becomes {slug}.neverthrowinthetowel.uk.
 const SLUG = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 
 const optionalHex = z.union([z.string().trim().regex(HEX_COLOR, "Use a #RRGGBB colour."), z.literal("")]).optional();
@@ -36,9 +36,9 @@ const CreateCompanySchema = z.object({
  * it -- the one thing that previously required hand-written SQL. companies has
  * no INSERT RLS policy (it's public-read only), so this writes through the
  * service-role client AFTER requireNtittAdmin(), the same trust model as
- * inviteStaffMember. The slug is the company's {slug}.ntitt.co.uk subdomain and
+ * inviteStaffMember. The slug is the company's {slug}.neverthrowinthetowel.uk subdomain and
  * must be unique; DNS/Vercel domain wiring for a co-branded subdomain is a
- * separate ops step (a client on the default app.ntitt.co.uk needs only a
+ * separate ops step (a client on the default app.neverthrowinthetowel.uk needs only a
  * unique slug). Colours/support-contact are optional -- an un-branded company
  * simply uses the default NTITT theme.
  */
@@ -99,7 +99,7 @@ const CreateCompanyWithHrSchema = CreateCompanySchema.extend({
  * The self-serve "New Company" wizard (docs/PLATFORM_STRUCTURE.md): create the
  * company AND invite its first HR admin in one step, so NTITT can stand up a
  * live, branded partner portal with no engineering/DNS support -- the
- * *.ntitt.co.uk wildcard makes the {slug}.ntitt.co.uk subdomain resolve
+ * *.neverthrowinthetowel.uk wildcard makes the {slug}.neverthrowinthetowel.uk subdomain resolve
  * automatically the moment the row exists.
  *
  * If the company insert succeeds but the HR invite fails, the company is kept
@@ -172,7 +172,7 @@ export async function createCompanyWithHr(
     };
   }
 
-  const root = process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "ntitt.co.uk";
+  const root = process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "neverthrowinthetowel.uk";
   return {
     status: "success",
     message: `Created “${d.name}” — portal live at ${d.slug}.${root}, and invited ${d.hrEmail} as HR admin.`,
@@ -193,7 +193,7 @@ const UpdateCompanySchema = z.object({
 /**
  * ntitt_admin-only: edit an existing company's branding, welcome copy and
  * support-contact routing. The slug is deliberately NOT editable -- it's the
- * company's portal identity ({slug}.ntitt.co.uk) and its bookmarks; changing it
+ * company's portal identity ({slug}.neverthrowinthetowel.uk) and its bookmarks; changing it
  * would silently break every existing link. Same service-role trust model as
  * createCompany (companies has no UPDATE RLS policy), gated by requireNtittAdmin.
  */
