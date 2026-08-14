@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { verifySession } from "@/lib/auth/dal";
 import { isSafeRedirectPath } from "@/lib/auth/redirect";
+import { resolveLandingPath } from "@/lib/auth/landing";
 
 export type MagicLinkState =
   | { status: "idle" }
@@ -113,6 +114,7 @@ export async function signInWithPassword(
   // inside this try/catch too, not just the auth call. redirect()
   // deliberately stays outside this block -- per node_modules/next/dist/docs
   // .../redirect.md, it works by throwing, so it must never be caught.
+  let dest = next ?? "/home";
   try {
     const supabase = await createClient();
     const { error } = await supabase.auth.signInWithPassword(parsed.data);
@@ -120,11 +122,18 @@ export async function signInWithPassword(
     if (error) {
       return { status: "error", message: "Incorrect email or password." };
     }
+    // Role-aware landing (nested try: a landing-resolution hiccup must not
+    // fail an already-successful sign-in -- fall back to `dest`).
+    try {
+      dest = await resolveLandingPath(supabase, next);
+    } catch {
+      // keep the safe default destination
+    }
   } catch {
     return { status: "error", message: "Incorrect email or password." };
   }
 
-  redirect(next ?? "/home");
+  redirect(dest);
 }
 
 export type SetPasswordState =

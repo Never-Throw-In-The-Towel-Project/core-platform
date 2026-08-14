@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { verifySession } from "@/lib/auth/dal";
+import { resolveLandingPath } from "@/lib/auth/landing";
 import { type RoutineActionState } from "./routineState";
 import { TimeSchema, DisplayNameSchema } from "./schemas";
 
@@ -59,6 +60,9 @@ export async function finishOnboarding(
   // finishes onboarding, so an unrecognized failure took the user to
   // Next's error boundary one tap from the end of the flow instead of
   // this form's own retryable message.
+  // Onboarding just completed, so role-aware landing now resolves to the
+  // role's home (not back to /onboarding). Default holds if the read hiccups.
+  let dest = "/home";
   try {
     const supabase = await createClient();
     const { error } = await supabase
@@ -80,6 +84,11 @@ export async function finishOnboarding(
       console.error("finishOnboarding: profiles update failed", error);
       return { status: "error", message: "Something went wrong saving this. Please try again." };
     }
+    try {
+      dest = await resolveLandingPath(supabase, null);
+    } catch {
+      // keep the safe default destination
+    }
   } catch (err) {
     console.error("finishOnboarding: unexpected error", err);
     return { status: "error", message: "Something went wrong saving this. Please try again." };
@@ -89,5 +98,5 @@ export async function finishOnboarding(
   revalidatePath("/community");
   revalidatePath("/community/wins");
   revalidatePath("/community/company");
-  redirect("/home");
+  redirect(dest);
 }

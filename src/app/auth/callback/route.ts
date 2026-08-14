@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isSafeRedirectPath } from "@/lib/auth/redirect";
+import { resolveLandingPath } from "@/lib/auth/landing";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const requestedNext = searchParams.get("next");
-  const next = requestedNext && isSafeRedirectPath(requestedNext) ? requestedNext : "/home";
+  const next = requestedNext && isSafeRedirectPath(requestedNext) ? requestedNext : null;
 
   if (code) {
     // Wrapped in try/catch: createClient() throws synchronously if the
@@ -20,7 +21,15 @@ export async function GET(request: NextRequest) {
       const supabase = await createClient();
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (!error) {
-        return NextResponse.redirect(`${origin}${next}`);
+        // Role-aware landing; nested guard so a resolution hiccup still lands
+        // the (successfully signed-in) user somewhere sensible.
+        let dest = next ?? "/home";
+        try {
+          dest = await resolveLandingPath(supabase, next);
+        } catch {
+          // keep the safe default destination
+        }
+        return NextResponse.redirect(`${origin}${dest}`);
       }
     } catch {
       // falls through to the /login?error=auth redirect below
