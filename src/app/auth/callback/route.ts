@@ -29,7 +29,11 @@ export async function GET(request: NextRequest) {
         } catch {
           // keep the safe default destination
         }
-        return NextResponse.redirect(`${origin}${dest}`);
+        // dest is either a same-host path ("/workspace") or an absolute URL on
+        // the role's own subdomain (cross-subdomain landing) -- only prefix the
+        // origin for the former, or an absolute URL gets doubled up.
+        const target = dest.startsWith("/") ? `${origin}${dest}` : dest;
+        return NextResponse.redirect(target);
       }
     } catch {
       // falls through to the /login?error=auth redirect below
