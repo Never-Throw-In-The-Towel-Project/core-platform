@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractTenantSlug, cookieDomainForHost } from "./resolve";
+import { extractTenantSlug, cookieDomainForHost, isHostUnderRootDomain } from "./resolve";
 
 describe("extractTenantSlug", () => {
   it("returns null for the bare root domain", () => {
@@ -34,6 +34,20 @@ describe("extractTenantSlug", () => {
 
   it("returns null for an unrelated host", () => {
     expect(extractTenantSlug("example.com")).toBeNull();
+  });
+});
+
+describe("isHostUnderRootDomain", () => {
+  it("is true for the root domain and its subdomains", () => {
+    expect(isHostUnderRootDomain("neverthrowinthetowel.uk")).toBe(true);
+    expect(isHostUnderRootDomain("admin.neverthrowinthetowel.uk")).toBe(true);
+    expect(isHostUnderRootDomain("kpsnacks.neverthrowinthetowel.uk:443")).toBe(true);
+  });
+
+  it("is false for localhost, previews and lookalike hosts", () => {
+    expect(isHostUnderRootDomain("localhost:3000")).toBe(false);
+    expect(isHostUnderRootDomain("core-platform-psi.vercel.app")).toBe(false);
+    expect(isHostUnderRootDomain("evilneverthrowinthetowel.uk")).toBe(false);
   });
 });
 

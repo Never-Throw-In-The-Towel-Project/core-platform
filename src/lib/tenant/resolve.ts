@@ -35,6 +35,26 @@ export function extractTenantSlug(host: string): string | null {
   return candidate;
 }
 
+/** The app's configured root domain (lowercased), e.g. `neverthrowinthetowel.uk`. */
+export function appRootDomain(): string {
+  return (process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN ?? "neverthrowinthetowel.uk").toLowerCase();
+}
+
+/**
+ * True when `host` is the root domain itself or one of its subdomains -- i.e. a
+ * real production host, not bare `localhost` or a `*.vercel.app` preview. This
+ * is the shared guard for everything that only makes sense under the app's own
+ * domain: the parent-domain session cookie (cross-subdomain SSO) and the
+ * cross-subdomain landing redirects. A port is stripped before matching, and
+ * the `.${root}` boundary means a forged lookalike Host (`evilneverthrow…`)
+ * never counts as "under" the domain.
+ */
+export function isHostUnderRootDomain(host: string): boolean {
+  const hostname = host.split(":")[0].toLowerCase();
+  const root = appRootDomain();
+  return hostname === root || hostname.endsWith(`.${root}`);
+}
+
 /**
  * The parent-domain scope for the auth session cookie -- what makes cross-
  * subdomain SSO work (one login valid across neverthrowinthetowel.uk, admin.,
@@ -45,12 +65,7 @@ export function extractTenantSlug(host: string): string | null {
  * src/proxy.ts (session refresh) and src/lib/supabase/server.ts (login/actions).
  */
 export function cookieDomainForHost(host: string): string | undefined {
-  const hostname = host.split(":")[0].toLowerCase();
-  const rootDomain = (process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN ?? "neverthrowinthetowel.uk").toLowerCase();
-  if (hostname === rootDomain || hostname.endsWith(`.${rootDomain}`)) {
-    return `.${rootDomain}`;
-  }
-  return undefined;
+  return isHostUnderRootDomain(host) ? `.${appRootDomain()}` : undefined;
 }
 
 /**
