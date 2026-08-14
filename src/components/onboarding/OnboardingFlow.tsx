@@ -5,6 +5,7 @@ import Image from "next/image";
 import { finishOnboarding } from "@/lib/actions/onboarding";
 import { setPassword, type SetPasswordState } from "@/lib/actions/auth";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import { enablePushSubscription, isPushSupported } from "@/lib/notifications/pushClient";
 import { AskForSupport } from "@/components/AskForSupport";
 import type { Profile } from "@/types/database";
 
@@ -234,6 +235,8 @@ function ScheduleStep({ profile }: { profile: Profile }) {
             defaultValue={toHHMM(profile.sunday_notification_time, "18:00")}
           />
 
+          <PushPromptCard />
+
           <div className="border-t border-black/10 pt-5">
             <label htmlFor="displayName" className="text-sm font-semibold">
               Your community display name
@@ -267,6 +270,55 @@ function ScheduleStep({ profile }: { profile: Profile }) {
         </form>
       </div>
     </main>
+  );
+}
+
+/**
+ * Non-blocking push-permission prompt, right after the reminder times: those
+ * times are inert without an active push subscription (the reminder cron only
+ * sends to subscriptions), so this is the natural moment to ask. Optional --
+ * "Finish setup" works whether or not it's enabled, and it can be turned on
+ * later in Settings. Renders nothing where push is unsupported (matching the
+ * Settings toggle's inline isPushSupported() convention).
+ */
+function PushPromptCard() {
+  const [status, setStatus] = useState<"idle" | "enabling" | "on">("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  if (!isPushSupported()) return null;
+
+  async function enable() {
+    setError(null);
+    setStatus("enabling");
+    const result = await enablePushSubscription();
+    if (result.ok) {
+      setStatus("on");
+    } else {
+      setStatus("idle");
+      setError(result.error ?? "Couldn't enable reminders.");
+    }
+  }
+
+  return (
+    <div className="border-t border-black/10 pt-5">
+      <p className="text-sm font-semibold">Turn on reminders</p>
+      <p className="mt-1 text-xs opacity-60">
+        Get a gentle nudge at the times above. Optional — you can change this any time in Settings.
+      </p>
+      {status === "on" ? (
+        <p className="mt-3 text-sm font-medium text-green-700">Reminders are on ✓</p>
+      ) : (
+        <button
+          type="button"
+          onClick={enable}
+          disabled={status === "enabling"}
+          className="mt-3 border border-black/20 px-4 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          {status === "enabling" ? "Enabling…" : "Enable reminders"}
+        </button>
+      )}
+      {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
+    </div>
   );
 }
 

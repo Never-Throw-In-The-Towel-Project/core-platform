@@ -39,12 +39,13 @@ legal copy only NTITT can supply).
 - ⚙️ **First `ntitt_admin` bootstrap is documented** (DEPLOYMENT.md §3 — insert an
   internal company + add a user + set `role = ntitt_admin`). With the create-company
   UI, that manual step is now only for the very first internal admin, not per client.
-- 🛠️ **Push is never prompted in onboarding.** `PushNotificationToggle` is
-  Settings-only; a user sets reminder times in onboarding, is never asked to
-  grant push, and receives zero reminders. The whole reminder loop hinges on this.
-- 🛠️ **Timezone is never captured in onboarding** (defaults `Europe/London`). Wrong
-  day-phase and reminder timing for non-UK users. _(Drops to nice-to-have if the
-  first launch is UK-only.)_
+- ✅ **DONE — Push is prompted in onboarding.** A non-blocking "Turn on reminders"
+  prompt sits right after the reminder times in the schedule step (shared push
+  logic with the Settings toggle), so a new user is actually asked to grant push
+  and the reminder loop works. Optional; can still be enabled later in Settings.
+- 🛠️ **Timezone is never captured in onboarding** (defaults `Europe/London`).
+  _Deferred: the first launch is UK-only, so this is a fast-follow — becomes
+  launch-blocking only when onboarding non-UK users._
 
 ### Legal / compliance (📝 needs NTITT's copy; 🛠️ we build the surface)
 - **Privacy policy / data-processing notice** — none exists; UK GDPR requires one
