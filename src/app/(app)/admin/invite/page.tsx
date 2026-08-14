@@ -1,6 +1,7 @@
 import { requireNtittAdmin } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { InviteStaffForm } from "@/components/admin/InviteStaffForm";
+import { CreateCompanyForm } from "@/components/admin/CreateCompanyForm";
 
 /**
  * ntitt_admin-only: provisions an account for any company and any role,
@@ -30,11 +31,12 @@ export default async function InviteStaffPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-bold">Invite someone</h1>
+      <h1 className="text-2xl font-bold">Onboard a company</h1>
       <p className="mt-1 text-sm opacity-70">
-        Provision an account for any company, at any role.
+        Create a client company, then provision accounts for its staff at any role.
       </p>
-      <div className="mt-6">
+      <div className="mt-6 space-y-6">
+        <CreateCompanyForm />
         <InviteStaffForm companies={companies ?? []} />
       </div>
     </main>

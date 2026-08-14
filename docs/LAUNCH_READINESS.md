@@ -31,16 +31,14 @@ legal copy only NTITT can supply).
 ## Launch-blocking
 
 ### Operator & admin tooling / onboarding
-- 🛠️ **Admins can't reach admin surfaces on mobile.** The only links to the HR
-  dashboard, Studio, Moderation, and Invite are `md:inline`-hidden in
-  `AppHeader.tsx:57-73`; `BottomNav` has no admin entry. On a phone an HR admin
-  has no route to their own dashboard. (Product is otherwise mobile-first.)
-- 🛠️ **No company-creation surface.** No `companies` insert exists in `src`;
-  `InviteStaffForm` only picks from existing companies. Onboarding a new client
-  needs hand-written SQL. → a super-admin "create company" form.
-- 🛠️/⚙️ **First `ntitt_admin` is chicken-and-egg.** `inviteStaffMember` requires an
-  existing super-admin and none is seeded. → a documented bootstrap (seed row or
-  a one-off script) + a checklist entry.
+- ✅ **DONE — Admins can reach admin surfaces on mobile.** The header admin links
+  (Dashboard / Studio / Moderation / Invite) are no longer `md:inline`-hidden.
+- ✅ **DONE — Company-creation surface.** `createCompany` (ntitt_admin, service-role
+  after `requireNtittAdmin`) + a "Create a company" form on `/admin/invite`; new
+  companies appear in the invite dropdown immediately. No more hand-written SQL.
+- ⚙️ **First `ntitt_admin` bootstrap is documented** (DEPLOYMENT.md §3 — insert an
+  internal company + add a user + set `role = ntitt_admin`). With the create-company
+  UI, that manual step is now only for the very first internal admin, not per client.
 - 🛠️ **Push is never prompted in onboarding.** `PushNotificationToggle` is
   Settings-only; a user sets reminder times in onboarding, is never asked to
   grant push, and receives zero reminders. The whole reminder loop hinges on this.
