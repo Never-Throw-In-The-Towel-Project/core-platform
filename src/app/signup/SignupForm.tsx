@@ -1,12 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { signUp } from "@/lib/actions/signup";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import { validateSignupFields } from "./validation";
 
 export function SignupForm({ next }: { next?: string }) {
   const [state, formAction, isPending] = useActionState(signUp, initialRoutineState);
+  // Client-side pre-submit validation, surfaced as an inline message. Without
+  // this, the browser's native `required`/`minLength` bubble silently blocks
+  // the submit -- a mismatched password or unticked consent box made "Create
+  // account" look like it did nothing. `noValidate` below hands validation to
+  // this + the server action instead of the native popup.
+  const [clientError, setClientError] = useState<string | null>(null);
 
   if (state.status === "success") {
     return (
@@ -16,8 +23,28 @@ export function SignupForm({ next }: { next?: string }) {
     );
   }
 
+  function handleSubmit(formData: FormData) {
+    const error = validateSignupFields({
+      displayName: String(formData.get("displayName") ?? ""),
+      email: String(formData.get("email") ?? ""),
+      password: String(formData.get("password") ?? ""),
+      confirmPassword: String(formData.get("confirmPassword") ?? ""),
+      consent: formData.get("consent") === "yes",
+    });
+    if (error) {
+      setClientError(error);
+      return;
+    }
+    setClientError(null);
+    formAction(formData);
+  }
+
+  // The client catch takes precedence; fall back to the server action's own
+  // message (e.g. a Supabase failure the client can't foresee).
+  const message = clientError ?? (state.status === "error" ? state.message : null);
+
   return (
-    <form action={formAction} className="flex w-full max-w-sm flex-col gap-3">
+    <form action={handleSubmit} noValidate className="flex w-full max-w-sm flex-col gap-3">
       {next && <input type="hidden" name="next" value={next} />}
       <label className="text-sm">
         Name
@@ -65,7 +92,11 @@ export function SignupForm({ next }: { next?: string }) {
           <Link href="/privacy" target="_blank" className="underline">Privacy Policy</Link>.
         </span>
       </label>
-      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
+      {message && (
+        <p role="alert" className="text-sm text-red-700">
+          {message}
+        </p>
+      )}
       <button
         type="submit"
         disabled={isPending}
