@@ -4,6 +4,7 @@ import { listAllContentForAdmin } from "@/lib/content/queries";
 import { computeCoverageGaps } from "@/lib/content/coverage";
 import { DAY_LABEL } from "@/lib/content/rotation";
 import { ContentStudioForm } from "@/components/admin/ContentStudioForm";
+import { ContentImportForm } from "@/components/admin/ContentImportForm";
 import { ContentItemActions } from "@/components/admin/ContentItemActions";
 import type { ContentItem, VideoCategory } from "@/types/database";
 
@@ -59,6 +60,10 @@ export default async function ContentStudioPage() {
 
       <div className="mt-8">
         <ContentStudioForm companies={companies} />
+      </div>
+
+      <div className="mt-4">
+        <ContentImportForm />
       </div>
 
       {(() => {

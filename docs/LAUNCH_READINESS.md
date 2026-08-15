@@ -69,6 +69,10 @@ legal copy only NTITT can supply).
   a pasted URL is rejected at the form instead of rendering a broken player.
 - 📝 **The catalogue ships empty.** No seeded content/challenges; the headline
   search-first Library is barren on day one. Needs a real launch catalogue loaded.
+  **🛠️ Loading it is now fast:** the Studio has a **CSV bulk importer** (paste or
+  `.csv`; all-or-nothing validation through the single-add schema; video + external-URL
+  document/image rows; format guide `docs/CONTENT_IMPORT.md`). So this is now a 📝
+  content-supply task, not an engineering one — but still needs NTITT's real catalogue.
 - ⚙️ **Provision prod env vars** (full list below). Several **silently no-op** when
   unset and disable safety-critical email/SMS/escalation with no signal.
 - ⚙️ **Confirm Vercel plan is Pro** — the `*/15` support-monitor and push crons do
@@ -106,8 +110,11 @@ Samaritans), `NEXT_PUBLIC_APP_ROOT_DOMAIN`.
 ## Nice-to-have (post-launch or fast-follow)
 
 - 🛠️ Branded `not-found.tsx` (currently Next's unstyled 404) and a `loading.tsx`.
-- 🛠️ Bulk/CSV import for the initial content load + challenge-day sequencing (the
-  single biggest content-ops time sink; hours → minutes).
+- ✅ **DONE — Bulk/CSV import for the initial content load** (`ContentImportForm` +
+  `importContentItems`, shared `csvImport.ts` parser). Turns loading the day-one
+  catalogue from an hours-long one-at-a-time slog into a single paste/upload.
+  _Follow-up: challenge-day sequencing is still per-day in the challenge authoring
+  screen — a CSV path for that (challenge → day_index → content) is the next add._
 - 🛠️ `/api/health` endpoint for uptime monitoring; central cron failure alerting.
 - 🛠️ Per-page titles + `title.template` (every marketing page shares one `<title>`);
   an `opengraph-image`.
