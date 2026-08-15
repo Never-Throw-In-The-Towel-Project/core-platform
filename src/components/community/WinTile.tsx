@@ -19,7 +19,7 @@ export function WinTile({ post }: { post: PostWithMeta }) {
           Week {week}
         </p>
         {post.shared_badge_key ? (
-          <span className="mt-2 inline-block rounded-full border border-brand-accent/40 px-2 py-0.5 text-[11px] font-semibold text-brand-accent-deep">
+          <span className="mt-2 inline-block border border-brand-accent/40 px-2 py-0.5 text-[11px] font-semibold text-brand-accent-deep">
             🏅 {badgeLabel(post.shared_badge_key)}
           </span>
         ) : null}
