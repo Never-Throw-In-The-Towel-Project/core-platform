@@ -178,13 +178,12 @@ for later accounts.
 3. **Settings → Domains**: point the production domain
    (`app.neverthrowinthetowel.uk`, per `NEXT_PUBLIC_APP_ROOT_DOMAIN`) and any
    co-branded subdomains at this project.
-4. **Settings → Cron Jobs / plan tier**: `vercel.json` defines 3 cron jobs,
-   one of which (`monitor-support-response-time`) runs every 15 minutes.
-   Vercel's Hobby plan caps cron at once per day per job — confirmed live
-   during this project's own deploy attempt (Vercel rejected the deployment
-   with exactly this error) — so this needs at least a Pro plan for the
-   support-response monitor to actually run on schedule. **Resolved**:
-   upgraded to Pro.
+4. **Settings → Cron Jobs / plan tier**: `vercel.json` defines 5 cron jobs, two
+   of which (`monitor-support-response-time`, `send-push-notifications`) run
+   every 15 minutes. Vercel's Hobby plan caps cron at once per day per job —
+   confirmed live during this project's own deploy attempt (Vercel rejected the
+   deployment with exactly this error) — so this needs at least a Pro plan for
+   the sub-daily jobs to actually run on schedule. **Resolved**: upgraded to Pro.
 5. Deploy. Once live, smoke-test:
    - Sign in via magic link end-to-end.
    - Create an account via `/signup` on the production root domain
@@ -197,6 +196,13 @@ for later accounts.
      entirely).
    - Manually hit each cron job's route once with the `CRON_SECRET` bearer
      token to confirm it runs before trusting the schedule.
+   - Hit `/api/health` — expect `200 {"status":"ok","database":"ok"}`. Then run
+     the authenticated readiness check to verify prod config before a client
+     relies on it:
+     `curl -sS -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/health?detail=1`
+     — the `config.criticalOk` field must be `true`, and any `groups[].missing`
+     names the env vars still unset. Point an uptime monitor at the public
+     `/api/health` (503 = database unreachable).
 
 ## 5. Real vendor credentials
 

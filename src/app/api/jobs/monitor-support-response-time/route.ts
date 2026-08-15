@@ -53,33 +53,49 @@ export async function GET(request: NextRequest) {
   });
 
   let escalatedCount = 0;
+  let failedCount = 0;
   for (const row of overdue) {
-    const { data: company } = await publicClient
-      .from("companies")
-      .select("name, support_contact_name, support_contact_phone, support_contact_email")
-      .eq("id", row.company_id)
-      .single();
+    // Per-request isolation: an unexpected throw while escalating ONE overdue
+    // request must not abort the loop and leave every later overdue request
+    // un-escalated -- the worst failure mode for a safety-critical flow. Log
+    // loudly and count it; the failed one keeps status='new' (no escalation
+    // written) so the 15-min cron retries it next run.
+    try {
+      const { data: company } = await publicClient
+        .from("companies")
+        .select("name, support_contact_name, support_contact_phone, support_contact_email")
+        .eq("id", row.company_id)
+        .single();
 
-    if (!company) continue;
+      if (!company) continue;
 
-    const escalation = await escalateOnResponseTimeout({
-      requestId: row.id as string,
-      company,
-      contactDisplayName: row.contact_display_name as string | null,
-      urgency: row.urgency as SupportUrgency,
-      contactMethod: row.contact_method as string | null,
-    });
+      const escalation = await escalateOnResponseTimeout({
+        requestId: row.id as string,
+        company,
+        contactDisplayName: row.contact_display_name as string | null,
+        urgency: row.urgency as SupportUrgency,
+        contactMethod: row.contact_method as string | null,
+      });
 
-    await privateClient
-      .from("support_requests")
-      .update({
-        delivery_status: { ...(row.delivery_status as DeliveryStatus), escalation },
-      })
-      .eq("id", row.id)
-      .eq("status", "new"); // don't overwrite if it was acknowledged in the meantime
+      await privateClient
+        .from("support_requests")
+        .update({
+          delivery_status: { ...(row.delivery_status as DeliveryStatus), escalation },
+        })
+        .eq("id", row.id)
+        .eq("status", "new"); // don't overwrite if it was acknowledged in the meantime
 
-    escalatedCount += 1;
+      escalatedCount += 1;
+    } catch (error) {
+      failedCount += 1;
+      console.error(`[cron:monitor-support] escalation failed for request ${row.id}`, error);
+    }
   }
 
-  return NextResponse.json({ ok: true, checked: pending?.length ?? 0, escalated: escalatedCount });
+  return NextResponse.json({
+    ok: true,
+    checked: pending?.length ?? 0,
+    escalated: escalatedCount,
+    failed: failedCount,
+  });
 }

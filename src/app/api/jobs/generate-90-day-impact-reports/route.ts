@@ -34,39 +34,61 @@ export async function GET(request: NextRequest) {
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setUTCDate(ninetyDaysAgo.getUTCDate() - 90);
 
-  const { data: dueCompanies } = await supabase
+  const { data: dueCompanies, error: dueError } = await supabase
     .from("companies")
     .select("id, name")
     .is("ninety_day_report_sent_at", null)
     .lte("created_at", ninetyDaysAgo.toISOString());
 
-  let sentCount = 0;
-
-  for (const company of dueCompanies ?? []) {
-    const emails = await getHrAdminEmails(company.id);
-    if (emails.length === 0) continue; // no HR admin provisioned yet -- retry next run
-
-    const data = await collectImpactReportData(supabase, company.id, company.name);
-    const pdf = await generateImpactReportPdf(data);
-
-    const result = await sendImpactReportEmail({
-      toEmails: emails,
-      companyName: company.name,
-      pdfBuffer: pdf,
-      // System-generated filename, not any one user's local day -- UTC (Phase 9).
-      filename: `ntitt-impact-report-${todayISODate(new Date(), "UTC")}.pdf`,
-    });
-
-    if (result.ok) {
-      await supabase
-        .from("companies")
-        .update({ ninety_day_report_sent_at: new Date().toISOString() })
-        .eq("id", company.id);
-      sentCount += 1;
-    }
-    // send failed -- left null so this retries on the next run rather than
-    // silently losing the report.
+  // Fail loud, not silent: without this guard a read error left `dueCompanies`
+  // undefined and the job returned `{ ok:true, sent:0 }` -- reporting success
+  // while sending nothing. A 500 surfaces in logs/monitoring and retries daily.
+  if (dueError) {
+    return NextResponse.json({ error: "failed to load due companies" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, checked: dueCompanies?.length ?? 0, sent: sentCount });
+  let sentCount = 0;
+  let failedCount = 0;
+
+  for (const company of dueCompanies ?? []) {
+    // Per-company isolation: report generation (data collection, PDF render,
+    // send) can throw, and one company's failure must not abort the run and
+    // starve every later company of its report. Left unsent (sent_at stays
+    // null), so the next daily run retries it.
+    try {
+      const emails = await getHrAdminEmails(company.id);
+      if (emails.length === 0) continue; // no HR admin provisioned yet -- retry next run
+
+      const data = await collectImpactReportData(supabase, company.id, company.name);
+      const pdf = await generateImpactReportPdf(data);
+
+      const result = await sendImpactReportEmail({
+        toEmails: emails,
+        companyName: company.name,
+        pdfBuffer: pdf,
+        // System-generated filename, not any one user's local day -- UTC (Phase 9).
+        filename: `ntitt-impact-report-${todayISODate(new Date(), "UTC")}.pdf`,
+      });
+
+      if (result.ok) {
+        await supabase
+          .from("companies")
+          .update({ ninety_day_report_sent_at: new Date().toISOString() })
+          .eq("id", company.id);
+        sentCount += 1;
+      }
+      // send failed -- left null so this retries on the next run rather than
+      // silently losing the report.
+    } catch (error) {
+      failedCount += 1;
+      console.error(`[cron:impact-reports] report failed for company ${company.id}`, error);
+    }
+  }
+
+  return NextResponse.json({
+    ok: true,
+    checked: dueCompanies?.length ?? 0,
+    sent: sentCount,
+    failed: failedCount,
+  });
 }
