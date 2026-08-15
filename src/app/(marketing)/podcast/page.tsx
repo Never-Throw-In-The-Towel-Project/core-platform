@@ -42,7 +42,7 @@ export default function PodcastPage() {
             alone — and there is a way forward.
           </p>
         </div>
-        <div className="overflow-hidden rounded-xl">
+        <div className="overflow-hidden">
           <Image
             src="/site/podcast-recording.jpg"
             alt="Recording the Never Throw In The Towel podcast"
@@ -69,7 +69,7 @@ export default function PodcastPage() {
         </ul>
       </div>
 
-      <div className="mt-16 flex flex-col items-center gap-4 rounded-xl border border-black/10 p-8 text-center">
+      <div className="mt-16 flex flex-col items-center gap-4 border-2 border-foreground p-8 text-center">
         <p className="text-sm leading-relaxed text-foreground/80">
           Whether you&apos;re struggling, searching for purpose, or simply need a reminder of your own strength —
           this podcast is for you. Because no matter what life throws at you… never throw in the towel.
@@ -78,7 +78,7 @@ export default function PodcastPage() {
           href={YOUTUBE_CHANNEL_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="rounded-md bg-brand-accent px-6 py-3 font-semibold text-brand-accent-foreground"
+          className="bg-brand-accent px-6 py-3 font-extrabold uppercase tracking-wide text-brand-accent-foreground"
         >
           See More On YouTube
         </a>

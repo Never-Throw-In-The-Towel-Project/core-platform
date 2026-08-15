@@ -31,9 +31,9 @@ export function PreAuthSupport() {
   return (
     <aside
       aria-label="Crisis support"
-      className="mx-auto w-full max-w-md border border-current/15 px-4 py-3 text-sm"
+      className="mx-auto w-full max-w-md border border-rule-border px-4 py-3 text-sm"
     >
-      <p className="opacity-80">
+      <p className="text-muted">
         Need to talk to someone right now? You don&apos;t have to be signed in.
       </p>
       <a

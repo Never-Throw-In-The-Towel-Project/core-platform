@@ -134,7 +134,7 @@ export function AskForSupport({
             role="dialog"
             aria-modal="true"
             aria-labelledby={headingId}
-            className="w-full max-w-md border-2 border-black/10 bg-background text-foreground"
+            className="w-full max-w-md border-2 border-foreground bg-background text-foreground"
           >
             {state.status !== "success" && (
               <p className="bg-brand-background px-6 py-3 text-sm text-brand-foreground">
@@ -153,14 +153,14 @@ export function AskForSupport({
                 >
                   Thanks for reaching out.
                 </h2>
-                <p className="text-sm opacity-80">
+                <p className="text-sm text-muted">
                   Someone will be in touch. If this is urgent right now, please call{" "}
                   {helplineNumber ?? "the helpline"}.
                 </p>
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="border-2 border-black/20 px-4 py-2 text-sm font-medium"
+                  className="border border-rule-border px-4 py-2 text-sm font-medium"
                 >
                   Close
                 </button>
@@ -189,7 +189,7 @@ export function AskForSupport({
                       name="displayName"
                       type="text"
                       autoComplete="name"
-                      className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+                      className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2.5"
                     />
                   </label>
                 )}
@@ -214,12 +214,12 @@ export function AskForSupport({
                     name="contactMethod"
                     type="text"
                     placeholder="Phone, email, whatever's easiest"
-                    className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+                    className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2.5"
                   />
                 </label>
 
                 {state.status === "error" && (
-                  <p role="alert" className="text-sm text-red-700">
+                  <p role="alert" className="text-sm text-brand-accent-deep">
                     {state.message}
                   </p>
                 )}
@@ -228,14 +228,14 @@ export function AskForSupport({
                   <button
                     type="button"
                     onClick={() => setIsOpen(false)}
-                    className="rounded-md px-4 py-2 text-sm"
+                    className="px-4 py-2 text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isPending}
-                    className="rounded-md bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+                    className="bg-brand-accent px-4 py-2 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
                   >
                     {isPending ? "Sending…" : "Send"}
                   </button>
