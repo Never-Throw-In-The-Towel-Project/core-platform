@@ -39,3 +39,81 @@ enable_signup = true
 # resolved via resolveCompanyForHost. Employees/HR admins at a partner
 # company are still provisioned by NTITT/company admin invite flows only
 # (src/lib/actions/invite.ts).
+
+# ── Auth email (invites / confirmation / magic-link / recovery) ───────────────
+# These emails are sent by Supabase Auth (GoTrue), NOT by the app's Brevo REST
+# sender in src/lib/* (that one handles impact reports, support alerts and
+# challenge notifications). Out of the box GoTrue uses Supabase's built-in shared
+# mailer, which is throttled to a couple of messages/hour and is explicitly not
+# for production -- bulk day-one invites would silently fail to deliver. We route
+# it through Brevo's SMTP relay so there is ONE sender identity and ONE verified
+# domain to maintain (Brevo is already the app's email vendor).
+#
+# `supabase config push` applies this block to the linked project; the password
+# is read from the environment so no secret is committed. The Supabase dashboard
+# (Auth -> SMTP Settings) is the equivalent manual path. Full go-live steps,
+# including the DNS records (SPF/DKIM/DMARC) the sender domain needs in Brevo,
+# are in docs/SMTP_SETUP.md.
+[auth.email]
+# Signup requires clicking an emailed confirmation link before first sign-in.
+# The app is built around this: SignupForm shows "Check your email to confirm
+# your account", and signup.ts depends on GoTrue's confirmation-on behaviour for
+# its anti-enumeration path (existing email -> user with empty identities, not an
+# error). Do not turn this off without reworking that flow.
+enable_confirmations = true
+# Minimum interval between successive auth mails to the same address (re-send /
+# resend-link abuse guard).
+max_frequency = "60s"
+
+[auth.email.smtp]
+# This block is the PRODUCTION intent (applied by `supabase config push`). CI
+# never reads it -- the migrations gate runs against plain Postgres via
+# supabase/tests/validate_migrations.sh -- so it cannot affect CI. If you run the
+# full local stack (`supabase start`) and don't want to send real mail, set
+# `enabled = false` here to use the bundled Inbucket test inbox
+# (http://localhost:54324); otherwise set SUPABASE_AUTH_SMTP_PASS to route local
+# mail through Brevo too.
+enabled = true
+host = "smtp-relay.brevo.com"
+port = 587
+# Brevo SMTP *login* (shown under Brevo -> SMTP & API -> SMTP; typically an
+# 8-digit id or the account email). Not a secret -- replace before pushing.
+user = "SET_BREVO_SMTP_LOGIN"
+# The Brevo SMTP *key* -- a DIFFERENT credential from the v3 REST api-key held in
+# BREVO_API_KEY. Kept out of source; set it in the Supabase project + local
+# shell. See docs/SMTP_SETUP.md.
+pass = "env(SUPABASE_AUTH_SMTP_PASS)"
+# Envelope "from". Must be a verified sender on the Brevo account. We keep the
+# @ntitt.co.uk email domain (product decision) even though the web app moved to
+# neverthrowinthetowel.uk -- so ntitt.co.uk is the domain to verify in Brevo.
+admin_email = "no-reply@ntitt.co.uk"
+sender_name = "NTITT"
+
+# Branded HTML for each auth mail. {{ .ConfirmationURL }} is the action link
+# GoTrue substitutes; for invites/confirmation it already carries the
+# /auth/callback redirect set by provisionInvite() / signUp().
+[auth.email.template.confirmation]
+subject = "Confirm your NTITT account"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.invite]
+subject = "You've been invited to NTITT"
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.magic_link]
+subject = "Your NTITT sign-in link"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.recovery]
+subject = "Reset your NTITT password"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.email_change]
+subject = "Confirm your new email address"
+content_path = "./supabase/templates/email_change.html"
+
+# Auth-mail send ceiling. The built-in mailer caps near ~2/hour; a real SMTP
+# sender lifts that. 30/hour absorbs a normal onboarding wave without inviting
+# abuse -- raise in the dashboard if a large client is invited in one sitting.
+[auth.rate_limit]
+email_sent = 30

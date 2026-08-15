@@ -77,9 +77,14 @@ legal copy only NTITT can supply).
   unset and disable safety-critical email/SMS/escalation with no signal.
 - ⚙️ **Confirm Vercel plan is Pro** — the `*/15` support-monitor and push crons do
   not run on Hobby (once-daily cap), silently.
-- ⚙️ **Configure Supabase Auth SMTP** — invites/magic-links ride Supabase Auth
-  email, which has no SMTP block in `config.toml`; bulk day-one invites may not
-  deliver.
+- ⚙️ **Configure Supabase Auth SMTP** — invites/magic-links/confirmations ride
+  Supabase Auth email, whose built-in mailer caps near ~2/hour, so bulk day-one
+  invites won't deliver. **🛠️ Codebase side is now done:** `config.toml`
+  `[auth.email.smtp]` (Brevo relay, env-interpolated secret), branded templates in
+  `supabase/templates/`, and a raised send rate limit are committed. **⚙️ Operator
+  side remains:** verify the `ntitt.co.uk` sender domain in Brevo (SPF/DKIM/DMARC),
+  generate a Brevo **SMTP key**, and set it on the Supabase project. Full steps:
+  **`docs/SMTP_SETUP.md`**.
 - 🛠️ **Two unguarded hard-fail paths crash instead of degrading:**
   `NEXT_PUBLIC_SITE_URL` throws uncaught on login/signup/invite if unset
   (`auth.ts:48`, `signup.ts:66`, `invite.ts:9`); the VAPID keys throw *unguarded*
