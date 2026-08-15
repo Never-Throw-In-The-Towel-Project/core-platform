@@ -4,6 +4,13 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { verifySession, getProfile } from "@/lib/auth/dal";
+import { listAllContentForAdmin } from "@/lib/content/queries";
+import {
+  parseChallengeImportCsv,
+  resolveChallengeContent,
+  buildContentIndex,
+  type ChallengeImportState,
+} from "@/lib/challenges/challengeImport";
 import { type RoutineActionState } from "./routineState";
 
 // ============================================================================
@@ -302,4 +309,115 @@ export async function setChallengePublished(
   revalidatePath("/admin/challenges");
   revalidatePath("/challenges");
   return { status: "success" };
+}
+
+/**
+ * Bulk-import a challenge's day sequence from a CSV (paste or .csv upload).
+ * ntitt_admin only (friendly check here; the challenge_days INSERT RLS policy is
+ * the real gate). The CSV bulk analogue of `addChallengeDay`: it sequences
+ * EXISTING content (referenced by title or id, resolved against the admin content
+ * list) into days, or writes prompt-only days. Content itself is loaded via the
+ * content importer / Studio first, so the two importers compose.
+ *
+ * All-or-nothing, exactly like `importContentItems`: structural errors, unknown
+ * content references, and day numbers that already exist in this challenge each
+ * abort the whole import with precise per-row messages, so a re-upload after a
+ * fix never partially double-writes. Format guide: docs/CONTENT_IMPORT.md.
+ */
+export async function importChallengeDays(
+  _prev: ChallengeImportState,
+  formData: FormData
+): Promise<ChallengeImportState> {
+  await verifySession();
+  const denied = await ensureNtittAdmin();
+  if (denied) return { status: "error", message: "You don’t have access to challenge authoring." };
+
+  const challengeIdParsed = uuid.safeParse(formData.get("challengeId"));
+  if (!challengeIdParsed.success) return { status: "error", message: "That challenge could not be found." };
+  const challengeId = challengeIdParsed.data;
+
+  // Prefer an uploaded .csv; fall back to the pasted textarea.
+  let text = "";
+  const file = formData.get("file");
+  if (file instanceof File && file.size > 0) {
+    text = await file.text();
+  } else {
+    text = String(formData.get("csv") ?? "");
+  }
+  if (text.trim() === "") return { status: "error", message: "Paste some CSV or choose a .csv file to import." };
+
+  const { rows, errors, fatal, dataRowCount } = parseChallengeImportCsv(text);
+  if (fatal) return { status: "error", message: fatal };
+  if (errors.length > 0) {
+    return {
+      status: "error",
+      message: `${errors.length} of ${dataRowCount} row${dataRowCount === 1 ? "" : "s"} need fixing — nothing was imported. Fix these and re-upload.`,
+      rowErrors: errors,
+    };
+  }
+  if (rows.length === 0) return { status: "error", message: "No day rows found under the header." };
+
+  try {
+    const supabase = await createClient();
+
+    // Resolve content references (title or id) against the admin content list,
+    // and gather the days already in this challenge -- both are needed before a
+    // single all-or-nothing insert.
+    const [content, existing] = await Promise.all([
+      listAllContentForAdmin(supabase),
+      supabase.from("challenge_days").select("day_index").eq("challenge_id", challengeId),
+    ]);
+
+    const index = buildContentIndex(content.map((c) => ({ id: c.id, title: c.title })));
+    const { resolved, errors: resolveErrors } = resolveChallengeContent(rows, index);
+    if (resolveErrors.length > 0) {
+      return {
+        status: "error",
+        message: `${resolveErrors.length} row${resolveErrors.length === 1 ? "" : "s"} reference content that isn’t loaded — nothing was imported. Load the content first (or use its id).`,
+        rowErrors: resolveErrors,
+      };
+    }
+
+    const existingDays = new Set((existing.data ?? []).map((d) => d.day_index as number));
+    const conflicts = rows
+      .filter((r) => existingDays.has(r.dayIndex))
+      .map((r) => ({
+        line: r.line,
+        message: `Day ${r.dayIndex} already exists in this challenge — remove it from the file, or delete that day first.`,
+      }));
+    if (conflicts.length > 0) {
+      return {
+        status: "error",
+        message: `${conflicts.length} day${conflicts.length === 1 ? "" : "s"} already exist in this challenge — nothing was imported.`,
+        rowErrors: conflicts,
+      };
+    }
+
+    const { error } = await supabase.from("challenge_days").insert(
+      resolved.map((r) => ({
+        challenge_id: challengeId,
+        day_index: r.day_index,
+        content_item_id: r.content_item_id,
+        prompt: r.prompt,
+      }))
+    );
+    if (error) return { status: "error", message: "Couldn’t save the imported days. Please try again." };
+  } catch {
+    return { status: "error", message: "Couldn’t save the imported days. Please try again." };
+  }
+
+  revalidatePath(`/admin/challenges/${challengeId}`);
+  revalidatePath(`/challenges/${challengeId}`);
+
+  // Every parsed row resolved and inserted (we aborted otherwise), so `rows`
+  // counts the import: a non-null contentRef is exactly a day that got content.
+  const withContent = rows.filter((r) => r.contentRef).length;
+  const promptOnly = rows.length - withContent;
+  return {
+    status: "success",
+    message: `Imported ${rows.length} day${rows.length === 1 ? "" : "s"} — ${withContent} with content, ${promptOnly} prompt-only.`,
+    created: rows.length,
+    withContent,
+    promptOnly,
+  };
 }

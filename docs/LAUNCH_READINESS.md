@@ -113,8 +113,10 @@ Samaritans), `NEXT_PUBLIC_APP_ROOT_DOMAIN`.
 - ✅ **DONE — Bulk/CSV import for the initial content load** (`ContentImportForm` +
   `importContentItems`, shared `csvImport.ts` parser). Turns loading the day-one
   catalogue from an hours-long one-at-a-time slog into a single paste/upload.
-  _Follow-up: challenge-day sequencing is still per-day in the challenge authoring
-  screen — a CSV path for that (challenge → day_index → content) is the next add._
+  **Challenge-day sequencing is also done** (`ChallengeDayImportForm` +
+  `importChallengeDays`, `challengeImport.ts`): a per-challenge CSV lays out the
+  whole `day → content → prompt` plan at once, reusing the same tokenizer and
+  all-or-nothing contract. Both are `ntitt_admin`-only and RLS-gated.
 - 🛠️ `/api/health` endpoint for uptime monitoring; central cron failure alerting.
 - 🛠️ Per-page titles + `title.template` (every marketing page shares one `<title>`);
   an `opengraph-image`.
