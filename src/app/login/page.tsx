@@ -20,8 +20,8 @@ export default async function LoginPage({
         <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={64} height={65} />
         {company?.logo_url && (
           <>
-            <span className="text-lg opacity-40">×</span>
-            <div className="flex h-12 w-20 items-center justify-center rounded-md bg-white p-2">
+            <span className="text-lg text-muted">×</span>
+            <div className="flex h-12 w-20 items-center justify-center border border-rule-border bg-white p-2">
               <Image
                 src={company.logo_url}
                 alt={company.name}
@@ -33,12 +33,12 @@ export default async function LoginPage({
           </>
         )}
       </div>
-      <h1 className="text-2xl font-bold">Sign in</h1>
+      <h1 className="text-3xl font-extrabold tracking-tight">Sign in</h1>
       <LoginForm next={next} />
       {!company && (
         <p className="text-sm text-muted">
           New here?{" "}
-          <Link href="/signup" className="font-semibold text-brand-accent underline">
+          <Link href="/signup" className="font-semibold text-brand-accent-deep underline">
             Create an account
           </Link>
         </p>

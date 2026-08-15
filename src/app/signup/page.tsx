@@ -31,7 +31,7 @@ export default async function SignupPage({
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-24">
       <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={64} height={65} />
-      <h1 className="text-2xl font-bold">Create account</h1>
+      <h1 className="text-3xl font-extrabold tracking-tight">Create account</h1>
       <SignupForm next={next} />
       <PreAuthSupport />
     </main>

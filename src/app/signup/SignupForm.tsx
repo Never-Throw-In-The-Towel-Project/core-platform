@@ -52,7 +52,7 @@ export function SignupForm({ next }: { next?: string }) {
           name="displayName"
           type="text"
           required
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2.5"
         />
       </label>
       <label className="text-sm">
@@ -61,7 +61,7 @@ export function SignupForm({ next }: { next?: string }) {
           name="email"
           type="email"
           required
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2.5"
         />
       </label>
       <label className="text-sm">
@@ -71,7 +71,7 @@ export function SignupForm({ next }: { next?: string }) {
           type="password"
           required
           minLength={8}
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2.5"
         />
       </label>
       <label className="text-sm">
@@ -81,7 +81,7 @@ export function SignupForm({ next }: { next?: string }) {
           type="password"
           required
           minLength={8}
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2.5"
         />
       </label>
       <label className="flex items-start gap-2 text-sm">
@@ -93,18 +93,18 @@ export function SignupForm({ next }: { next?: string }) {
         </span>
       </label>
       {message && (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="text-sm text-brand-accent-deep">
           {message}
         </p>
       )}
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-md bg-brand-accent px-4 py-2 font-semibold text-brand-accent-foreground disabled:opacity-50"
+        className="bg-brand-accent px-4 py-2.5 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Creating account…" : "Create account"}
       </button>
-      <Link href="/login" className="text-center text-sm opacity-70 underline">
+      <Link href="/login" className="text-center text-sm text-muted underline hover:text-foreground">
         Already have an account? Sign in
       </Link>
     </form>
