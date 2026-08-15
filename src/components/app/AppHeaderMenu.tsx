@@ -2,20 +2,33 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { signOut } from "@/lib/actions/auth";
 import type { UserRole } from "@/types/database";
 
 /**
- * The mobile "⋯ / ☰" menu for the app header. On phones the secondary header
- * actions (Settings, and the role links to the Workspace / Control Tower) would
- * otherwise wrap onto a second line; per the mobile designs they collapse into
- * this menu. Desktop keeps them inline (this is rendered only below `sm`).
+ * The app header's account menu. Two triggers, same menu:
+ *  - `avatar`  — the desktop account chip (the member's initial), holding the
+ *    role links (Workspace / Control Tower) and Sign out. Settings has its own
+ *    gear next to it, so it's omitted here (`includeSettings={false}`).
+ *  - `hamburger` — the mobile "☰", where the same items plus Settings collapse
+ *    (there's no room for a gear + avatar + support on a phone; support is the
+ *    inline bar above the bottom tab bar).
  *
  * A small accessible dropdown: toggles on the button, closes on outside-click,
- * Escape, or following a link. The primary tabs are NOT here — they live in the
- * bottom tab bar on mobile — and support is the inline bar above that bar, so
- * this only carries Settings + the admin/HR entry points.
+ * Escape, or following a link. Sign out is a server action (there was no
+ * sign-out anywhere in the app before this).
  */
-export function AppHeaderMenu({ role }: { role: UserRole }) {
+export function AppHeaderMenu({
+  role,
+  trigger,
+  initial,
+  includeSettings = true,
+}: {
+  role: UserRole;
+  trigger: "avatar" | "hamburger";
+  initial?: string;
+  includeSettings?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -36,21 +49,29 @@ export function AppHeaderMenu({ role }: { role: UserRole }) {
   }, [open]);
 
   const itemClass =
-    "block px-4 py-2.5 text-xs font-semibold text-brand-foreground/80 hover:bg-white/5 hover:text-brand-foreground";
+    "block w-full px-4 py-2.5 text-left text-xs font-semibold text-brand-foreground/80 hover:bg-white/5 hover:text-brand-foreground";
 
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        aria-label="Menu"
+        aria-label={trigger === "avatar" ? "Account menu" : "Menu"}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="grid h-8 w-8 place-items-center text-brand-foreground/80 hover:text-brand-foreground"
+        className={
+          trigger === "avatar"
+            ? "grid h-8 w-8 place-items-center border border-ink-hairline text-xs font-extrabold text-brand-foreground hover:bg-white/5"
+            : "grid h-8 w-8 place-items-center text-brand-foreground/80 hover:text-brand-foreground"
+        }
       >
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-          <path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="square" />
-        </svg>
+        {trigger === "avatar" ? (
+          <span aria-hidden>{initial ?? "?"}</span>
+        ) : (
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="square" />
+          </svg>
+        )}
       </button>
 
       {open && (
@@ -68,9 +89,16 @@ export function AppHeaderMenu({ role }: { role: UserRole }) {
               NTITT Admin
             </Link>
           )}
-          <Link role="menuitem" href="/settings" onClick={() => setOpen(false)} className={itemClass}>
-            Settings
-          </Link>
+          {includeSettings && (
+            <Link role="menuitem" href="/settings" onClick={() => setOpen(false)} className={itemClass}>
+              Settings
+            </Link>
+          )}
+          <form action={signOut}>
+            <button role="menuitem" type="submit" className={itemClass}>
+              Sign out
+            </button>
+          </form>
         </div>
       )}
     </div>

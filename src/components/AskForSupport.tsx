@@ -109,9 +109,9 @@ export function AskForSupport({
               // text (#ae1800 -> 6.5:1 on the light ground) per the handoff.
               "block w-full border-t-2 border-foreground px-6 py-3 text-left text-sm font-extrabold text-brand-accent-deep"
             : variant === "header"
-              ? // Desktop: the support link that lives in the ink header, in
-                // accent-light (#ff9783 -> ~7.9:1 on ink).
-                "text-xs font-extrabold uppercase tracking-wide text-brand-accent-light hover:text-brand-accent-light-2"
+              ? // Desktop header CTA: a solid-accent button -- the "Check in
+                // with me" button that sits in the ink bar.
+                "bg-brand-accent px-4 py-2 text-xs font-extrabold uppercase tracking-wide text-brand-accent-foreground hover:brightness-110"
               : variant === "block"
                 ? // Card CTA: a full-width solid-accent button, e.g. the Today
                   // right-rail Support card sitting on the ink surface.

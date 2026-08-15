@@ -6,31 +6,31 @@ import { AppHeaderMenu } from "./AppHeaderMenu";
 import type { Profile } from "@/types/database";
 
 /**
- * The shared ink header for the member app, from the redesign: a top skin
- * strip in the company's colour, then the ink bar with the NTITT mark and
- * wordmark, the four primary tabs (desktop), the company chip, admin/settings
- * links and the always-visible support link (desktop; the mobile support link
- * is the inline bar above the bottom nav).
+ * The shared ink header for the member app: a top skin strip in the company's
+ * colour, then the ink bar with the NTITT mark and wordmark, the four primary
+ * tabs (desktop), and the account actions on the right -- a Settings gear, the
+ * account menu (the member's initial; holds the role links + Sign out), and the
+ * support CTA.
  *
  * The primary tabs move into this bar on desktop and the bottom tab bar takes
  * over below lg -- so the header carries the support entry point on desktop,
  * where there is no bottom bar, keeping "support on every screen" true at every
- * width.
+ * width (on mobile it's the inline bar above the bottom nav).
  */
 export function AppHeader({
   profile,
-  companyName,
   skinColor,
   helplineNumber,
 }: {
   profile: Pick<Profile, "role" | "display_name">;
-  companyName: string;
   skinColor: string;
   helplineNumber?: string;
 }) {
+  const initial = (profile.display_name?.trim()?.charAt(0) || "?").toUpperCase();
+
   return (
     <header className="sticky top-0 z-30">
-      {/* Company skin strip -- band + chip only ever carry the company colour. */}
+      {/* Company skin strip -- the one place the header carries the company colour. */}
       <div className="h-1 w-full" style={{ background: skinColor }} aria-hidden />
       <div className="bg-brand-background text-brand-foreground">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3">
@@ -44,37 +44,29 @@ export function AppHeader({
 
           <HeaderNav />
 
-          <div className="ml-auto flex items-center gap-4">
-            {/* Company chip -- shown at every width (per the mobile design); the
-                long name truncates on a phone so it can't crowd the bar. */}
-            <span className="flex items-center gap-2 border border-ink-hairline px-2.5 py-1">
-              <span className="h-2 w-2 shrink-0" style={{ background: skinColor }} aria-hidden />
-              <span className="max-w-[34vw] truncate text-xs font-semibold sm:max-w-none">{companyName}</span>
-            </span>
-
-            {/* Desktop: secondary actions + support inline. */}
-            <div className="hidden items-center gap-4 sm:flex">
-              {profile.role === "hr_admin" && (
-                <Link href="/workspace" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
-                  Workspace
-                </Link>
-              )}
-              {profile.role === "ntitt_admin" && (
-                <Link href="/admin" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
-                  NTITT Admin
-                </Link>
-              )}
-              <Link href="/settings" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
-                Settings
+          <div className="ml-auto flex items-center gap-3">
+            {/* Desktop: Settings gear, account menu, and the support CTA. */}
+            <div className="hidden items-center gap-2 sm:flex">
+              <Link
+                href="/settings"
+                aria-label="Settings"
+                className="grid h-8 w-8 place-items-center text-brand-foreground/80 hover:text-brand-foreground"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
               </Link>
-              {/* Support stays inline on desktop; on mobile it's the inline bar
-                  above the bottom tab bar, so it isn't in the menu. */}
-              <AskForSupport helplineNumber={helplineNumber} variant="header" />
+              <AppHeaderMenu role={profile.role} trigger="avatar" initial={initial} includeSettings={false} />
+              <span className="ml-1">
+                <AskForSupport helplineNumber={helplineNumber} variant="header" label="Check in with me" />
+              </span>
             </div>
 
-            {/* Mobile: Settings + the role links collapse into a menu. */}
+            {/* Mobile: everything collapses into the account menu; support is the
+                inline bar above the bottom tab bar. */}
             <div className="sm:hidden">
-              <AppHeaderMenu role={profile.role} />
+              <AppHeaderMenu role={profile.role} trigger="hamburger" />
             </div>
           </div>
         </div>
