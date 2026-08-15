@@ -2,17 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const TABS = [
-  { href: "/community", label: "Feed", match: (p: string) => p === "/community" },
-  { href: "/community/wins", label: "Wins Board", match: (p: string) => p.startsWith("/community/wins") },
-  { href: "/community/company", label: "My Company", match: (p: string) => p.startsWith("/community/company") },
-  {
-    href: "/community/guidelines",
-    label: "Guidelines",
-    match: (p: string) => p.startsWith("/community/guidelines"),
-  },
-] as const;
+import { visibleCommunityTabs } from "@/lib/community/tabs";
 
 /**
  * The community section's sub-navigation. Restyled to the Modernist system:
@@ -22,15 +12,21 @@ const TABS = [
  * component so it can read the current path and mark the active tab; the 3px
  * border is decorative (nothing reads text against it), so it uses the true
  * NTITT red --brand-accent-vivid.
+ *
+ * `showCompanyTab` hides the "My Company" space for Direct (self-signup)
+ * members, whose company is the shared NTITT-Direct row -- pooling unrelated
+ * strangers into one "company" feed (docs/PLATFORM_STRUCTURE.md decision 6).
+ * The layout computes it from the profile; the page itself also guards.
  */
-export function CommunityTabs() {
+export function CommunityTabs({ showCompanyTab = true }: { showCompanyTab?: boolean }) {
   const pathname = usePathname();
+  const tabs = visibleCommunityTabs(showCompanyTab);
 
   return (
     <nav className="border-b border-rule-hairline" aria-label="Community sections">
       <div className="mx-auto max-w-5xl px-6">
         <ul className="flex gap-7 overflow-x-auto">
-          {TABS.map((tab) => {
+          {tabs.map((tab) => {
             const active = tab.match(pathname);
             return (
               <li key={tab.href} className="shrink-0">

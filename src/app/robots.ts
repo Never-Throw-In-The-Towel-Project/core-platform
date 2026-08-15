@@ -17,7 +17,7 @@ export default function robots(): MetadataRoute.Robots {
         "/community",
         "/journey",
         "/content",
-        "/challenge",
+        "/step-challenge",
         "/challenges",
         "/reviews",
         "/settings",

@@ -24,6 +24,10 @@ const nextConfig: NextConfig = {
       { source: "/admin/invite", destination: "/admin/companies", permanent: true },
       // The HR dashboard moved into the "{Company} Workspace" site.
       { source: "/dashboard", destination: "/workspace", permanent: true },
+      // The company step-challenge screen: singular /challenge collided with the
+      // multi-day programmes at /challenges (a one-letter difference). Renamed to
+      // /step-challenge; old links keep working.
+      { source: "/challenge", destination: "/step-challenge", permanent: true },
     ];
   },
 };

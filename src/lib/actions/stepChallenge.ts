@@ -64,6 +64,6 @@ export async function setChallengeOptInAction(
     return { status: "error", message: "Something went wrong saving that. Please try again." };
   }
 
-  revalidatePath("/challenge");
+  revalidatePath("/step-challenge");
   return { status: "success" };
 }
