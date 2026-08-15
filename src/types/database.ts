@@ -140,6 +140,8 @@ export interface ContentItem {
   duration_seconds: number | null;
   is_published: boolean;
   created_by: string | null;
+  /** Which Brain folder this item is filed in; null = "Unfiled". */
+  folder_id: string | null;
   created_at: string;
 }
 
@@ -150,6 +152,18 @@ export interface ContentChannelPlacement {
   content_item_id: string;
   company_id: string;
   priority: number;
+  created_at: string;
+}
+
+// The Brain knowledge base's organising unit (see
+// supabase/migrations/20260815000000_brain_content_folders.sql). ntitt_admin-only,
+// internal to the Super Admin Brain — members never see folders. A content_item's
+// folder_id points here; null = "Unfiled".
+export interface ContentFolder {
+  id: string;
+  name: string;
+  description: string | null;
+  created_by: string | null;
   created_at: string;
 }
 

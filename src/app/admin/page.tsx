@@ -3,6 +3,7 @@ import { requireNtittAdmin } from "@/lib/auth/dal";
 
 const SECTIONS = [
   { href: "/admin/content", title: "Content Studio", desc: "Author, tag, target and publish content." },
+  { href: "/admin/brain", title: "Brain", desc: "The AI knowledge base — upload, foldered and tagged." },
   { href: "/admin/challenges", title: "Challenges", desc: "Build guided multi-day challenge programmes." },
   { href: "/admin/moderation", title: "Moderation", desc: "Review reported community posts." },
   { href: "/admin/podcast", title: "Podcast guests", desc: "See who's opted in to appear as a guest." },

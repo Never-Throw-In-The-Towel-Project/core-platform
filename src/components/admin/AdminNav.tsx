@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 // means one entry here -- no more hand-rolled per-page "Admin tools" link lists.
 const LINKS = [
   { href: "/admin/content", label: "Content" },
+  { href: "/admin/brain", label: "Brain" },
   { href: "/admin/challenges", label: "Challenges" },
   { href: "/admin/moderation", label: "Moderation" },
   { href: "/admin/podcast", label: "Podcast" },

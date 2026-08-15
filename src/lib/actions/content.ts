@@ -64,6 +64,15 @@ export async function createContentItem(
   }
   const channels = channelsParsed.data;
 
+  // Optional Brain folder to file this new item into (the quick-add composer
+  // passes the active folder). Absent/empty = Unfiled. Folder changes for an
+  // EXISTING item go through moveItemToFolder, never updateContentItem.
+  const folderIdRaw = formData.get("folderId");
+  const folderId = typeof folderIdRaw === "string" && folderIdRaw.length > 0 ? folderIdRaw : null;
+  if (folderId && !z.string().uuid().safeParse(folderId).success) {
+    return { status: "error", message: "Something went wrong with the selected folder. Please try again." };
+  }
+
   const tags = (data.tags ?? "")
     .split(",")
     .map((t) => t.trim())
@@ -105,6 +114,7 @@ export async function createContentItem(
         external_url: data.type === "video" ? null : data.externalUrl ?? null,
         tags,
         is_published: data.publish === "true",
+        folder_id: folderId,
         created_by: session.userId,
       })
       .select("id")
@@ -131,6 +141,7 @@ export async function createContentItem(
   }
 
   revalidatePath("/admin/content");
+  revalidatePath("/admin/brain");
   revalidatePath("/content");
   return { status: "success" };
 }
@@ -290,6 +301,7 @@ export async function updateContentItem(
   }
 
   revalidatePath("/admin/content");
+  revalidatePath("/admin/brain");
   revalidatePath("/content");
   redirect("/admin/content");
 }
@@ -357,6 +369,7 @@ export async function importContentItems(
   }
 
   revalidatePath("/admin/content");
+  revalidatePath("/admin/brain");
   revalidatePath("/content");
 
   const published = rows.filter((r) => r.is_published).length;
@@ -413,6 +426,7 @@ export async function setContentItemPublished(
   }
 
   revalidatePath("/admin/content");
+  revalidatePath("/admin/brain");
   revalidatePath("/content");
   return { status: "success" };
 }
@@ -452,6 +466,7 @@ export async function deleteContentItem(
   }
 
   revalidatePath("/admin/content");
+  revalidatePath("/admin/brain");
   revalidatePath("/content");
   return { status: "success" };
 }
