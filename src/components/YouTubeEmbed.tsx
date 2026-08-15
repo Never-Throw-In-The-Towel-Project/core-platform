@@ -20,7 +20,7 @@ export function YouTubeEmbed({ youtubeId, title }: { youtubeId: string; title: s
 
   if (playing) {
     return (
-      <div className="aspect-video w-full overflow-hidden rounded-lg">
+      <div className="aspect-video w-full overflow-hidden">
         <iframe
           src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`}
           title={title}
@@ -36,7 +36,7 @@ export function YouTubeEmbed({ youtubeId, title }: { youtubeId: string; title: s
     <button
       type="button"
       onClick={() => setPlaying(true)}
-      className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-lg border border-black/10"
+      className="relative flex aspect-video w-full items-center justify-center overflow-hidden border border-rule-border"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img

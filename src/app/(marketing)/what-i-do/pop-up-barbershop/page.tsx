@@ -45,7 +45,7 @@ export default function PopUpBarbershopPage() {
               </p>
             </div>
           </div>
-          <div className="overflow-hidden rounded-xl">
+          <div className="overflow-hidden">
             <Image
               src="/site/community-brotherhood.jpg"
               alt="Pop-up barbershop in the workplace"
@@ -78,7 +78,7 @@ export default function PopUpBarbershopPage() {
         </p>
         <a
           href={CONTACT_MAILTO}
-          className="mt-6 inline-block rounded-md bg-background px-6 py-3 font-semibold text-foreground"
+          className="mt-6 inline-block bg-background px-6 py-3 font-extrabold uppercase tracking-wide text-foreground"
         >
           Contact Anthony Now
         </a>
@@ -86,7 +86,7 @@ export default function PopUpBarbershopPage() {
 
       <section className="bg-background px-6 py-16 text-foreground">
         <div className="mx-auto grid max-w-4xl grid-cols-1 items-center gap-10 md:grid-cols-2">
-          <div className="overflow-hidden rounded-xl">
+          <div className="overflow-hidden">
             <Image
               src="/site/founder-speaking.jpg"
               alt="Anthony Hutton delivering a keynote"
@@ -125,7 +125,7 @@ export default function PopUpBarbershopPage() {
                 style={{ width: "auto", height: "auto", maxWidth: "90px", maxHeight: "36px" }}
               />
               {TEXT_ONLY_CLIENTS.map((name) => (
-                <span key={name} className="text-sm font-semibold opacity-70">
+                <span key={name} className="text-sm font-semibold text-muted">
                   {name}
                 </span>
               ))}

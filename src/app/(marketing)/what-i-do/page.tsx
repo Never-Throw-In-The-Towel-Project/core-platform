@@ -29,7 +29,7 @@ export default function WhatIDoPage() {
           <Link
             key={offering.title}
             href={offering.href}
-            className="flex flex-col overflow-hidden rounded-xl border border-black/10 text-left"
+            className="flex flex-col overflow-hidden border-2 border-foreground text-left"
           >
             <div className="aspect-video w-full overflow-hidden">
               <Image

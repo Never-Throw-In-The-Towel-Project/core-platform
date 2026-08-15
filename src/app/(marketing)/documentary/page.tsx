@@ -65,7 +65,7 @@ export default function DocumentaryPage() {
       </div>
 
       <div className="mt-16 grid grid-cols-1 gap-8 md:grid-cols-2">
-        <div className="overflow-hidden rounded-xl">
+        <div className="overflow-hidden">
           <Image
             src="/site/founder-speaking.jpg"
             alt="Anthony Hutton speaking on Never Throw In The Towel"

@@ -44,7 +44,7 @@ export default function CoachingPage() {
               community group is still there for you to be involved in.
             </p>
           </div>
-          <div className="overflow-hidden rounded-xl">
+          <div className="overflow-hidden">
             <Image
               src="/site/founder-speaking.jpg"
               alt="Anthony Hutton"
@@ -64,7 +64,7 @@ export default function CoachingPage() {
         </p>
         <a
           href={CONTACT_MAILTO}
-          className="mt-6 inline-block rounded-md bg-background px-6 py-3 font-semibold text-foreground"
+          className="mt-6 inline-block bg-background px-6 py-3 font-extrabold uppercase tracking-wide text-foreground"
         >
           Contact Anthony Now
         </a>
@@ -72,7 +72,7 @@ export default function CoachingPage() {
 
       <section className="bg-background px-6 py-16 text-foreground">
         <div className="mx-auto grid max-w-4xl grid-cols-1 items-center gap-10 md:grid-cols-2">
-          <div className="overflow-hidden rounded-xl">
+          <div className="overflow-hidden">
             <Image
               src="/site/community-group.jpg"
               alt="Never Throw In The Towel community"
