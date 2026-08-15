@@ -11,12 +11,20 @@ export default function NotFound() {
       <p className="max-w-md text-sm text-muted">
         The page you were looking for may have moved, or never existed. Let&apos;s get you back on track.
       </p>
-      <Link
-        href="/"
-        className="mt-2 inline-block border border-current px-5 py-2 text-sm font-semibold transition-colors hover:bg-foreground hover:text-background"
-      >
-        Back to safety
-      </Link>
+      <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
+        <Link
+          href="/"
+          className="inline-block border border-current px-5 py-2 text-sm font-semibold transition-colors hover:bg-foreground hover:text-background"
+        >
+          Back to safety
+        </Link>
+        <Link
+          href="/home"
+          className="inline-block text-sm font-semibold text-muted underline hover:text-foreground"
+        >
+          Go to your Today screen
+        </Link>
+      </div>
     </main>
   );
 }

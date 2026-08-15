@@ -19,33 +19,51 @@ const ANONYMITY_LABEL: Record<PodcastGuestAnonymityPreference, string> = {
 export default async function PodcastGuestsPage() {
   await requireNtittAdmin();
 
-  const supabase = createAdminClient();
+  type GuestRow = {
+    id: string;
+    displayName: string;
+    company: string;
+    email: string | null;
+    anonymityPreference: PodcastGuestAnonymityPreference | null;
+    consentedAt: string | null;
+  };
 
-  const { data: guests } = await supabase
-    .from("profiles")
-    .select("id, display_name, company_id, podcast_guest_anonymity_preference, podcast_guest_consented_at")
-    .eq("podcast_guest_opt_in", true);
+  // Guarded like the sibling companies pages (admin/companies/*): createAdminClient()
+  // throws synchronously on missing/malformed env, and a single
+  // auth.admin.getUserById rejection would reject the whole Promise.all and crash
+  // this render to the error boundary. Degrade to an empty list instead.
+  let guestsWithEmail: GuestRow[] = [];
+  try {
+    const supabase = createAdminClient();
 
-  const companyIds = Array.from(new Set((guests ?? []).map((g) => g.company_id as string)));
-  const { data: companies } = companyIds.length
-    ? await supabase.from("companies").select("id, name").in("id", companyIds)
-    : { data: [] as { id: string; name: string }[] };
-  const companyName = new Map((companies ?? []).map((c) => [c.id, c.name]));
+    const { data: guests } = await supabase
+      .from("profiles")
+      .select("id, display_name, company_id, podcast_guest_anonymity_preference, podcast_guest_consented_at")
+      .eq("podcast_guest_opt_in", true);
 
-  const guestsWithEmail = await Promise.all(
-    (guests ?? []).map(async (guest) => {
-      const { data } = await supabase.auth.admin.getUserById(guest.id as string);
-      return {
-        id: guest.id as string,
-        displayName: guest.display_name as string,
-        company: companyName.get(guest.company_id as string) ?? "Unknown",
-        email: data?.user?.email ?? null,
-        anonymityPreference:
-          guest.podcast_guest_anonymity_preference as PodcastGuestAnonymityPreference | null,
-        consentedAt: guest.podcast_guest_consented_at as string | null,
-      };
-    })
-  );
+    const companyIds = Array.from(new Set((guests ?? []).map((g) => g.company_id as string)));
+    const { data: companies } = companyIds.length
+      ? await supabase.from("companies").select("id, name").in("id", companyIds)
+      : { data: [] as { id: string; name: string }[] };
+    const companyName = new Map((companies ?? []).map((c) => [c.id, c.name]));
+
+    guestsWithEmail = await Promise.all(
+      (guests ?? []).map(async (guest) => {
+        const { data } = await supabase.auth.admin.getUserById(guest.id as string);
+        return {
+          id: guest.id as string,
+          displayName: guest.display_name as string,
+          company: companyName.get(guest.company_id as string) ?? "Unknown",
+          email: data?.user?.email ?? null,
+          anonymityPreference:
+            guest.podcast_guest_anonymity_preference as PodcastGuestAnonymityPreference | null,
+          consentedAt: guest.podcast_guest_consented_at as string | null,
+        };
+      })
+    );
+  } catch {
+    guestsWithEmail = [];
+  }
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">

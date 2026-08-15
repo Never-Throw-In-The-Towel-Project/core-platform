@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { submitSundaySetup } from "@/lib/actions/sundaySetup";
 import { initialRoutineState } from "@/lib/actions/routineState";
@@ -11,8 +12,11 @@ export function SundaySetupForm() {
 
   if (state.status === "success") {
     return (
-      <div className="space-y-2 text-center">
+      <div className="space-y-4 text-center">
         <h1 className="text-2xl font-bold">Ready for Monday.</h1>
+        <Link href="/home" className="inline-block text-sm font-semibold text-brand-accent underline">
+          Back to Today →
+        </Link>
       </div>
     );
   }

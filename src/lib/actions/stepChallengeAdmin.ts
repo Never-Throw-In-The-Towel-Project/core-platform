@@ -141,6 +141,10 @@ export async function createChallengeAction(
     return { status: "error", message: "Something went wrong creating the challenge. Please try again." };
   }
 
+  // The setup form + resulting tile live on /workspace/challenges -- revalidate
+  // that page so the launched challenge shows without a manual reload (the
+  // /workspace overview shows participation KPIs, not the challenge).
+  revalidatePath("/workspace/challenges");
   revalidatePath("/workspace");
   return isAnthonyVisit
     ? {

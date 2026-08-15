@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { submitWeeklyReview } from "@/lib/actions/weeklyReview";
 import { initialRoutineState } from "@/lib/actions/routineState";
@@ -19,9 +20,12 @@ export function WeeklyReviewForm() {
 
   if (state.status === "success") {
     return (
-      <div className="space-y-2 text-center">
+      <div className="space-y-4 text-center">
         <h1 className="text-2xl font-bold">Weekly Review saved.</h1>
         <p className="opacity-80">Reflect, learn, and reset for the week ahead.</p>
+        <Link href="/home" className="inline-block text-sm font-semibold text-brand-accent underline">
+          Back to Today →
+        </Link>
       </div>
     );
   }

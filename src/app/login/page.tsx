@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import Image from "next/image";
+import Link from "next/link";
 import { resolveCompanyForHost } from "@/lib/tenant/resolve";
 import { PreAuthSupport } from "@/components/PreAuthSupport";
 import { LoginForm } from "./LoginForm";
@@ -34,6 +35,14 @@ export default async function LoginPage({
       </div>
       <h1 className="text-2xl font-bold">Sign in</h1>
       <LoginForm next={next} />
+      {!company && (
+        <p className="text-sm text-muted">
+          New here?{" "}
+          <Link href="/signup" className="font-semibold text-brand-accent underline">
+            Create an account
+          </Link>
+        </p>
+      )}
       <PreAuthSupport />
     </main>
   );

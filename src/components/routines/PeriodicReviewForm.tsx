@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { submitPeriodicReview } from "@/lib/actions/periodicReview";
 import { initialRoutineState } from "@/lib/actions/routineState";
@@ -35,10 +36,22 @@ export function PeriodicReviewForm({
     .join(".");
 
   if (state.status === "success") {
+    const summaryHref = isNinetyDay ? "/reviews/90-day/summary" : "/reviews/30-day/summary";
     return (
-      <div className="space-y-2 text-center">
+      <div className="mx-auto max-w-xl space-y-6 px-6 py-16 text-center">
         <h1 className="text-2xl font-bold">You&apos;ve completed your {periodLabel} days.</h1>
         <p className="opacity-80">Keep on living.</p>
+        <div className="flex flex-col items-center gap-3 pt-2">
+          <Link
+            href={summaryHref}
+            className="w-full max-w-xs bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground"
+          >
+            See your summary →
+          </Link>
+          <Link href="/journey" className="text-sm font-semibold text-brand-accent underline">
+            Back to My Journey
+          </Link>
+        </div>
       </div>
     );
   }

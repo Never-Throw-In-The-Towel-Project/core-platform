@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth/dal";
 import { weekdayNameOrWeekend } from "@/lib/routines/dates";
@@ -15,6 +16,9 @@ export default async function WeeklyReviewPage() {
 
   return (
     <main className="mx-auto max-w-xl px-6 py-12">
+      <Link href="/home" className="mb-6 inline-block text-sm opacity-70 hover:opacity-100">
+        ← Today
+      </Link>
       <WeeklyReviewForm />
     </main>
   );
