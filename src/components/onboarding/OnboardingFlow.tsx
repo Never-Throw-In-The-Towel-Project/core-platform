@@ -18,7 +18,7 @@ function toHHMM(value: string | null, fallback: string) {
 
 function ProgressBar({ step, inverted }: { step: number; inverted: boolean }) {
   const filled = inverted ? "bg-background" : "bg-brand-accent";
-  const empty = inverted ? "bg-background/35" : "bg-black/15";
+  const empty = inverted ? "bg-background/35" : "bg-foreground/15";
   return (
     <div className="flex h-1">
       {Array.from({ length: TOTAL_STEPS }, (_, index) => (
@@ -63,13 +63,13 @@ export function OnboardingFlow({
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col items-center justify-center px-6 py-12 text-center">
           <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={64} height={65} />
           <h1 className="mt-6 text-3xl font-extrabold uppercase">Welcome</h1>
-          <p className="mt-3 opacity-80">
+          <p className="mt-3 text-muted">
             A few quick things before you get started -- takes about a minute.
           </p>
           <button
             type="button"
             onClick={() => setStep(2)}
-            className="mt-8 w-full bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground"
+            className="mt-8 w-full bg-brand-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground"
           >
             Continue
           </button>
@@ -81,7 +81,7 @@ export function OnboardingFlow({
       <main className="flex min-h-full flex-1 flex-col bg-brand-accent text-brand-accent-foreground">
         <ProgressBar step={2} inverted={true} />
         <div className="mx-auto flex w-full max-w-sm flex-1 flex-col px-6 py-8">
-          <p className="text-xs font-semibold tracking-wide uppercase opacity-75">Step 2 of 4</p>
+          <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] opacity-75">Step 2 of 4</p>
           <h1 className="mt-5 text-4xl leading-tight font-extrabold uppercase">
             What you write here is yours.
           </h1>
@@ -101,7 +101,7 @@ export function OnboardingFlow({
             <button
               type="button"
               onClick={() => setStep(3)}
-              className="w-full bg-background px-4 py-3 text-sm font-semibold text-foreground"
+              className="w-full bg-background px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-foreground"
             >
               Understood, continue →
             </button>
@@ -137,19 +137,19 @@ function PasswordStep({ onContinue }: { onContinue: () => void }) {
     <main className="flex min-h-full flex-1 flex-col">
       <ProgressBar step={3} inverted={false} />
       <div className="mx-auto flex w-full max-w-sm flex-1 flex-col px-6 py-8">
-        <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Step 3 of 4</p>
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Step 3 of 4</p>
         <h1 className="mt-4 text-3xl font-extrabold uppercase">Set a password</h1>
-        <p className="mt-2 text-sm opacity-70">
+        <p className="mt-2 text-sm text-muted">
           Optional. Add one so you can sign in without waiting on an email link next time.
         </p>
 
         {state.status === "success" ? (
           <div className="mt-6 flex flex-1 flex-col">
-            <p className="text-sm text-green-700">Password set.</p>
+            <p className="text-sm font-semibold text-foreground">Password set.</p>
             <button
               type="button"
               onClick={onContinue}
-              className="mt-auto w-full bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground"
+              className="mt-auto w-full bg-brand-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground"
             >
               Continue
             </button>
@@ -164,7 +164,7 @@ function PasswordStep({ onContinue }: { onContinue: () => void }) {
                 required
                 minLength={8}
                 autoComplete="new-password"
-                className="mt-1 w-full border border-black/20 bg-transparent px-3 py-2 text-sm"
+                className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2 text-sm"
               />
             </label>
             <label className="text-sm">
@@ -175,21 +175,21 @@ function PasswordStep({ onContinue }: { onContinue: () => void }) {
                 required
                 minLength={8}
                 autoComplete="new-password"
-                className="mt-1 w-full border border-black/20 bg-transparent px-3 py-2 text-sm"
+                className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2 text-sm"
               />
             </label>
 
-            {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
+            {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
 
             <div className="mt-auto flex flex-col gap-2 pt-4">
               <button
                 type="submit"
                 disabled={isPending}
-                className="w-full bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+                className="w-full bg-brand-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
               >
                 {isPending ? "Saving…" : "Set password"}
               </button>
-              <button type="button" onClick={onContinue} className="text-sm opacity-60 underline">
+              <button type="button" onClick={onContinue} className="text-sm text-muted underline">
                 Skip for now
               </button>
             </div>
@@ -209,9 +209,9 @@ function ScheduleStep({ profile }: { profile: Profile }) {
     <main className="flex min-h-full flex-1 flex-col">
       <ProgressBar step={4} inverted={false} />
       <div className="mx-auto w-full max-w-sm flex-1 px-6 py-8">
-        <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Step 4 of 4</p>
+        <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Step 4 of 4</p>
         <h1 className="mt-4 text-3xl font-extrabold uppercase">Set your own times</h1>
-        <p className="mt-2 text-sm opacity-70">
+        <p className="mt-2 text-sm text-muted">
           You choose when the platform speaks to you. Your company does not.
         </p>
 
@@ -237,11 +237,11 @@ function ScheduleStep({ profile }: { profile: Profile }) {
 
           <PushPromptCard />
 
-          <div className="border-t border-black/10 pt-5">
+          <div className="border-t border-rule-hairline pt-5">
             <label htmlFor="displayName" className="text-sm font-semibold">
               Your community display name
             </label>
-            <p className="mt-1 text-xs opacity-60">This does not have to be your real name.</p>
+            <p className="mt-1 text-xs text-muted">This does not have to be your real name.</p>
             <input
               id="displayName"
               name="displayName"
@@ -249,21 +249,21 @@ function ScheduleStep({ profile }: { profile: Profile }) {
               required
               maxLength={40}
               defaultValue={profile.display_name}
-              className="mt-2 w-full border border-black/20 bg-transparent px-3 py-2 text-sm"
+              className="mt-2 w-full border border-rule-border bg-transparent px-3 py-2 text-sm"
             />
           </div>
 
-          <p className="border-t border-black/10 pt-4 text-xs leading-relaxed opacity-60">
+          <p className="border-t border-rule-hairline pt-4 text-xs leading-relaxed text-muted">
             Reminder: everything you write in the platform stays private to you. Your company sees
             completion numbers across all staff, nothing more.
           </p>
 
-          {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
+          {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
 
           <button
             type="submit"
             disabled={isPending}
-            className="w-full bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+            className="w-full bg-brand-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
           >
             {isPending ? "Saving…" : "Finish setup →"}
           </button>
@@ -300,24 +300,24 @@ function PushPromptCard() {
   }
 
   return (
-    <div className="border-t border-black/10 pt-5">
+    <div className="border-t border-rule-hairline pt-5">
       <p className="text-sm font-semibold">Turn on reminders</p>
-      <p className="mt-1 text-xs opacity-60">
+      <p className="mt-1 text-xs text-muted">
         Get a gentle nudge at the times above. Optional — you can change this any time in Settings.
       </p>
       {status === "on" ? (
-        <p className="mt-3 text-sm font-medium text-green-700">Reminders are on ✓</p>
+        <p className="mt-3 text-sm font-semibold text-foreground">Reminders are on ✓</p>
       ) : (
         <button
           type="button"
           onClick={enable}
           disabled={status === "enabling"}
-          className="mt-3 border border-black/20 px-4 py-2 text-sm font-semibold disabled:opacity-50"
+          className="mt-3 border border-rule-border px-4 py-2 text-sm font-semibold disabled:opacity-50"
         >
           {status === "enabling" ? "Enabling…" : "Enable reminders"}
         </button>
       )}
-      {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
+      {error && <p className="mt-2 text-xs text-brand-accent-deep">{error}</p>}
     </div>
   );
 }
@@ -334,17 +334,17 @@ function TimeField({
   defaultValue: string;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-black/10 pb-4">
+    <div className="flex items-center justify-between border-b border-rule-hairline pb-4">
       <div>
         <p className="text-sm font-semibold">{label}</p>
-        <p className="text-xs opacity-60">{hint}</p>
+        <p className="text-xs text-muted">{hint}</p>
       </div>
       <input
         name={name}
         type="time"
         required
         defaultValue={defaultValue}
-        className="border border-black/20 bg-transparent px-3 py-2 text-sm font-semibold"
+        className="border border-rule-border bg-transparent px-3 py-2 text-sm font-semibold"
       />
     </div>
   );

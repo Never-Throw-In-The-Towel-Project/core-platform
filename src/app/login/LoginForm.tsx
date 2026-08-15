@@ -41,18 +41,18 @@ function MagicLinkForm({ next, onUsePassword }: { next?: string; onUsePassword: 
           name="email"
           type="email"
           required
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2.5"
         />
       </label>
-      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-md bg-brand-accent px-4 py-2 font-semibold text-brand-accent-foreground disabled:opacity-50"
+        className="bg-brand-accent px-4 py-2.5 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Sending…" : "Send sign-in link"}
       </button>
-      <button type="button" onClick={onUsePassword} className="text-sm opacity-70 underline">
+      <button type="button" onClick={onUsePassword} className="text-sm text-muted underline hover:text-foreground">
         Sign in with a password instead
       </button>
     </form>
@@ -71,7 +71,7 @@ function PasswordForm({ next, onUseMagicLink }: { next?: string; onUseMagicLink:
           name="email"
           type="email"
           required
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2.5"
         />
       </label>
       <label className="text-sm">
@@ -80,18 +80,18 @@ function PasswordForm({ next, onUseMagicLink }: { next?: string; onUseMagicLink:
           name="password"
           type="password"
           required
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2.5"
         />
       </label>
-      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-md bg-brand-accent px-4 py-2 font-semibold text-brand-accent-foreground disabled:opacity-50"
+        className="bg-brand-accent px-4 py-2.5 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Signing in…" : "Sign in"}
       </button>
-      <button type="button" onClick={onUseMagicLink} className="text-sm opacity-70 underline">
+      <button type="button" onClick={onUseMagicLink} className="text-sm text-muted underline hover:text-foreground">
         Use a sign-in link instead
       </button>
     </form>
