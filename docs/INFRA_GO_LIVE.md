@@ -117,6 +117,20 @@ From a machine with the Supabase CLI (full runbook: `docs/DEPLOYMENT.md`):
 - [ ] **First `ntitt_admin`** provisioned (DEPLOYMENT.md §3) so someone can reach the
   Control Tower.
 
+Verify the rows are actually there (Supabase → SQL Editor):
+
+```sql
+select slug, name from public.companies order by slug;
+-- expect: amazon | Amazon,  kp-snacks | KP Snacks
+```
+
+Empty result = the seed wasn't applied (this is the #1 cause of "the subdomain
+loads but shows default NTITT branding"). A "relation does not exist" error =
+migrations weren't applied. The RLS is not the problem: `companies` is
+world-readable pre-auth (`using (true)` + a column-level anon grant on the
+branding columns), which is exactly what lets a logged-out visitor see a partner's
+theme — so a default-branded portal is a **missing row**, not a permissions issue.
+
 > ⚠️ **Slug = subdomain, exactly.** `kp-snacks.neverthrowinthetowel.uk` shows the KP
 > Snacks portal only because a company row has `slug = 'kp-snacks'`. A mistyped host
 > (`kpsnacks`, no hyphen) resolves to *no* company and falls back to the default,
