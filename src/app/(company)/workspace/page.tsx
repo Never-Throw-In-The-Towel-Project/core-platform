@@ -71,7 +71,8 @@ export default async function WorkspaceOverviewPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-8">
-      <p className="text-sm opacity-70">{latestWeek ? `${latestWeek.headcount} staff enrolled` : "Company overview"}</p>
+      <h1 className="text-2xl font-extrabold tracking-tight">Overview</h1>
+      <p className="mt-1 text-sm text-muted">{latestWeek ? `${latestWeek.headcount} staff enrolled` : "Company overview"}</p>
 
       <div className="mt-4 bg-brand-background px-4 py-3 text-sm text-brand-foreground">
         You see company-wide numbers only. No names, no answers, no individual scores — by design, and not
@@ -86,57 +87,57 @@ export default async function WorkspaceOverviewPage() {
           accent={trendDelta ? trendDelta.points > 0 : false}
         />
         <Kpi value={String(supportCount)} label="Support button uses · count only" />
-        <div className="border border-current/15 p-4">
+        <div className="border border-rule-border p-4">
           <p className="text-3xl font-extrabold">
             {thirtyDayReviews?.completedCount ?? 0}
-            <span className="text-lg font-semibold opacity-50">
+            <span className="text-lg font-semibold text-muted">
               {" / "}
               {ninetyDayReviews?.completedCount ?? 0}
             </span>
           </p>
-          <p className="mt-1 text-xs uppercase opacity-60">30 / 90 day reviews completed</p>
+          <p className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">30 / 90 day reviews completed</p>
         </div>
       </div>
 
       <div className="mt-8">
-        <p className="text-xs font-semibold tracking-wide uppercase opacity-60">
+        <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
           Participation trend · {weeklyParticipation.length} weeks
-        </p>
+        </h2>
         {weeklyParticipation.length === 0 ? (
-          <p className="mt-4 text-sm opacity-60">Not enough data yet.</p>
+          <p className="mt-4 text-sm text-muted">Not enough data yet.</p>
         ) : (
           <>
             <div className="mt-3 flex h-32 items-end gap-1">
               {weeklyParticipation.map((week, i) => (
                 <div
                   key={week.weekStartDate}
-                  className={"flex-1 " + (i === weeklyParticipation.length - 1 ? "bg-brand-accent" : "bg-current/20")}
+                  className={"flex-1 " + (i === weeklyParticipation.length - 1 ? "bg-brand-accent" : "bg-foreground/15")}
                   style={{ height: `${overallPercent(week) ?? 0}%` }}
                 />
               ))}
             </div>
-            <div className="mt-1 flex justify-between text-xs opacity-60">
+            <div className="mt-1 flex justify-between text-xs text-muted">
               <span>Week {weeklyParticipation[0].weekNumber}</span>
               <span>Week {weeklyParticipation[weeklyParticipation.length - 1].weekNumber}</span>
             </div>
           </>
         )}
 
-        <p className="mt-8 text-xs font-semibold tracking-wide uppercase opacity-60">Completion by day · this week</p>
+        <h2 className="mt-8 text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Completion by day · this week</h2>
         {engagedThisWeek.length === 0 ? (
-          <p className="mt-3 text-sm opacity-60">Not enough data yet.</p>
+          <p className="mt-3 text-sm text-muted">Not enough data yet.</p>
         ) : (
           <div className="mt-3 space-y-2">
             {weekdayThisWeek.map((day) => (
               <div key={day.weekday} className="flex items-center gap-3 text-sm">
                 <span className="w-20 shrink-0">{WEEKDAY_LABEL[day.weekday]}</span>
-                <div className="h-2 flex-1 bg-current/10">
+                <div className="h-2 flex-1 bg-foreground/10">
                   <div className="h-full bg-brand-accent" style={{ width: `${day.percent ?? 0}%` }} />
                 </div>
                 <span className="w-10 shrink-0 text-right font-semibold">{day.percent ?? "—"}%</span>
               </div>
             ))}
-            <p className="pt-1 text-xs opacity-60">
+            <p className="pt-1 text-xs text-muted">
               Most engaged: {mostEngaged ? WEEKDAY_LABEL[mostEngaged.weekday] : "—"}. Least engaged:{" "}
               {leastEngaged ? WEEKDAY_LABEL[leastEngaged.weekday] : "—"}.
             </p>
@@ -149,9 +150,9 @@ export default async function WorkspaceOverviewPage() {
 
 function Kpi({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
   return (
-    <div className="border border-current/15 p-4">
+    <div className="border border-rule-border p-4">
       <p className={"text-3xl font-extrabold " + (accent ? "text-brand-accent" : "")}>{value}</p>
-      <p className="mt-1 text-xs uppercase opacity-60">{label}</p>
+      <p className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">{label}</p>
     </div>
   );
 }

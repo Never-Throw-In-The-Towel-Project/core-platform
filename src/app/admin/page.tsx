@@ -27,7 +27,7 @@ export default async function AdminHomePage() {
           <Link
             key={s.href}
             href={s.href}
-            className="rounded-lg border border-black/10 p-5 transition-colors hover:border-brand-accent hover:bg-black/[0.02]"
+            className="border border-rule-border p-5 transition-colors hover:border-brand-accent hover:bg-foreground/[0.03]"
           >
             <p className="font-semibold">{s.title}</p>
             <p className="mt-1 text-sm text-muted">{s.desc}</p>

@@ -69,7 +69,7 @@ export default async function CompaniesPage() {
               return (
                 <li key={c.id} className="flex items-start gap-3 py-3">
                   <span
-                    className="mt-1 h-4 w-4 shrink-0 rounded-full border border-black/10"
+                    className="mt-1 h-4 w-4 shrink-0 rounded-full border border-rule-border"
                     style={{ background: c.primary_color ?? "var(--brand-accent)" }}
                     aria-hidden
                   />

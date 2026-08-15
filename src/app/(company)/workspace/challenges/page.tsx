@@ -24,8 +24,8 @@ export default async function WorkspaceChallengesPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-8">
-      <h1 className="text-lg font-bold tracking-tight">Step challenge</h1>
-      <p className="mt-1 text-sm opacity-70">
+      <h1 className="text-2xl font-extrabold tracking-tight">Step challenge</h1>
+      <p className="mt-1 text-sm text-muted">
         Run a company-wide step challenge. Progress is an aggregate team total — never an individual&apos;s steps.
       </p>
       <div className="mt-6">
