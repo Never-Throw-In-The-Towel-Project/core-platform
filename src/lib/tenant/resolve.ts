@@ -3,11 +3,16 @@ import { escapeFilterValue } from "@/lib/supabase/filterEscape";
 import type { Company } from "@/types/database";
 
 // Subdomains that never resolve to a tenant: "app"/"www" are the un-branded
-// default host, "admin" is the NTITT Control Tower (admin.neverthrowinthetowel.uk).
-// Exported so company creation can reject them as slugs -- a company with one of
-// these slugs could never have its subdomain resolve (and "admin" would collide
-// with the Control Tower host).
-export const RESERVED_SUBDOMAINS = new Set(["app", "www", "admin"]);
+// default host, "admin" is the NTITT Control Tower (admin.neverthrowinthetowel.uk),
+// and "direct" is the shared self-signup pool company (DIRECT_COMPANY_ID, slug
+// "direct" -- see 20260807000000_direct_company_seed.sql). Without "direct"
+// here, direct.<root> (a live host under the wildcard DNS) resolves the pool
+// company as a tenant: /signup redirects to /login and the whole host renders
+// with NTITT Direct branding, contradicting the seed's "never resolved via
+// subdomain" invariant. Exported so company creation can reject them as slugs
+// too -- a company with one of these slugs could never have its subdomain
+// resolve (and "admin" would collide with the Control Tower host).
+export const RESERVED_SUBDOMAINS = new Set(["app", "www", "admin", "direct"]);
 
 /**
  * Pulls the tenant slug out of a request's Host header, for both production

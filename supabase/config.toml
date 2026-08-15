@@ -28,7 +28,7 @@ major_version = 15
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
-additional_redirect_urls = ["https://app.ntitt.co.uk"]
+additional_redirect_urls = ["https://neverthrowinthetowel.uk", "https://app.neverthrowinthetowel.uk"]
 jwt_expiry = 3600
 enable_signup = true
 # Public/direct signups (src/lib/actions/signup.ts) are self-service and

@@ -36,7 +36,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
-          NEXT_PUBLIC_APP_ROOT_DOMAIN: ntitt.co.uk
+          NEXT_PUBLIC_APP_ROOT_DOMAIN: neverthrowinthetowel.uk
 
   # Dry-run every migration + seed against a throwaway local Postgres 16 and
   # assert the privacy/security invariants (RLS coverage plus the hardening

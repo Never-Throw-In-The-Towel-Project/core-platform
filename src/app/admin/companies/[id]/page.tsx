@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireNtittAdmin } from "@/lib/auth/dal";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { EditCompanyForm, type EditableCompany } from "@/components/admin/EditCompanyForm";
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "neverthrowinthetowel.uk";
@@ -17,7 +17,15 @@ export default async function EditCompanyPage({ params }: { params: Promise<{ id
 
   let company: EditableCompany | null = null;
   try {
-    const supabase = await createClient();
+    // Service-role client, not the session client: the edit form needs the
+    // support_contact_* columns, and 20260810020000_restrict_company_contact_columns
+    // revoked SELECT on those from `authenticated` (they're first-aider/Anthony
+    // PII). A session-client select of them fails with permission-denied ->
+    // data null -> notFound(), which 404'd every company's edit page. This page
+    // is requireNtittAdmin()-guarded (above) + behind the /admin layout, and
+    // support-contact PII is exactly what the admin edits here, so the
+    // service-role read is the correct one -- same reasoning as support.ts.
+    const supabase = createAdminClient();
     const { data } = await supabase
       .from("companies")
       .select(

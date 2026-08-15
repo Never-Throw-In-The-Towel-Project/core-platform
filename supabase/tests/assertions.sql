@@ -85,6 +85,31 @@ begin
 end
 $$;
 
+-- ---- 2c2. profiles privilege columns not writable by the session client -----
+-- (20260814100000) role/company_id must never be UPDATE-able by anon/
+-- authenticated, or a user self-escalates to ntitt_admin / hops tenants; the
+-- self-service columns must stay writable or onboarding/settings break.
+do $$
+begin
+  if has_column_privilege('authenticated','public.profiles','role','update') then
+    raise exception 'authenticated can UPDATE profiles.role (privilege escalation)';
+  end if;
+  if has_column_privilege('authenticated','public.profiles','company_id','update') then
+    raise exception 'authenticated can UPDATE profiles.company_id (tenant hop)';
+  end if;
+  if has_column_privilege('anon','public.profiles','role','update') then
+    raise exception 'anon can UPDATE profiles.role';
+  end if;
+  if not has_column_privilege('authenticated','public.profiles','display_name','update') then
+    raise exception 'authenticated lost UPDATE on profiles.display_name (breaks settings/onboarding)';
+  end if;
+  if not has_column_privilege('authenticated','public.profiles','onboarding_completed','update') then
+    raise exception 'authenticated lost UPDATE on profiles.onboarding_completed (breaks onboarding)';
+  end if;
+  raise notice 'PASS  2c2 profiles role/company_id UPDATE revoked; self-service columns kept';
+end
+$$;
+
 -- ---- 2d. community_reports dedup: unique(post_id, reporter_user_id) ---------
 do $$
 declare def text;
