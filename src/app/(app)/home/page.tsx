@@ -18,7 +18,6 @@ import {
 import { CHECKIN_CONFIG, type TextCheckinWeekday } from "@/lib/routines/checkinConfig";
 import type { Weekday } from "@/types/database";
 import { ProgressBand } from "@/components/today/ProgressBand";
-import type { Story } from "@/components/today/StoryRail";
 import { CheckinCard } from "@/components/today/CheckinCard";
 import { RoutineRow } from "@/components/today/RoutineRow";
 import { CompanySlot } from "@/components/today/CompanySlot";
@@ -46,16 +45,6 @@ const WEEKDAY_LABEL: Record<Weekday, string> = {
 };
 
 const REVIEW_ROUTES = { "30_day": "/reviews/30-day", "90_day": "/reviews/90-day" } as const;
-
-// The story rail reuses the photography already committed under public/site
-// (the same shots the handoff renamed into designs/assets). Seen-state and the
-// full-screen viewer aren't built yet (open decision) -- see StoryRail.
-const STORIES: Story[] = [
-  { key: "anthony", label: "Anthony", image: "/site/founder-speaking.jpg", seen: false },
-  { key: "barbershop", label: "Barbershop", image: "/site/community-brotherhood.jpg", seen: false },
-  { key: "meetup", label: "Meet-up", image: "/site/community-group.jpg", seen: true },
-  { key: "episode", label: "Episode", image: "/site/podcast-recording.jpg", seen: true },
-];
 
 const CHECKIN_IMAGE = "/site/community-group.jpg";
 
@@ -275,26 +264,27 @@ export default async function HomePage() {
   return (
     <main className="min-h-full">
       <ProgressBand
-        ringPct={stats.ringPct}
         rank={stats.rank}
         streak={stats.streak}
         winsCount={stats.winsCount}
         badgesEarned={stats.badgesEarned}
+        ringPct={stats.ringPct}
         daysToReview={stats.daysToReview}
         reviewLabel={stats.reviewLabel}
         reviewComplete={stats.reviewComplete}
-        stories={STORIES}
+        activeDayCount={stats.activeDayCount}
+        isoWeek={isoWeek}
+        weekDaysIn={isoWeekday}
+        completedWeekdays={completedWeekdays}
+        todayKey={todayWeekday}
       />
 
       <div className="mx-auto max-w-5xl px-5 py-6">
-        {/* Persists any newly-earned badges on load and celebrates them once. */}
+        {/* Persists any newly-earned badges on load and celebrates them once.
+            The Day/Week eyebrow now lives in the ink band above. */}
         <BadgeSync />
 
-        <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">
-          Day {stats.activeDayCount} · Week {isoWeek}
-        </p>
-
-        <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_320px]">
+        <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
           {/* Main column */}
           <div className="space-y-6">
             <CheckinCard
