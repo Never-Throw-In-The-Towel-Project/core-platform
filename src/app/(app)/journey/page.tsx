@@ -8,9 +8,10 @@ import { getRecentSteps } from "@/lib/steps/queries";
 import { lastNDates, buildStepsWeek } from "@/lib/steps/week";
 import { getActiveChallengeBrief } from "@/lib/steps/challengeQueries";
 import { StepsCard } from "@/components/journey/StepsCard";
-import { ShareBadgeButton } from "@/components/journey/ShareBadgeButton";
+import { JourneyBadges } from "@/components/journey/JourneyBadges";
 import { getEarnedBadges, type EarnedBadge } from "@/lib/gamification/earnedBadges";
-import { badgeLabel } from "@/lib/gamification/badges";
+import { gatherEngagement, badgeStatsFrom } from "@/lib/gamification/todayStats";
+import { evaluateBadges } from "@/lib/gamification/badges";
 import type { PeriodicReview, ReviewType, StepEntry, WeeklyReview } from "@/types/database";
 
 const REVIEW_FIELDS: { key: keyof WeeklyReview; label: string }[] = [
@@ -29,6 +30,11 @@ const REVIEW_ROUTES: Record<ReviewType, string> = { "30_day": "/reviews/30-day/s
 // to land someone on the fill-out form, not the read-back summary.
 const REVIEW_START_ROUTES: Record<ReviewType, string> = { "30_day": "/reviews/30-day", "90_day": "/reviews/90-day" };
 const REVIEW_LABEL: Record<ReviewType, string> = { "30_day": "30 Day Review", "90_day": "90 Day Review" };
+
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function dowLabel(iso: string): string {
+  return DOW[new Date(`${iso}T00:00:00Z`).getUTCDay()];
+}
 
 /** Picks one non-empty field from a week's review to highlight, rotating through REVIEW_FIELDS by position so the same field isn't shown every single week. */
 function pickHighlight(review: WeeklyReview, startIndex: number): { label: string; value: string } | null {
@@ -60,14 +66,9 @@ export default async function JourneyPage() {
   const profile = await getProfile();
   const activeDayCount = await getActiveDayCount(profile.id);
 
-  // Wrapped in try/catch: createClient() throws synchronously if the
-  // URL/key are missing or malformed -- same gap already closed elsewhere.
-  // Degrading to empty history is the same safe direction this page
-  // already takes for a genuinely new user ("Nothing here yet -- keep
-  // going."), not a distinct case worth crashing this read-only page over.
-  // The member's own last 7 days of steps (private, never-reportable). The date
-  // window is computed in the member's own timezone; the fetch runs under the
-  // private client, in the same guarded block as the reviews.
+  // The member's own last 7 days (private, never-reportable). The date window is
+  // computed in the member's own timezone; the reads run under the private
+  // client, in the same guarded block as the reviews.
   const stepDates = lastNDates(todayISODate(new Date(), profile.timezone), 7);
 
   let weeklyReviews: WeeklyReview[] | null = null;
@@ -77,6 +78,10 @@ export default async function JourneyPage() {
   // badge_keys the member has already shared to the wins board (public schema),
   // so each badge renders as "Share" or "Shared" rather than offering a duplicate.
   let sharedBadgeKeys = new Set<string>();
+  // The member's own last-7-days sleep score / day rating, for the trend chart.
+  // Private to them (their own page); never a gamification input, never reported.
+  let dailySleep = new Map<string, number>();
+  let dailyRating = new Map<string, number>();
   try {
     const supabase = await createClient("private");
     const [weeklyResult, periodicResult] = await Promise.all([
@@ -97,6 +102,22 @@ export default async function JourneyPage() {
     stepEntries = await getRecentSteps(supabase, profile.id, stepDates[0]);
     earnedBadges = await getEarnedBadges(supabase, profile.id);
 
+    // Daily sleep + day-rating over the same 7-day window as steps.
+    const [{ data: sleepRows }, { data: ratingRows }] = await Promise.all([
+      supabase.from("morning_entries").select("entry_date, sleep_score").eq("user_id", profile.id).in("entry_date", stepDates),
+      supabase.from("night_entries").select("entry_date, day_rating").eq("user_id", profile.id).in("entry_date", stepDates),
+    ]);
+    dailySleep = new Map(
+      (sleepRows ?? [])
+        .filter((r) => r.sleep_score != null)
+        .map((r) => [r.entry_date as string, r.sleep_score as number])
+    );
+    dailyRating = new Map(
+      (ratingRows ?? [])
+        .filter((r) => r.day_rating != null)
+        .map((r) => [r.entry_date as string, r.day_rating as number])
+    );
+
     // Which badges are already on the wins board (public.community_posts).
     const publicClient = await createClient();
     const { data: sharedRows } = await publicClient
@@ -115,6 +136,18 @@ export default async function JourneyPage() {
 
   const stepsWeek = buildStepsWeek(stepDates, stepEntries);
   const stats = await getJourneyStats(profile.id, activeDayCount);
+
+  // Full badge catalogue (earned + locked, in display order) evaluated against
+  // the same engagement the Today screen uses, plus the earned-at dates and any
+  // challenge badges awarded outside the catalogue -- everything the grid needs.
+  const engagement = await gatherEngagement(profile.id);
+  const badgeStats = badgeStatsFrom(engagement);
+  const allBadges = evaluateBadges(badgeStats);
+  const catalogueKeys = new Set(allBadges.map((b) => b.key));
+  const earnedAt = new Map(earnedBadges.map((b) => [b.badge_key, b.earned_at]));
+  const challengeBadges = earnedBadges
+    .filter((b) => !catalogueKeys.has(b.badge_key))
+    .map((b) => ({ key: b.badge_key, earnedAt: b.earned_at }));
 
   // The member's company's active step challenge, if any -- a lightweight entry
   // point to the full challenge screen. Best-effort: any failure just hides it.
@@ -142,65 +175,96 @@ export default async function JourneyPage() {
   const review30 = (periodicReviews as PeriodicReview[] | null)?.find((r) => r.review_type === "30_day") ?? null;
   const review90 = (periodicReviews as PeriodicReview[] | null)?.find((r) => r.review_type === "90_day") ?? null;
 
+  const dailyRatings = stepDates.map((d) => ({
+    date: d,
+    sleep: dailySleep.get(d) ?? null,
+    dayRating: dailyRating.get(d) ?? null,
+  }));
+  const daysLogged = dailyRatings.filter((d) => d.sleep != null || d.dayRating != null).length;
+
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
+    <main className="mx-auto max-w-5xl px-6 py-10">
       <div className="flex flex-wrap items-start justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-extrabold uppercase">My Journey</h1>
-          <p className="mt-1 text-sm opacity-70">Only you can see this page.</p>
+          <h1 className="text-4xl font-extrabold tracking-tight">My Journey</h1>
+          <p className="mt-2 flex items-center gap-2 text-sm text-muted">
+            <span className="inline-block h-2.5 w-2.5 shrink-0 bg-brand-accent" aria-hidden />
+            Only you can see this page. Not your employer, not NTITT.
+          </p>
         </div>
-        <div className="flex gap-6 text-right">
+        <div className="flex flex-wrap gap-x-6 gap-y-3">
           <Stat value={stats.daysIn} label="Days in" />
           <Stat value={stats.mornings} label="Mornings" />
           <Stat value={stats.nights} label="Nights" />
-          <Stat value={stats.weeklyReviews} label="Weekly reviews" />
+          <Stat value={stats.weeklyReviews} label="Reviews" />
         </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[1fr_280px]">
+      <div className="mt-8 grid grid-cols-1 gap-10 border-t border-rule-hairline pt-8 lg:grid-cols-[1fr_300px]">
         <div>
-          <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Week by week</p>
-          {recentReviews.length === 0 && (
-            <p className="mt-4 text-sm opacity-70">Nothing here yet -- keep going.</p>
-          )}
-          {recentReviews.map((review, i) => {
-            const highlight = pickHighlight(review, i);
-            const ratings = ratingsByWeek.get(review.week_start_date);
-            return (
-              <div key={review.id} className="border-t border-current/10 py-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold text-brand-accent">
-                      WEEK {stats.weeklyReviews - i} · {formatWeekRange(review.week_start_date)}
-                    </p>
-                    {highlight && (
-                      <>
-                        <p className="mt-2 font-medium">{highlight.label}</p>
-                        <p className="mt-1 text-sm opacity-80">{highlight.value}</p>
-                      </>
+          <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Week by week</h2>
+          {recentReviews.length === 0 && <p className="mt-4 text-sm text-muted">Nothing here yet — keep going.</p>}
+          <div className="mt-2">
+            {recentReviews.map((review, i) => {
+              const highlight = pickHighlight(review, i);
+              const ratings = ratingsByWeek.get(review.week_start_date);
+              return (
+                <div key={review.id} className="border-t border-rule-hairline py-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-brand-accent-deep">
+                        Week {stats.weeklyReviews - i} · {formatWeekRange(review.week_start_date)}
+                      </p>
+                      {highlight && (
+                        <>
+                          <p className="mt-2 text-lg font-extrabold leading-tight tracking-tight">{highlight.label}</p>
+                          <p className="mt-1 text-sm text-muted">{highlight.value}</p>
+                        </>
+                      )}
+                    </div>
+                    {ratings?.avgDayRating != null && (
+                      <div className="shrink-0 text-right">
+                        <p className="text-lg font-extrabold">{ratings.avgDayRating.toFixed(1)}</p>
+                        <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">avg day</p>
+                      </div>
                     )}
                   </div>
-                  {ratings?.avgDayRating != null && (
-                    <div className="shrink-0 text-right">
-                      <p className="text-lg font-bold">{ratings.avgDayRating.toFixed(1)}</p>
-                      <p className="text-xs opacity-60">avg day</p>
-                    </div>
-                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {daysLogged > 0 && (
+            <div className="mt-8 border-t border-rule-hairline pt-6">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
+                  Sleep and day rating · last 7 days
+                </h2>
+                <div className="flex gap-3 text-[10px] font-extrabold uppercase tracking-[0.14em]">
+                  <span className="text-foreground">■ Sleep</span>
+                  <span className="text-brand-accent-deep">■ Day rating</span>
                 </div>
               </div>
-            );
-          })}
-
-          {recentReviews.length > 0 && (
-            <div className="mt-6 border-t border-current/10 pt-4">
-              <p className="text-xs font-semibold tracking-wide uppercase opacity-60">
-                Sleep and day rating · last {recentReviews.length} week{recentReviews.length === 1 ? "" : "s"}
-              </p>
-              <RatingsChart weeks={[...recentReviews].reverse().map((r) => ratingsByWeek.get(r.week_start_date))} />
-              <div className="mt-2 flex gap-4 text-xs opacity-60">
-                <span>▮ Sleep</span>
-                <span className="text-brand-accent">▮ Day rating</span>
+              <div className="mt-4 flex h-28 items-end gap-2">
+                {dailyRatings.map((d) => (
+                  <div
+                    key={d.date}
+                    className="flex flex-1 flex-col items-center gap-1.5"
+                    aria-label={`${dowLabel(d.date)}: sleep ${d.sleep ?? "not logged"}, day rating ${d.dayRating ?? "not logged"}`}
+                  >
+                    <span className="flex h-full w-full items-end gap-0.5" aria-hidden>
+                      <span className="flex-1 bg-foreground" style={{ height: `${((d.sleep ?? 0) / 10) * 100}%` }} />
+                      <span className="flex-1 bg-brand-accent" style={{ height: `${((d.dayRating ?? 0) / 10) * 100}%` }} />
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase text-muted" aria-hidden>
+                      {dowLabel(d.date)}
+                    </span>
+                  </div>
+                ))}
               </div>
+              <p className="mt-3 text-sm text-muted">
+                {daysLogged} {daysLogged === 1 ? "day" : "days"} logged. The pattern gets useful around day seven.
+              </p>
             </div>
           )}
         </div>
@@ -209,80 +273,47 @@ export default async function JourneyPage() {
           {activeChallenge && (
             <Link
               href="/step-challenge"
-              className="block border border-current/10 p-4 transition-colors hover:bg-current/[0.03]"
+              className="block border border-rule-hairline p-4 transition-colors hover:bg-foreground/[0.03]"
             >
-              <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Company challenge</p>
-              <p className="mt-1 font-semibold">{activeChallenge.title}</p>
-              <p className="mt-1 text-sm text-brand-accent">See the team&apos;s progress →</p>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Company challenge</p>
+              <p className="mt-1 font-extrabold">{activeChallenge.title}</p>
+              <p className="mt-1 text-sm font-semibold text-brand-accent-deep">See the team&apos;s progress →</p>
             </Link>
           )}
 
-          <StepsCard week={stepsWeek} />
+          <JourneyBadges
+            badges={allBadges}
+            statsInput={badgeStats}
+            earnedAt={earnedAt}
+            sharedKeys={sharedBadgeKeys}
+            canShare={profile.community_opt_in}
+            challengeBadges={challengeBadges}
+          />
 
           <div>
-            <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Badges</p>
-            {earnedBadges.length === 0 ? (
-              <p className="mt-2 text-sm opacity-70">No badges yet — keep going.</p>
-            ) : (
-              <>
-                {profile.community_opt_in ? (
-                  <p className="mt-1 text-xs opacity-60">
-                    Your badges are private. Share one to celebrate it on the community wins board.
-                  </p>
-                ) : null}
-                <ul className="mt-2 space-y-2">
-                  {earnedBadges.map((badge) => (
-                    <li
-                      key={badge.badge_key}
-                      className="flex items-center justify-between gap-3 border border-current/10 px-3 py-2 text-sm"
-                    >
-                      <span className="font-semibold">{badgeLabel(badge.badge_key)}</span>
-                      <div className="flex shrink-0 items-center gap-3">
-                        {sharedBadgeKeys.has(badge.badge_key) ? (
-                          <span className="text-xs text-brand-accent-deep">Shared ✓</span>
-                        ) : profile.community_opt_in ? (
-                          <ShareBadgeButton badgeKey={badge.badge_key} />
-                        ) : null}
-                        <span className="text-xs opacity-60">
-                          {new Date(badge.earned_at).toLocaleDateString("en-GB", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </div>
-
-          <div>
-            <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Milestones</p>
+            <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Milestones</h2>
             <div className="mt-2 space-y-3">
               <MilestoneCard type="30_day" review={review30} activeDayCount={activeDayCount} />
-              <MilestoneCard
-                type="90_day"
-                review={review90}
-                activeDayCount={activeDayCount}
-                locked={!review30}
-              />
+              <MilestoneCard type="90_day" review={review90} activeDayCount={activeDayCount} locked={!review30} />
             </div>
+          </div>
+
+          <div className="border-t border-rule-hairline pt-6">
+            <StepsCard week={stepsWeek} />
           </div>
 
           {weeklyReviewOpen && (
             <div>
-              <p className="text-xs font-semibold tracking-wide uppercase opacity-60">This weekend</p>
-              <div className="mt-2 border border-current/10 p-4 text-sm">
-                <p className="font-semibold">Weekly Review</p>
-                <p className="mt-1 opacity-70">Reflect, learn, and reset for the week ahead. Open from Friday.</p>
+              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">This weekend</h2>
+              <div className="mt-2 border border-rule-hairline p-4 text-sm">
+                <p className="font-extrabold">Weekly Review</p>
+                <p className="mt-1 text-muted">Reflect, learn, and reset for the week ahead. Open from Friday.</p>
                 {thisWeekDone ? (
-                  <p className="mt-3 text-xs opacity-60">Done for this week.</p>
+                  <p className="mt-3 text-xs text-muted">Done for this week.</p>
                 ) : (
                   <Link
                     href="/weekly-review"
-                    className="mt-3 inline-block bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accent-foreground"
+                    className="mt-3 inline-block bg-brand-accent px-4 py-2 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground"
                   >
                     Start review
                   </Link>
@@ -299,8 +330,8 @@ export default async function JourneyPage() {
 function Stat({ value, label }: { value: number; label: string }) {
   return (
     <div>
-      <p className="text-2xl font-extrabold">{value}</p>
-      <p className="text-xs opacity-60">{label}</p>
+      <p className="text-3xl font-extrabold leading-none tracking-tight">{value}</p>
+      <p className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">{label}</p>
     </div>
   );
 }
@@ -318,10 +349,13 @@ function MilestoneCard({
 }) {
   if (review) {
     return (
-      <div className="border border-current/10 p-4 text-sm">
-        <p className="font-semibold">{REVIEW_LABEL[type]}</p>
-        <p className="mt-1 opacity-70">Completed {review.period_end}</p>
-        <Link href={REVIEW_ROUTES[type]} className="mt-2 inline-block text-brand-accent underline">
+      <div className="border border-rule-hairline p-4 text-sm">
+        <p className="font-extrabold">{REVIEW_LABEL[type]}</p>
+        <p className="mt-1 text-muted">Completed {review.period_end}</p>
+        <Link
+          href={REVIEW_ROUTES[type]}
+          className="mt-2 inline-block text-xs font-extrabold uppercase tracking-wide text-brand-accent-deep"
+        >
           Read it back →
         </Link>
       </div>
@@ -330,9 +364,9 @@ function MilestoneCard({
 
   if (locked) {
     return (
-      <div className="border border-current/10 p-4 text-sm opacity-60">
-        <p className="font-semibold">{REVIEW_LABEL[type]}</p>
-        <p className="mt-1">Opens after your 30 Day Review.</p>
+      <div className="border border-rule-hairline p-4 text-sm">
+        <p className="font-extrabold text-muted">{REVIEW_LABEL[type]}</p>
+        <p className="mt-1 text-muted">Opens after your 30 Day Review.</p>
       </div>
     );
   }
@@ -344,36 +378,17 @@ function MilestoneCard({
 
   return (
     <div className="bg-brand-background p-4 text-sm text-brand-foreground">
-      <p className="font-semibold">{REVIEW_LABEL[type]}</p>
+      <p className="text-lg font-extrabold leading-tight tracking-tight">{REVIEW_LABEL[type]}</p>
       {remaining === 0 ? (
-        <Link href={REVIEW_START_ROUTES[type]} className="mt-1 inline-block underline opacity-80">
+        <Link href={REVIEW_START_ROUTES[type]} className="mt-1 inline-block font-semibold text-brand-accent-light underline">
           Ready to complete →
         </Link>
       ) : (
-        <p className="mt-1 opacity-80">{`${remaining} more active day${remaining === 1 ? "" : "s"} to go`}</p>
+        <p className="mt-1 text-muted-on-ink">{`${remaining} more active day${remaining === 1 ? "" : "s"} to go`}</p>
       )}
-      <div className="mt-3 h-1.5 bg-brand-foreground/20">
+      <div className="mt-3 h-1.5 bg-white/15">
         <div className="h-full bg-brand-accent" style={{ width: `${progress * 100}%` }} />
       </div>
-    </div>
-  );
-}
-
-function RatingsChart({ weeks }: { weeks: ({ avgSleep: number | null; avgDayRating: number | null } | undefined)[] }) {
-  return (
-    <div className="mt-3 flex h-24 items-end gap-2">
-      {weeks.map((week, i) => (
-        <div key={i} className="flex flex-1 items-end gap-0.5">
-          <div
-            className="flex-1 bg-current/25"
-            style={{ height: `${((week?.avgSleep ?? 0) / 10) * 100}%` }}
-          />
-          <div
-            className="flex-1 bg-brand-accent"
-            style={{ height: `${((week?.avgDayRating ?? 0) / 10) * 100}%` }}
-          />
-        </div>
-      ))}
     </div>
   );
 }

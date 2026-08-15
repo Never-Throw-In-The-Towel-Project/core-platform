@@ -11,7 +11,7 @@ import { initialRoutineState } from "@/lib/actions/routineState";
  * the row re-renders as "Shared" -- this button only shows for a not-yet-shared
  * badge when the member has joined the community.
  */
-export function ShareBadgeButton({ badgeKey }: { badgeKey: string }) {
+export function ShareBadgeButton({ badgeKey, onDark = false }: { badgeKey: string; onDark?: boolean }) {
   const [state, formAction, pending] = useActionState(shareBadgeAction, initialRoutineState);
 
   return (
@@ -20,12 +20,14 @@ export function ShareBadgeButton({ badgeKey }: { badgeKey: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="text-xs font-semibold text-brand-accent underline-offset-2 hover:underline disabled:opacity-50"
+        className={`text-xs font-semibold underline-offset-2 hover:underline disabled:opacity-50 ${
+          onDark ? "text-brand-accent-light" : "text-brand-accent"
+        }`}
       >
-        {pending ? "Sharing…" : "Share"}
+        {pending ? "Sharing…" : "Share →"}
       </button>
       {state.status === "error" ? (
-        <span className="text-xs text-brand-accent-deep">{state.message}</span>
+        <span className={`text-xs ${onDark ? "text-brand-accent-light" : "text-brand-accent-deep"}`}>{state.message}</span>
       ) : null}
     </form>
   );

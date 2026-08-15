@@ -112,6 +112,30 @@ export function badgeLabel(key: string): string {
 }
 
 /**
+ * A short, non-punitive "what's left" hint for a LOCKED badge, shown under it in
+ * the Journey grid (the 5-journey design's "5 days to go" / "3 to go"). Derived
+ * from the same stats the earn rule uses; it is only ever a target to move
+ * toward, never a scold, and it never reads "0 to go" (that would be a
+ * contradiction with the badge still being locked). Falls back to a neutral
+ * nudge for any key without a specific hint.
+ */
+const PROGRESS_HINT: Record<string, (s: BadgeStatsInput) => string> = {
+  first_week: (s) => `${Math.max(1, 7 - s.activeDayCount)} days to go`,
+  ten_days: (s) => `${Math.max(1, 10 - s.activeDayCount)} days to go`,
+  first_post: () => "Share a post",
+  night_owl: () => "One night routine",
+  five_wins: (s) => `${Math.max(1, 5 - s.winsCount)} wins to go`,
+  thirty_days: (s) => `${Math.max(1, 30 - s.activeDayCount)} days to go`,
+  steps_10k_club: () => "Log a 10k day",
+  steps_week_streak: () => "7-day step streak",
+  steps_30_day_mover: () => "30-day step streak",
+};
+
+export function badgeProgressHint(key: string, stats: BadgeStatsInput): string {
+  return PROGRESS_HINT[key]?.(stats) ?? "Keep going";
+}
+
+/**
  * Evaluate every badge against the user's real stats. Order is the display
  * order in the grid (earned ones read first because most users will have the
  * early ones); the component paints earned vs. locked.
