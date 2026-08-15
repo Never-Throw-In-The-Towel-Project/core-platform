@@ -24,7 +24,8 @@ ad-hoc role-link structure described in earlier docs.
   rename would only split naming from the member-facing `/challenges`.
 - ⚙️ **Remaining (NTITT dashboards, not code):** the Vercel `admin.` + `*.`
   wildcard domains and the Supabase redirect-allow-list / cookie-domain config
-  (Phase 0 ops) — the go-live gate for the subdomain hosts.
+  (Phase 0 ops) — the go-live gate for the subdomain hosts. **Full operator
+  tick-list: `docs/INFRA_GO_LIVE.md`.**
 
 ## Why
 
