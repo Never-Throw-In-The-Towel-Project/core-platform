@@ -7,6 +7,7 @@ import {
   setChallengePublished,
 } from "@/lib/actions/challenges";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import { ChallengeDayImportForm } from "./ChallengeDayImportForm";
 
 const LABEL = "block text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted";
 const FIELD = "mt-1 w-full border border-rule-border bg-transparent px-3 py-2 text-sm";
@@ -133,6 +134,9 @@ export function ChallengeAuthoring({
           )}
         </div>
       </form>
+
+      {/* Bulk day import (collapsed) — lay out a whole programme at once */}
+      <ChallengeDayImportForm challengeId={challengeId} />
 
       {/* Existing days */}
       <div>

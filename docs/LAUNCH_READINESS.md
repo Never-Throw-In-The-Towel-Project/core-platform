@@ -69,13 +69,22 @@ legal copy only NTITT can supply).
   a pasted URL is rejected at the form instead of rendering a broken player.
 - 📝 **The catalogue ships empty.** No seeded content/challenges; the headline
   search-first Library is barren on day one. Needs a real launch catalogue loaded.
+  **🛠️ Loading it is now fast:** the Studio has a **CSV bulk importer** (paste or
+  `.csv`; all-or-nothing validation through the single-add schema; video + external-URL
+  document/image rows; format guide `docs/CONTENT_IMPORT.md`). So this is now a 📝
+  content-supply task, not an engineering one — but still needs NTITT's real catalogue.
 - ⚙️ **Provision prod env vars** (full list below). Several **silently no-op** when
   unset and disable safety-critical email/SMS/escalation with no signal.
 - ⚙️ **Confirm Vercel plan is Pro** — the `*/15` support-monitor and push crons do
   not run on Hobby (once-daily cap), silently.
-- ⚙️ **Configure Supabase Auth SMTP** — invites/magic-links ride Supabase Auth
-  email, which has no SMTP block in `config.toml`; bulk day-one invites may not
-  deliver.
+- ⚙️ **Configure Supabase Auth SMTP** — invites/magic-links/confirmations ride
+  Supabase Auth email, whose built-in mailer caps near ~2/hour, so bulk day-one
+  invites won't deliver. **🛠️ Codebase side is now done:** `config.toml`
+  `[auth.email.smtp]` (Brevo relay, env-interpolated secret), branded templates in
+  `supabase/templates/`, and a raised send rate limit are committed. **⚙️ Operator
+  side remains:** verify the `ntitt.co.uk` sender domain in Brevo (SPF/DKIM/DMARC),
+  generate a Brevo **SMTP key**, and set it on the Supabase project. Full steps:
+  **`docs/SMTP_SETUP.md`**.
 - 🛠️ **Two unguarded hard-fail paths crash instead of degrading:**
   `NEXT_PUBLIC_SITE_URL` throws uncaught on login/signup/invite if unset
   (`auth.ts:48`, `signup.ts:66`, `invite.ts:9`); the VAPID keys throw *unguarded*
@@ -118,8 +127,13 @@ Samaritans), `NEXT_PUBLIC_APP_ROOT_DOMAIN`.
 ## Nice-to-have (post-launch or fast-follow)
 
 - 🛠️ Branded `not-found.tsx` (currently Next's unstyled 404) and a `loading.tsx`.
-- 🛠️ Bulk/CSV import for the initial content load + challenge-day sequencing (the
-  single biggest content-ops time sink; hours → minutes).
+- ✅ **DONE — Bulk/CSV import for the initial content load** (`ContentImportForm` +
+  `importContentItems`, shared `csvImport.ts` parser). Turns loading the day-one
+  catalogue from an hours-long one-at-a-time slog into a single paste/upload.
+  **Challenge-day sequencing is also done** (`ChallengeDayImportForm` +
+  `importChallengeDays`, `challengeImport.ts`): a per-challenge CSV lays out the
+  whole `day → content → prompt` plan at once, reusing the same tokenizer and
+  all-or-nothing contract. Both are `ntitt_admin`-only and RLS-gated.
 - ✅ **DONE — `/api/health`** readiness probe (see Launch-blocking above). Central
   _push_ cron-failure alerting (email/pager) is the remaining piece.
 - 🛠️ Per-page titles + `title.template` (every marketing page shares one `<title>`);
