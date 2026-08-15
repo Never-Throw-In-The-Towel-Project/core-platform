@@ -3,12 +3,14 @@ import { requireNtittAdmin } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { listAllContentForAdmin } from "@/lib/content/queries";
 import { listContentFolders, resolveAssetUrls } from "@/lib/content/brain";
+import { isAiConfigured } from "@/lib/ai/client";
 import { DAY_LABEL } from "@/lib/content/rotation";
 import { ContentStudioForm } from "@/components/admin/ContentStudioForm";
 import { ContentItemActions } from "@/components/admin/ContentItemActions";
 import { BrainMoveControl } from "@/components/admin/BrainMoveControl";
 import { BrainFolderCreate } from "@/components/admin/BrainFolderCreate";
 import { BrainFolderSettings } from "@/components/admin/BrainFolderSettings";
+import { BrainAutoOrganize } from "@/components/admin/BrainAutoOrganize";
 import type { ContentFolder, ContentItem, VideoCategory } from "@/types/database";
 
 const TYPE_LABEL: Record<ContentItem["type"], string> = {
@@ -83,6 +85,7 @@ export default async function BrainPage({
 
   const heading = view === "unfiled" ? "Unfiled" : activeFolder ? activeFolder.name : "All items";
   const folderOptions = folders.map((f) => ({ id: f.id, name: f.name }));
+  const aiConfigured = isAiConfigured();
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-12">
@@ -149,6 +152,13 @@ export default async function BrainPage({
               <ContentStudioForm companies={companies} folderId={activeFolder?.id} />
             </div>
           </details>
+
+          {/* ---- Auto-organise (AI batch: propose folder + tags, admin approves) ---- */}
+          {visible.length > 0 && (
+            <div className="mt-4">
+              <BrainAutoOrganize itemIds={visible.map((i) => i.id)} aiConfigured={aiConfigured} />
+            </div>
+          )}
 
           {/* ---- Item grid ---- */}
           {visible.length === 0 ? (
