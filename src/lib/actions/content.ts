@@ -5,29 +5,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { verifySession, getProfile } from "@/lib/auth/dal";
 import { uploadContentAsset } from "@/lib/content/assetUpload";
+import {
+  ContentInputSchema,
+  parseContentImportCsv,
+  type ContentImportState,
+} from "@/lib/content/csvImport";
 import { type RoutineActionState } from "./routineState";
-
-const ContentSchema = z.object({
-  type: z.enum(["video", "document", "image"]),
-  title: z.string().trim().min(1).max(200),
-  category: z.enum(["mental_fitness", "physical_fitness", "nutrition", "tools_tips"]),
-  summary: z.string().trim().max(1000).optional(),
-  dayOfWeek: z.number().int().min(1).max(7).optional(),
-  vimeoId: z
-    .string()
-    .trim()
-    .regex(/^\d+$/, "Enter the numeric Vimeo ID only (e.g. 123456789), not a URL.")
-    .max(64)
-    .optional(),
-  externalUrl: z
-    .string()
-    .trim()
-    .regex(/^https?:\/\/.+/i, "Enter a valid http(s) link.")
-    .max(2000)
-    .optional(),
-  tags: z.string().max(500).optional(),
-  publish: z.enum(["true", "false"]).optional(),
-});
 
 /**
  * Create a content item from the Super Admin Studio (see
@@ -54,7 +37,7 @@ export async function createContentItem(
   }
 
   const rawDay = formData.get("dayOfWeek");
-  const parsed = ContentSchema.safeParse({
+  const parsed = ContentInputSchema.safeParse({
     type: formData.get("type"),
     title: formData.get("title"),
     category: formData.get("category"),
@@ -148,6 +131,82 @@ export async function createContentItem(
   revalidatePath("/admin/content");
   revalidatePath("/content");
   return { status: "success" };
+}
+
+/**
+ * Bulk-import a content catalogue from a CSV (paste or .csv upload). ntitt_admin
+ * only (friendly check here; the content_items INSERT RLS policy is the real
+ * gate). Validation is single-source -- every row parses through the same
+ * ContentInputSchema as the single-add form above -- and all-or-nothing: if ANY
+ * row fails, nothing is written, so a bad row never leaves a half-loaded
+ * catalogue that would duplicate on a re-run. Imported items are NTITT-wide (no
+ * channel targeting) and carry no uploaded assets (a CSV can't hold a binary),
+ * so a video row needs a Vimeo id and a document/image row an external URL.
+ * Format guide: docs/CONTENT_IMPORT.md.
+ */
+export async function importContentItems(
+  _prevState: ContentImportState,
+  formData: FormData
+): Promise<ContentImportState> {
+  const session = await verifySession();
+  const profile = await getProfile();
+  if (profile.role !== "ntitt_admin") {
+    return { status: "error", message: "You don’t have access to the content studio." };
+  }
+
+  // Prefer an uploaded .csv; fall back to the pasted textarea.
+  let text = "";
+  const file = formData.get("file");
+  if (file instanceof File && file.size > 0) {
+    text = await file.text();
+  } else {
+    text = String(formData.get("csv") ?? "");
+  }
+  if (text.trim() === "") {
+    return { status: "error", message: "Paste some CSV or choose a .csv file to import." };
+  }
+
+  const defaultPublish = formData.get("defaultPublish") === "true";
+  const { rows, errors, fatal, dataRowCount } = parseContentImportCsv(text, { defaultPublish });
+
+  if (fatal) {
+    return { status: "error", message: fatal };
+  }
+  if (errors.length > 0) {
+    return {
+      status: "error",
+      message: `${errors.length} of ${dataRowCount} row${dataRowCount === 1 ? "" : "s"} need fixing — nothing was imported. Fix these and re-upload.`,
+      rowErrors: errors,
+    };
+  }
+  if (rows.length === 0) {
+    return { status: "error", message: "No content rows found under the header." };
+  }
+
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("content_items")
+      .insert(rows.map((r) => ({ ...r, created_by: session.userId })));
+    if (error) {
+      return { status: "error", message: "Couldn’t save the imported content. Please try again." };
+    }
+  } catch {
+    return { status: "error", message: "Couldn’t save the imported content. Please try again." };
+  }
+
+  revalidatePath("/admin/content");
+  revalidatePath("/content");
+
+  const published = rows.filter((r) => r.is_published).length;
+  const drafted = rows.length - published;
+  return {
+    status: "success",
+    message: `Imported ${rows.length} item${rows.length === 1 ? "" : "s"} — ${published} live, ${drafted} draft${drafted === 1 ? "" : "s"}.`,
+    created: rows.length,
+    published,
+    drafted,
+  };
 }
 
 const ContentPublishSchema = z.object({
