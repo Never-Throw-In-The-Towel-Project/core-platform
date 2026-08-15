@@ -21,8 +21,8 @@ begin
     raise exception 'RLS disabled on % public/private table(s)', missing;
   end if;
   select count(*) into total from pg_tables where schemaname in ('public','private');
-  if total <> 34 then
-    raise exception 'expected 34 public+private tables (22+12), found %', total;
+  if total <> 35 then
+    raise exception 'expected 35 public+private tables (23+12), found %', total;
   end if;
   raise notice 'PASS  1  RLS enabled on all % public/private tables', total;
 end
@@ -171,6 +171,37 @@ begin
     raise exception 'content-assets bucket missing or not public';
   end if;
   raise notice 'PASS  4  content_items writes ntitt_admin-gated; content-assets bucket public';
+end
+$$;
+
+-- ---- 4f. Brain folders: ntitt_admin-only + content_items.folder_id (set null) --
+do $$
+declare sc text; has_col boolean; ondelete char;
+begin
+  -- Folders are ntitt_admin-only for READS too (internal Brain organiser), so
+  -- the SELECT policy must be ntitt_admin-gated -- unlike content_items, which
+  -- authenticated members read when published.
+  select pg_get_expr(polqual, polrelid) into sc
+    from pg_policy where polrelid = 'public.content_folders'::regclass and polcmd = 'r';
+  if sc is null then raise exception 'no SELECT policy on content_folders'; end if;
+  if position('ntitt_admin' in sc) = 0 then
+    raise exception 'content_folders SELECT policy is not ntitt_admin gated: %', sc;
+  end if;
+
+  -- content_items.folder_id exists and un-files (SET NULL) on folder delete, so
+  -- deleting a folder never deletes content.
+  select exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='content_items' and column_name='folder_id'
+  ) into has_col;
+  if not has_col then raise exception 'content_items.folder_id missing (Brain folders)'; end if;
+  select confdeltype into ondelete from pg_constraint
+    where conrelid = 'public.content_items'::regclass and contype = 'f'
+      and confrelid = 'public.content_folders'::regclass;
+  if ondelete is distinct from 'n' then
+    raise exception 'content_items.folder_id FK is not ON DELETE SET NULL (got %)', ondelete;
+  end if;
+  raise notice 'PASS  4f content_folders ntitt_admin-only; content_items.folder_id present + ON DELETE SET NULL';
 end
 $$;
 

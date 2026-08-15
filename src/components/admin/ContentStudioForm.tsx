@@ -42,10 +42,15 @@ export function ContentStudioForm({
   companies,
   item,
   existingChannelIds = [],
+  folderId,
 }: {
   companies: { id: string; name: string }[];
   item?: ContentItem;
   existingChannelIds?: string[];
+  /** When creating from the Brain, file the new item straight into this folder
+   *  (createContentItem reads `folderId`). Ignored in edit mode — folder moves
+   *  for an existing item go through moveItemToFolder. */
+  folderId?: string | null;
 }) {
   const isEdit = item != null;
   const [state, formAction, isPending] = useActionState(
@@ -110,6 +115,7 @@ export function ContentStudioForm({
   return (
     <form ref={formRef} action={formAction} className="space-y-5 border border-rule-border p-5">
       {isEdit && <input type="hidden" name="id" value={item.id} />}
+      {!isEdit && folderId && <input type="hidden" name="folderId" value={folderId} />}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="content-type" className={LABEL}>

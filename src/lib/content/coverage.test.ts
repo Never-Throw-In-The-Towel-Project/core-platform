@@ -21,6 +21,7 @@ function item(
     duration_seconds: null,
     is_published: overrides.is_published ?? true,
     created_by: null,
+    folder_id: null,
     created_at: "2026-08-13T00:00:00Z",
     ...overrides,
   };
