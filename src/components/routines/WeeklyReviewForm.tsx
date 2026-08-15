@@ -21,9 +21,9 @@ export function WeeklyReviewForm() {
   if (state.status === "success") {
     return (
       <div className="space-y-4 text-center">
-        <h1 className="text-2xl font-bold">Weekly Review saved.</h1>
-        <p className="opacity-80">Reflect, learn, and reset for the week ahead.</p>
-        <Link href="/home" className="inline-block text-sm font-semibold text-brand-accent underline">
+        <h1 className="text-2xl font-extrabold tracking-tight">Weekly Review saved.</h1>
+        <p className="text-muted">Reflect, learn, and reset for the week ahead.</p>
+        <Link href="/home" className="inline-block text-sm font-semibold text-brand-accent-deep underline">
           Back to Today →
         </Link>
       </div>
@@ -33,8 +33,8 @@ export function WeeklyReviewForm() {
   return (
     <form action={formAction} className="space-y-6">
       <header className="text-center">
-        <h1 className="text-2xl font-bold">Weekly Review</h1>
-        <p className="opacity-80">Reflect, learn, and reset for the week ahead.</p>
+        <h1 className="text-2xl font-extrabold tracking-tight">Weekly Review</h1>
+        <p className="text-muted">Reflect, learn, and reset for the week ahead.</p>
       </header>
 
       {FIELDS.map((field) => (
@@ -43,17 +43,17 @@ export function WeeklyReviewForm() {
           <textarea
             name={field.key}
             rows={2}
-            className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+            className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
           />
         </label>
       ))}
 
-      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
 
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-md bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+        className="w-full bg-brand-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Saving…" : "Save Weekly Review"}
       </button>

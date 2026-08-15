@@ -14,7 +14,7 @@ export function MorningRoutineForm() {
     return (
       <div className="space-y-2 text-center">
         <p className="text-4xl">☀️</p>
-        <h1 className="text-2xl font-bold">Morning sorted. Go win the day.</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight">Morning sorted. Go win the day.</h1>
       </div>
     );
   }
@@ -22,11 +22,11 @@ export function MorningRoutineForm() {
   return (
     <form action={formAction} className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold">☀️ Morning Routine</h1>
-        <p className="opacity-80">Win the morning, win the day.</p>
+        <h1 className="text-2xl font-extrabold tracking-tight">☀️ Morning Routine</h1>
+        <p className="text-muted">Win the morning, win the day.</p>
       </header>
 
-      <p className="rounded-lg border border-black/10 p-4 text-sm">
+      <p className="border border-rule-hairline p-4 text-sm">
         Stay off your phone for 30 minutes in the morning.
       </p>
 
@@ -44,16 +44,16 @@ export function MorningRoutineForm() {
                 className="peer sr-only"
                 required
               />
-              <span className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-black/20 text-sm peer-checked:bg-brand-accent peer-checked:text-brand-accent-foreground">
+              <span className="flex h-9 w-9 cursor-pointer items-center justify-center border border-rule-border text-sm peer-checked:bg-brand-accent peer-checked:text-brand-accent-foreground">
                 {n}
               </span>
             </label>
           ))}
         </div>
-        <p className="mt-1 text-xs opacity-60">Private to you. Never shared or reported.</p>
+        <p className="mt-1 text-xs text-muted">Private to you. Never shared or reported.</p>
       </fieldset>
 
-      <p className="rounded-lg border border-black/10 p-4 text-sm">
+      <p className="border border-rule-hairline p-4 text-sm">
         Have a large glass of water BEFORE your morning coffee.
       </p>
 
@@ -76,16 +76,16 @@ export function MorningRoutineForm() {
         <textarea
           name="powerList"
           rows={4}
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
         />
       </label>
 
-      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
 
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-md bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+        className="w-full bg-brand-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Saving…" : "Complete Morning Routine"}
       </button>

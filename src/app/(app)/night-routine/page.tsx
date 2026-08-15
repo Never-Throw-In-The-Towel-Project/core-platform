@@ -32,8 +32,8 @@ export default async function NightRoutinePage() {
   return (
     <main className="min-h-full bg-brand-background text-brand-foreground">
       <div className="mx-auto max-w-xl px-6 py-12">
-        <div className="mb-6 flex items-center justify-between text-sm opacity-80">
-          <Link href="/home" className="hover:opacity-100">
+        <div className="mb-6 flex items-center justify-between text-sm text-muted-on-ink">
+          <Link href="/home" className="hover:text-brand-foreground">
             ← Night Routine
           </Link>
           <span>Day {activeDayCount}</span>
