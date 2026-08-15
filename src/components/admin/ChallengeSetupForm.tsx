@@ -15,9 +15,9 @@ export function ChallengeSetupForm() {
   const [state, action, pending] = useActionState(createChallengeAction, initialRoutineState);
 
   return (
-    <div className="border border-current/15 p-5">
-      <p className="text-xs font-semibold uppercase tracking-wide opacity-60">Start a step challenge</p>
-      <p className="mt-1 text-sm opacity-70">
+    <div className="border border-rule-border p-5">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted">Start a step challenge</p>
+      <p className="mt-1 text-sm text-muted">
         A collective team target — everyone who opts in contributes their daily steps. You see the team total
         and opt-in rate only, never individual steps or who opted in.
       </p>
@@ -30,7 +30,7 @@ export function ChallengeSetupForm() {
             required
             maxLength={120}
             placeholder="e.g. October Step Challenge"
-            className="mt-1 w-full border border-current/20 bg-transparent px-3 py-2"
+            className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
           />
         </label>
 
@@ -43,13 +43,13 @@ export function ChallengeSetupForm() {
             min={1}
             required
             placeholder="e.g. 50000000"
-            className="mt-1 w-full border border-current/20 bg-transparent px-3 py-2"
+            className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
           />
         </label>
 
         <label className="block text-sm">
           <span className="font-medium">Reward type</span>
-          <select name="rewardType" required className="mt-1 w-full border border-current/20 bg-transparent px-3 py-2">
+          <select name="rewardType" required className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2">
             {CHALLENGE_REWARD_TYPES.map((r) => (
               <option key={r.value} value={r.value}>
                 {r.label}
@@ -65,18 +65,18 @@ export function ChallengeSetupForm() {
             required
             maxLength={200}
             placeholder="e.g. Team lunch on us"
-            className="mt-1 w-full border border-current/20 bg-transparent px-3 py-2"
+            className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
           />
         </label>
 
         <label className="block text-sm">
           <span className="font-medium">Starts</span>
-          <input name="startsOn" type="date" required className="mt-1 w-full border border-current/20 bg-transparent px-3 py-2" />
+          <input name="startsOn" type="date" required className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2" />
         </label>
 
         <label className="block text-sm">
           <span className="font-medium">Ends</span>
-          <input name="endsOn" type="date" required className="mt-1 w-full border border-current/20 bg-transparent px-3 py-2" />
+          <input name="endsOn" type="date" required className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2" />
         </label>
 
         {state.status === "error" && (
