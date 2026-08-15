@@ -90,9 +90,21 @@ legal copy only NTITT can supply).
   (`auth.ts:48`, `signup.ts:66`, `invite.ts:9`); the VAPID keys throw *unguarded*
   and crash the entire push cron on the first due notification (`sendPush.ts:39`,
   job `route.ts:108`).
-- 🛠️ **No observability** — no error tracking (Sentry/equiv.) and no `/api/health`
-  on a safety-critical support-escalation flow. A failing/silently-skipping cron
-  is invisible unless a human reads Vercel logs.
+- ✅ **DONE — Readiness `/api/health` + cron hardening.** `/api/health` is now a
+  real readiness probe: public mode does a DB round-trip (200/503 for uptime
+  monitors, no secrets leaked); an auth-gated `?detail=1` (same `CRON_SECRET`
+  bearer as the crons) reports which **critical env groups are set** — the direct
+  answer to the "silently no-op when unset" risk below (`src/lib/health/config.ts`,
+  unit-tested). Two crash-prone crons hardened to degrade instead of 500-ing the
+  whole run: `generate-90-day-impact-reports` (was silently reporting success on a
+  read error; now guards it and isolates each company) and the safety-critical
+  `monitor-support-response-time` (per-request isolation so one failed escalation
+  no longer starves the rest of the overdue queue). Both count failures + log
+  `[cron:*]` lines.
+- 🛠️ **Still open:** error tracking (Sentry/equiv.) and **central _push_ cron-failure
+  alerting** (email/pager when a job fails). The health endpoint + structured
+  `[cron:*]` logs make failures visible on a pull; a push alert needs an ops
+  address — a scoped follow-up.
 
 ### Required prod env vars (⚙️ the config checklist)
 Hard-fail if unset: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
@@ -122,7 +134,8 @@ Samaritans), `NEXT_PUBLIC_APP_ROOT_DOMAIN`.
   `importChallengeDays`, `challengeImport.ts`): a per-challenge CSV lays out the
   whole `day → content → prompt` plan at once, reusing the same tokenizer and
   all-or-nothing contract. Both are `ntitt_admin`-only and RLS-gated.
-- 🛠️ `/api/health` endpoint for uptime monitoring; central cron failure alerting.
+- ✅ **DONE — `/api/health`** readiness probe (see Launch-blocking above). Central
+  _push_ cron-failure alerting (email/pager) is the remaining piece.
 - 🛠️ Per-page titles + `title.template` (every marketing page shares one `<title>`);
   an `opengraph-image`.
 - 🛠️ Gate provisional rank names on `rank.confirmed` (`ProgressBand.tsx:39` renders
