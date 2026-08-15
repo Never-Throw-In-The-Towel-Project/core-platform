@@ -11,9 +11,10 @@ ad-hoc role-link structure described in earlier docs.
   `requireNtittAdmin`), the **Company Workspace** (`(company)/workspace/*`), and
   **role-aware cross-subdomain landing** (`src/lib/auth/landing.ts`). The five
   admin surfaces are relocated with 301s (`next.config.ts`).
-- 🛠️ **Remaining (code):** a content **edit** action in the Studio (today it's
-  create / delete / publish only). _The step-route disambiguation, hiding Direct
-  members' "My Company", and role-aware HR/NTITT onboarding are now done._
+- ✅ **All Phase 3 code shipped:** step-route disambiguation
+  (`/challenge` → `/step-challenge`), hiding Direct members' "My Company",
+  role-aware HR/NTITT onboarding, and the content **edit** action are done. The
+  only thing left is the Phase 0 infra below (NTITT dashboards, not code).
 - **Naming decided:** the singular step-challenge route is now **`/step-challenge`**
   (was `/challenge`; permanent redirect in place) to end the one-letter collision
   with the `/challenges` programmes. The admin authoring surface **stays
@@ -159,7 +160,7 @@ schema; no admin role ever reads it. HR see only one-way `company_*` aggregates.
   sub-nav; HR onboarding; land HR on `/workspace`.
 - **Phase 3 — Core polish**: role-aware landing (✅); step route disambiguated
   (✅ `/challenge` → `/step-challenge`); Direct "My Company" hidden (✅);
-  role-aware HR/NTITT onboarding + layout gate (✅); content-edit action (remaining).
+  role-aware HR/NTITT onboarding + layout gate (✅); content-edit action (✅).
 
 ## Ownership split
 

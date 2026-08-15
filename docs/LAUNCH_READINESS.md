@@ -60,11 +60,11 @@ legal copy only NTITT can supply).
   first so it works for any user).
 
 ### Content & operational config
-- ✅ **DONE — Unpublish / delete for content items.** Per-item Publish/Unpublish +
-  Delete controls in the Studio list (`setContentItemPublished` / `deleteContentItem`,
-  RLS-gated). A bad item can now be pulled or fixed (delete + recreate) without SQL;
-  the placement-failure message no longer points at a non-existent edit screen.
-  _(A full field-edit form is a nice-to-have follow-up; delete + recreate covers fixes.)_
+- ✅ **DONE — Edit / unpublish / delete for content items.** Per-item **Edit**
+  (`/admin/content/[id]/edit` → `updateContentItem`) plus Publish/Unpublish + Delete
+  controls in the Studio list, all RLS-gated. A bad item can now be fixed in place
+  (change any field, swap the media/type, re-target channels) — no more delete +
+  recreate, and no more SQL.
 - ✅ **DONE — Vimeo IDs are validated** on create (numeric-only), so a mistyped ID or
   a pasted URL is rejected at the form instead of rendering a broken player.
 - 📝 **The catalogue ships empty.** No seeded content/challenges; the headline
