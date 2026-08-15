@@ -42,18 +42,18 @@ export function PushNotificationToggle({ initiallySubscribed }: { initiallySubsc
 
   if (!supported) {
     return (
-      <div className="rounded-lg border border-black/10 p-4 text-sm opacity-60">
+      <div className="border border-rule-hairline p-4 text-sm text-muted">
         Push notifications aren&apos;t supported in this browser.
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-black/10 p-4">
+    <div className="border border-rule-hairline p-4">
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-sm font-medium">Push notifications</p>
-          <p className="mt-1 text-xs opacity-60">
+          <p className="mt-1 text-xs text-muted">
             A reminder at your Morning/Night Routine and Sunday Setup times, if set.
           </p>
         </div>
@@ -61,12 +61,12 @@ export function PushNotificationToggle({ initiallySubscribed }: { initiallySubsc
           type="button"
           disabled={isPending}
           onClick={subscribed ? handleDisable : handleEnable}
-          className="shrink-0 rounded-md border border-black/20 px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+          className="shrink-0 border border-rule-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
         >
           {isPending ? "…" : subscribed ? "Enabled ✓" : "Enable"}
         </button>
       </div>
-      {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
+      {error && <p className="mt-2 text-xs text-brand-accent-deep">{error}</p>}
     </div>
   );
 }

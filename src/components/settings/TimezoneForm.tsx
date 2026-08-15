@@ -14,12 +14,12 @@ export function TimezoneForm({ currentTimezone }: { currentTimezone: string }) {
   const [state, formAction, isPending] = useActionState(updateTimezone, initialRoutineState);
 
   return (
-    <form action={formAction} className="space-y-3 rounded-lg border border-black/10 p-4">
+    <form action={formAction} className="space-y-3 border border-rule-hairline p-4">
       <div>
         <label htmlFor="timezone" className="text-sm font-medium">
           Your timezone
         </label>
-        <p className="mt-1 text-xs opacity-60">
+        <p className="mt-1 text-xs text-muted">
           Controls when your Morning/Night Routine switches over and which day today is for check-ins.
         </p>
       </div>
@@ -27,7 +27,7 @@ export function TimezoneForm({ currentTimezone }: { currentTimezone: string }) {
         id="timezone"
         name="timezone"
         defaultValue={currentTimezone}
-        className="w-full rounded-md border border-black/20 bg-transparent px-3 py-2 text-sm"
+        className="w-full border border-rule-border bg-transparent px-3 py-2.5 text-sm"
       >
         {TIMEZONES.map((tz) => (
           <option key={tz} value={tz} className="bg-black">
@@ -35,12 +35,12 @@ export function TimezoneForm({ currentTimezone }: { currentTimezone: string }) {
           </option>
         ))}
       </select>
-      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
-      {state.status === "success" && <p className="text-sm opacity-60">Saved.</p>}
+      {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
+      {state.status === "success" && <p className="text-sm font-semibold text-foreground">Saved.</p>}
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-md bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+        className="bg-brand-accent px-4 py-2.5 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Saving…" : "Save"}
       </button>
