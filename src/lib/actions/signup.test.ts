@@ -165,4 +165,17 @@ describe("signUp", () => {
     }
     expect(profilesUpsertMock).not.toHaveBeenCalled();
   });
+
+  it("degrades to an error state (never throws) when NEXT_PUBLIC_SITE_URL is unset", async () => {
+    // The email callback URL is built with `new URL(…, NEXT_PUBLIC_SITE_URL)`,
+    // which throws on an unset/empty base. It sits inside the action's own
+    // try/catch so a misconfigured deploy surfaces this form's inline error
+    // instead of crashing uncaught to Next's generic error page.
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "");
+
+    const state = await signUp(initialRoutineState, formData(validFields));
+
+    expect(state.status).toBe("error");
+    expect(signUpMock).not.toHaveBeenCalled();
+  });
 });
