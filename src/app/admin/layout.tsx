@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireNtittAdmin } from "@/lib/auth/dal";
 import { AdminNav } from "@/components/admin/AdminNav";
 
@@ -20,6 +21,12 @@ import { AdminNav } from "@/components/admin/AdminNav";
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const profile = await requireNtittAdmin();
+
+  // First-run gate (defense in depth): role-aware landing already routes a
+  // not-onboarded admin to /onboarding at login; this catches direct navigation.
+  if (!profile.onboarding_completed) {
+    redirect("/onboarding");
+  }
 
   return (
     <div className="flex min-h-full flex-1 flex-col bg-background text-foreground">

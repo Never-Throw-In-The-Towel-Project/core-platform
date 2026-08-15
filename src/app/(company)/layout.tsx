@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { requireHrAdmin } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { AskForSupport } from "@/components/AskForSupport";
@@ -19,6 +20,13 @@ import { resolveHelplineNumber } from "@/lib/support/helpline";
  */
 export default async function CompanyLayout({ children }: { children: React.ReactNode }) {
   const profile = await requireHrAdmin();
+
+  // First-run gate, same as (app): role-aware landing sends a not-onboarded HR
+  // admin to /onboarding at login, but guard direct navigation too so nobody
+  // reaches the Workspace before finishing their first-run.
+  if (!profile.onboarding_completed) {
+    redirect("/onboarding");
+  }
 
   // The company name brands the workspace header. Best-effort: a transient
   // failure just falls back to a generic label, never crashes the HR site.

@@ -141,11 +141,12 @@ Samaritans), `NEXT_PUBLIC_APP_ROOT_DOMAIN`.
 - 🛠️ Gate provisional rank names on `rank.confirmed` (`ProgressBand.tsx:39` renders
   unapproved names; the `confirmed` flag is never checked) — or get names signed off.
 - 🛠️ "Day 0 · Week N" reads oddly for a brand-new user (`home/page.tsx:281`).
-- 🛠️ HR/NTITT admins are still routed through the **employee-framed** onboarding
-  before role landing (`resolveLandingPath` sends any not-onboarded user to
-  `/onboarding` first), and the onboarding gate isn't enforced on the `(company)` /
-  `admin` layouts. _Role-aware landing itself is done — HR now lands on
-  `/workspace`, admins on `/admin` (`src/lib/auth/landing.ts`)._
+- ✅ **DONE — Role-aware onboarding.** HR (`hr_admin`) and NTITT (`ntitt_admin`)
+  admins now get a short, role-appropriate first-run (`StaffOnboarding` +
+  `completeStaffOnboarding`) — welcome, optional password, display name — instead
+  of the employee routine-setup flow they were previously forced through. The
+  onboarding gate is enforced on the `(company)` and `admin` layouts too, and
+  role-aware landing drops HR on `/workspace`, admins on `/admin`.
 - 🛠️ Onboarding Sunday time is labelled "Optional" but the input is `required`.
 - 🛠️ Dashboard shows no headcount until the first cron aggregation runs.
 - ⚙️ Stagger `aggregate-step-challenges` off the shared 02:00 slot; tighten the

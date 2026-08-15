@@ -100,3 +100,51 @@ export async function finishOnboarding(
   revalidatePath("/community/company");
   redirect(dest);
 }
+
+/**
+ * The staff (hr_admin / ntitt_admin) analogue of finishOnboarding. Their first-run
+ * (StaffOnboarding) collects a display name and an optional password, not member
+ * routine-reminder times -- so this writes just display_name + the completion
+ * flag, then lets role-aware landing drop them on /workspace or /admin (see
+ * docs/PLATFORM_STRUCTURE.md, Phase 3). Same self-redirect + fail-loud shape as
+ * finishOnboarding above (redirect() stays outside the try so its control-flow
+ * throw isn't swallowed).
+ */
+export async function completeStaffOnboarding(
+  _prevState: RoutineActionState,
+  formData: FormData
+): Promise<RoutineActionState> {
+  const session = await verifySession();
+
+  const parsed = z.object({ displayName: DisplayNameSchema }).safeParse({
+    displayName: formData.get("displayName"),
+  });
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0].message };
+  }
+
+  let dest = "/home";
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("profiles")
+      .update({ display_name: parsed.data.displayName, onboarding_completed: true })
+      .eq("id", session.userId);
+
+    if (error) {
+      console.error("completeStaffOnboarding: profiles update failed", error);
+      return { status: "error", message: "Something went wrong saving this. Please try again." };
+    }
+    try {
+      dest = await resolveLandingPath(supabase, null);
+    } catch {
+      // keep the safe default destination
+    }
+  } catch (err) {
+    console.error("completeStaffOnboarding: unexpected error", err);
+    return { status: "error", message: "Something went wrong saving this. Please try again." };
+  }
+
+  revalidatePath("/settings");
+  redirect(dest);
+}
