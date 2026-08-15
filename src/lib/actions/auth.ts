@@ -15,6 +15,17 @@ export type MagicLinkState =
 const EmailSchema = z.email();
 
 /**
+ * Sign the current user out and return them to /login. Wired to the header's
+ * account menu -- there was no sign-out entry point anywhere in the app before.
+ * redirect() is called outside any try/catch (it signals via a thrown error).
+ */
+export async function signOut() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/login");
+}
+
+/**
  * Sign-in only -- never creates an account. `shouldCreateUser: false` is
  * load-bearing now that enable_signup is true (supabase/config.toml, for
  * src/lib/actions/signup.ts's self-service flow): without it, an unknown

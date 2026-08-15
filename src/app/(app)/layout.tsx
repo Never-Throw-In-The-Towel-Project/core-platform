@@ -51,16 +51,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   const helplineNumber = resolveHelplineNumber();
-  const { name: companyName, skinColor } = await getCompanySkin(profile.company_id);
+  const { skinColor } = await getCompanySkin(profile.company_id);
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <AppHeader
-        profile={profile}
-        companyName={companyName}
-        skinColor={skinColor}
-        helplineNumber={helplineNumber}
-      />
+      <AppHeader profile={profile} skinColor={skinColor} helplineNumber={helplineNumber} />
       <div className="flex-1">{children}</div>
       {/* Mobile only: the support bar sits directly above the bottom tab bar,
           keeping the "always visible" support entry point reachable on pages
