@@ -85,11 +85,18 @@ legal copy only NTITT can supply).
   side remains:** verify the `ntitt.co.uk` sender domain in Brevo (SPF/DKIM/DMARC),
   generate a Brevo **SMTP key**, and set it on the Supabase project. Full steps:
   **`docs/SMTP_SETUP.md`**.
-- 🛠️ **Two unguarded hard-fail paths crash instead of degrading:**
-  `NEXT_PUBLIC_SITE_URL` throws uncaught on login/signup/invite if unset
-  (`auth.ts:48`, `signup.ts:66`, `invite.ts:9`); the VAPID keys throw *unguarded*
-  and crash the entire push cron on the first due notification (`sendPush.ts:39`,
-  job `route.ts:108`).
+- ✅ **DONE — Two hard-fail env paths now degrade instead of crashing.** Every
+  `new URL(…, NEXT_PUBLIC_SITE_URL)` is guarded: the magic-link and signup
+  actions build the callback URL inside the same try/catch that already wraps
+  `createClient` (`auth.ts`, `signup.ts` → a friendly inline "couldn't
+  send/create…" state, regression-tested in `signup.test.ts`); invites resolve
+  it via `buildInviteRedirect()` (returns `null` → `INVITE_MISCONFIGURED`, never
+  throws); and the support-ack / challenge-confirm URL builders early-return
+  when the var is unset. Web push is gated by `isPushConfigured()`
+  (`sendPush.ts`), which wraps `setVapidDetails` in try/catch and never throws;
+  the dispatch cron calls it **once up front** and returns **503 with no dedup
+  rows written** when VAPID is unset, so reminders resume the moment the config
+  is fixed rather than being silently suppressed for the day.
 - ✅ **DONE — Readiness `/api/health` + cron hardening.** `/api/health` is now a
   real readiness probe: public mode does a DB round-trip (200/503 for uptime
   monitors, no secrets leaked); an auth-gated `?detail=1` (same `CRON_SECRET`
