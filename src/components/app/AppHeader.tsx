@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AskForSupport } from "@/components/AskForSupport";
 import { BrandMark } from "@/components/BrandMark";
 import { HeaderNav } from "./HeaderNav";
+import { AppHeaderMenu } from "./AppHeaderMenu";
 import type { Profile } from "@/types/database";
 
 /**
@@ -44,31 +45,37 @@ export function AppHeader({
           <HeaderNav />
 
           <div className="ml-auto flex items-center gap-4">
-            <span className="hidden items-center gap-2 border border-ink-hairline px-2.5 py-1 sm:flex">
+            {/* Company chip -- shown at every width (per the mobile design); the
+                long name truncates on a phone so it can't crowd the bar. */}
+            <span className="flex items-center gap-2 border border-ink-hairline px-2.5 py-1">
               <span className="h-2 w-2 shrink-0" style={{ background: skinColor }} aria-hidden />
-              <span className="text-xs font-semibold">{companyName}</span>
+              <span className="max-w-[34vw] truncate text-xs font-semibold sm:max-w-none">{companyName}</span>
             </span>
 
-            {profile.role === "hr_admin" && (
-              <Link href="/workspace" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
-                Workspace
+            {/* Desktop: secondary actions + support inline. */}
+            <div className="hidden items-center gap-4 sm:flex">
+              {profile.role === "hr_admin" && (
+                <Link href="/workspace" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
+                  Workspace
+                </Link>
+              )}
+              {profile.role === "ntitt_admin" && (
+                <Link href="/admin" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
+                  NTITT Admin
+                </Link>
+              )}
+              <Link href="/settings" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
+                Settings
               </Link>
-            )}
-            {profile.role === "ntitt_admin" && (
-              <Link href="/admin" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
-                NTITT Admin
-              </Link>
-            )}
-            <Link href="/settings" className="text-xs font-semibold text-brand-foreground/70 hover:text-brand-foreground">
-              Settings
-            </Link>
-
-            {/* Desktop support link (mobile keeps the inline bar above the tab
-                bar). Hidden below sm so the header stays uncluttered on a
-                phone, where the inline bar covers it. */}
-            <span className="hidden sm:inline">
+              {/* Support stays inline on desktop; on mobile it's the inline bar
+                  above the bottom tab bar, so it isn't in the menu. */}
               <AskForSupport helplineNumber={helplineNumber} variant="header" />
-            </span>
+            </div>
+
+            {/* Mobile: Settings + the role links collapse into a menu. */}
+            <div className="sm:hidden">
+              <AppHeaderMenu role={profile.role} />
+            </div>
           </div>
         </div>
       </div>
