@@ -2,9 +2,11 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { verifySession, getProfile } from "@/lib/auth/dal";
 import { uploadContentAsset } from "@/lib/content/assetUpload";
+import { resolveContentMediaUpdate } from "@/lib/content/contentMedia";
 import {
   ContentInputSchema,
   parseContentImportCsv,
@@ -131,6 +133,165 @@ export async function createContentItem(
   revalidatePath("/admin/content");
   revalidatePath("/content");
   return { status: "success" };
+}
+
+const ContentEditSchema = z.object({ id: z.string().uuid() });
+
+/**
+ * Edit an existing content item from the Studio (the counterpart to
+ * createContentItem -- previously only create/delete/publish existed, so fixing
+ * a typo meant delete + recreate). ntitt_admin only (friendly check here; the
+ * content_items UPDATE RLS policy is the real gate). Reuses the single-source
+ * ContentInputSchema, so the same validation as create + the importer.
+ *
+ * Three things an update must do that a create doesn't (see
+ * lib/content/contentMedia.ts resolveContentMediaUpdate, which is unit-tested):
+ *   1. Media/type change -- write mutually-exclusive vimeo_id / asset_path /
+ *      external_url so the content_items_media_for_type CHECK holds when the type
+ *      flips (e.g. video -> document).
+ *   2. "Media unchanged" -- keep the existing asset when no new file/URL is given.
+ *   3. Orphan cleanup -- delete a replaced asset object from content-assets.
+ * Channel placements are reconciled (delete-all + re-insert the selected set;
+ * zero rows = NTITT-wide). Redirects back to the Studio on success.
+ */
+export async function updateContentItem(
+  _prevState: RoutineActionState,
+  formData: FormData
+): Promise<RoutineActionState> {
+  await verifySession();
+  const profile = await getProfile();
+  if (profile.role !== "ntitt_admin") {
+    return { status: "error", message: "You don’t have access to the content studio." };
+  }
+
+  const idParsed = ContentEditSchema.safeParse({ id: formData.get("id") });
+  if (!idParsed.success) {
+    return { status: "error", message: "Couldn’t find that item to edit." };
+  }
+  const id = idParsed.data.id;
+
+  const rawDay = formData.get("dayOfWeek");
+  const parsed = ContentInputSchema.safeParse({
+    type: formData.get("type"),
+    title: formData.get("title"),
+    category: formData.get("category"),
+    summary: formData.get("summary") || undefined,
+    dayOfWeek: rawDay && rawDay !== "" ? Number(rawDay) : undefined,
+    vimeoId: formData.get("vimeoId") || undefined,
+    externalUrl: formData.get("externalUrl") || undefined,
+    tags: formData.get("tags") || undefined,
+    publish: formData.get("publish") || undefined,
+  });
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check the fields and try again." };
+  }
+  const data = parsed.data;
+
+  const channelsRaw = formData.getAll("channels").map(String).filter((v) => v.length > 0);
+  const channelsParsed = z.array(z.string().uuid()).safeParse(channelsRaw);
+  if (!channelsParsed.success) {
+    return { status: "error", message: "Something went wrong with the selected channels. Please try again." };
+  }
+  const channels = channelsParsed.data;
+
+  const tags = (data.tags ?? "")
+    .split(",")
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+
+  try {
+    const supabase = await createClient();
+
+    // The current row is needed to reconcile media (keep-existing) and to know
+    // which old asset to orphan on a replace.
+    const { data: current, error: loadError } = await supabase
+      .from("content_items")
+      .select("type, asset_path, external_url, vimeo_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (loadError || !current) {
+      return { status: "error", message: "Couldn’t find that item to edit." };
+    }
+
+    // Upload a new file first (if any), then let the pure resolver decide the
+    // three media columns for the (possibly changed) type.
+    let newAssetPath: string | null = null;
+    if (data.type !== "video") {
+      const asset = formData.get("asset");
+      if (asset instanceof File && asset.size > 0) {
+        const result = await uploadContentAsset(supabase, asset, data.type);
+        if ("error" in result) {
+          return { status: "error", message: result.error };
+        }
+        newAssetPath = result.path;
+      }
+    }
+
+    const media = resolveContentMediaUpdate({
+      newType: data.type,
+      vimeoId: data.type === "video" ? data.vimeoId ?? null : null,
+      externalUrl: data.type === "video" ? null : data.externalUrl ?? null,
+      newAssetPath,
+      current: current as {
+        type: typeof data.type;
+        asset_path: string | null;
+        external_url: string | null;
+        vimeo_id: string | null;
+      },
+    });
+    if (!media.ok) {
+      return { status: "error", message: media.error };
+    }
+
+    const { error } = await supabase
+      .from("content_items")
+      .update({
+        type: data.type,
+        title: data.title,
+        summary: data.summary ?? null,
+        category: data.category,
+        day_of_week: data.dayOfWeek ?? null,
+        vimeo_id: media.vimeo_id,
+        asset_path: media.asset_path,
+        external_url: media.external_url,
+        tags,
+        is_published: data.publish === "true",
+      })
+      .eq("id", id);
+    if (error) {
+      console.error("updateContentItem: update failed", error);
+      return { status: "error", message: "Something went wrong saving this. Please try again." };
+    }
+
+    // Reconcile channel placements to exactly the selected set.
+    const { error: delError } = await supabase
+      .from("content_channel_placements")
+      .delete()
+      .eq("content_item_id", id);
+    if (delError) {
+      return { status: "error", message: "Saved the content, but couldn’t update its channels. Please try again." };
+    }
+    if (channels.length > 0) {
+      const rows = channels.map((companyId) => ({ content_item_id: id, company_id: companyId }));
+      const { error: insError } = await supabase.from("content_channel_placements").insert(rows);
+      if (insError) {
+        return { status: "error", message: "Saved the content, but couldn’t set its channels. Please try again." };
+      }
+    }
+
+    // Best-effort: delete the orphaned old asset now the row no longer points at
+    // it. A failure here just leaves a stray object; it never fails the edit.
+    if (media.removeAsset) {
+      await supabase.storage.from("content-assets").remove([media.removeAsset]);
+    }
+  } catch (err) {
+    console.error("updateContentItem: unexpected error", err);
+    return { status: "error", message: "Something went wrong saving this. Please try again." };
+  }
+
+  revalidatePath("/admin/content");
+  revalidatePath("/content");
+  redirect("/admin/content");
 }
 
 /**

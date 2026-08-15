@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { setContentItemPublished, deleteContentItem } from "@/lib/actions/content";
 import { initialRoutineState } from "@/lib/actions/routineState";
@@ -25,6 +26,12 @@ export function ContentItemActions({
 
   return (
     <span className="flex shrink-0 items-center gap-2">
+      <Link
+        href={`/admin/content/${id}/edit`}
+        className="border border-rule-border px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted hover:text-foreground"
+      >
+        Edit
+      </Link>
       <form action={pubAction}>
         <input type="hidden" name="id" value={id} />
         <input type="hidden" name="published" value={isPublished ? "false" : "true"} />

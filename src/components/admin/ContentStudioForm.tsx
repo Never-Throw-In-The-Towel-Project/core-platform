@@ -1,10 +1,10 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
-import { createContentItem } from "@/lib/actions/content";
+import { createContentItem, updateContentItem } from "@/lib/actions/content";
 import { suggestTagsAction } from "@/lib/actions/aiStudio";
 import { initialRoutineState } from "@/lib/actions/routineState";
-import type { ContentType } from "@/types/database";
+import type { ContentItem, ContentType } from "@/types/database";
 
 const LABEL = "block text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted";
 const FIELD = "mt-1 w-full border border-rule-border bg-transparent px-3 py-2 text-sm";
@@ -33,19 +33,35 @@ const DOC_ACCEPT = "application/pdf";
  * The theme/day/tags fields are controlled so the assistive "Suggest tags"
  * button can fill them from the title + summary. That is the ONLY thing the AI
  * does here: it proposes; the admin edits and presses Add. It never publishes.
+ *
+ * Dual-mode: pass an `item` (+ its `existingChannelIds`) to edit it instead of
+ * creating a new one -- fields prefill and submit to updateContentItem, which
+ * redirects back to the Studio. With no `item` the create path is unchanged.
  */
-export function ContentStudioForm({ companies }: { companies: { id: string; name: string }[] }) {
-  const [state, formAction, isPending] = useActionState(createContentItem, initialRoutineState);
-  const [type, setType] = useState<ContentType>("video");
+export function ContentStudioForm({
+  companies,
+  item,
+  existingChannelIds = [],
+}: {
+  companies: { id: string; name: string }[];
+  item?: ContentItem;
+  existingChannelIds?: string[];
+}) {
+  const isEdit = item != null;
+  const [state, formAction, isPending] = useActionState(
+    isEdit ? updateContentItem : createContentItem,
+    initialRoutineState
+  );
+  const [type, setType] = useState<ContentType>(item?.type ?? "video");
   const formRef = useRef<HTMLFormElement>(null);
 
   // Controlled so the AI suggestion can populate them (and so a suggestion is
-  // always editable before it's committed).
-  const [title, setTitle] = useState("");
-  const [summary, setSummary] = useState("");
-  const [category, setCategory] = useState("mental_fitness");
-  const [dayOfWeek, setDayOfWeek] = useState("");
-  const [tags, setTags] = useState("");
+  // always editable before it's committed). Prefilled from `item` when editing.
+  const [title, setTitle] = useState(item?.title ?? "");
+  const [summary, setSummary] = useState(item?.summary ?? "");
+  const [category, setCategory] = useState<string>(item?.category ?? "mental_fitness");
+  const [dayOfWeek, setDayOfWeek] = useState(item?.day_of_week != null ? String(item.day_of_week) : "");
+  const [tags, setTags] = useState(item?.tags.join(", ") ?? "");
 
   const [suggestPending, startSuggest] = useTransition();
   const [suggestNote, setSuggestNote] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
@@ -55,8 +71,9 @@ export function ContentStudioForm({ companies }: { companies: { id: string; name
     // publish) -- a DOM side effect, so it belongs in an effect. The controlled
     // fields are reset via the during-render pattern below. `type` is left as-is
     // -- an admin adding several of the same type shouldn't have it snap back.
-    if (state.status === "success") formRef.current?.reset();
-  }, [state]);
+    // Edit mode redirects on success, so there's nothing to reset there.
+    if (!isEdit && state.status === "success") formRef.current?.reset();
+  }, [state, isEdit]);
 
   // Reset the controlled fields on a fresh success by adjusting state during
   // render (React's documented pattern -- see PostCard) rather than in an
@@ -64,7 +81,7 @@ export function ContentStudioForm({ companies }: { companies: { id: string; name
   const [handledState, setHandledState] = useState(state);
   if (state !== handledState) {
     setHandledState(state);
-    if (state.status === "success") {
+    if (!isEdit && state.status === "success") {
       setTitle("");
       setSummary("");
       setCategory("mental_fitness");
@@ -92,6 +109,7 @@ export function ContentStudioForm({ companies }: { companies: { id: string; name
 
   return (
     <form ref={formRef} action={formAction} className="space-y-5 border border-rule-border p-5">
+      {isEdit && <input type="hidden" name="id" value={item.id} />}
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="content-type" className={LABEL}>
@@ -153,6 +171,7 @@ export function ContentStudioForm({ companies }: { companies: { id: string; name
             id="content-vimeo"
             name="vimeoId"
             placeholder="e.g. 123456789"
+            defaultValue={item?.vimeo_id ?? ""}
             className={FIELD}
             inputMode="numeric"
           />
@@ -160,6 +179,11 @@ export function ContentStudioForm({ companies }: { companies: { id: string; name
         </div>
       ) : (
         <div className="space-y-3">
+          {isEdit && item.asset_path && (
+            <p className="text-xs text-muted">
+              Current file uploaded. Choose a new one to replace it, or leave both fields blank to keep it.
+            </p>
+          )}
           <div>
             <label htmlFor="content-asset" className={LABEL}>
               Upload {type === "document" ? "a PDF" : "an image"}
@@ -179,7 +203,13 @@ export function ContentStudioForm({ companies }: { companies: { id: string; name
             <label htmlFor="content-url" className={LABEL}>
               …or an external link
             </label>
-            <input id="content-url" name="externalUrl" placeholder="https://…" className={FIELD} />
+            <input
+              id="content-url"
+              name="externalUrl"
+              placeholder="https://…"
+              defaultValue={item?.external_url ?? ""}
+              className={FIELD}
+            />
           </div>
         </div>
       )}
@@ -263,7 +293,13 @@ export function ContentStudioForm({ companies }: { companies: { id: string; name
           ) : (
             companies.map((c) => (
               <label key={c.id} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="channels" value={c.id} className="h-4 w-4" />
+                <input
+                  type="checkbox"
+                  name="channels"
+                  value={c.id}
+                  defaultChecked={existingChannelIds.includes(c.id)}
+                  className="h-4 w-4"
+                />
                 {c.name}
               </label>
             ))
@@ -272,7 +308,13 @@ export function ContentStudioForm({ companies }: { companies: { id: string; name
       </fieldset>
 
       <label className="flex items-center gap-2 text-sm font-semibold">
-        <input type="checkbox" name="publish" value="true" defaultChecked className="h-4 w-4" />
+        <input
+          type="checkbox"
+          name="publish"
+          value="true"
+          defaultChecked={item ? item.is_published : true}
+          className="h-4 w-4"
+        />
         Publish now (uncheck to save as a draft)
       </label>
 
@@ -282,10 +324,10 @@ export function ContentStudioForm({ companies }: { companies: { id: string; name
           disabled={isPending}
           className="bg-brand-accent px-5 py-2.5 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
         >
-          {isPending ? "Saving…" : "Add content"}
+          {isPending ? "Saving…" : isEdit ? "Save changes" : "Add content"}
         </button>
         {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
-        {state.status === "success" && (
+        {!isEdit && state.status === "success" && (
           <p className="text-sm font-semibold text-foreground" role="status">
             Saved.
           </p>
