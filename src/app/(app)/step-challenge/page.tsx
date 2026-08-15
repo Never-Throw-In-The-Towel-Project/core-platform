@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getProfile } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveStaffChallenge, type StaffChallengeView } from "@/lib/steps/challengeQueries";
@@ -26,6 +27,9 @@ export default async function ChallengePage() {
 
   return (
     <main className="mx-auto max-w-xl px-6 py-10">
+      <Link href="/home" className="mb-6 inline-block text-sm opacity-70 hover:opacity-100">
+        ← Today
+      </Link>
       {view ? (
         <ChallengeView view={view} todayIso={todayIso} />
       ) : (
@@ -35,6 +39,12 @@ export default async function ChallengePage() {
             There&apos;s no active step challenge right now. When your company runs one, you&apos;ll see the
             team&apos;s progress toward the target here — and you choose whether to take part.
           </p>
+          <Link
+            href="/journey"
+            className="mt-4 inline-block text-sm font-semibold text-brand-accent-deep underline"
+          >
+            Back to My Journey →
+          </Link>
         </div>
       )}
     </main>

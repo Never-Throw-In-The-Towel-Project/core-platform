@@ -50,6 +50,7 @@ export function ModerationQueueItem({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Removal reason (optional)"
+              aria-label="Removal reason"
               className="flex-1 border border-rule-border bg-transparent px-2 py-1 text-xs"
             />
             <button

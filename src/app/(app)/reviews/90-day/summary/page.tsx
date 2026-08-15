@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
@@ -66,6 +67,9 @@ export default async function NinetyDaySummaryPage() {
 
   return (
     <main className="mx-auto max-w-xl px-6 py-12 print:text-black">
+      <Link href="/journey" className="mb-4 inline-block text-sm opacity-70 hover:opacity-100 print:hidden">
+        ← My Journey
+      </Link>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">90-Day Summary</h1>
         <PrintButton />

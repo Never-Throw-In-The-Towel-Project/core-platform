@@ -102,6 +102,7 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
               <textarea
                 name="reason"
                 placeholder="What's wrong with this post? (optional)"
+                aria-label="Report reason"
                 rows={2}
                 className="w-full border border-rule-border bg-transparent px-2 py-1"
               />
@@ -183,6 +184,7 @@ export function PostCard({ post, comments }: { post: PostWithMeta; comments: Com
               value={commentBody}
               onChange={(e) => setCommentBody(e.target.value)}
               placeholder="Write a comment…"
+              aria-label="Write a comment"
               className="flex-1 border border-rule-border bg-transparent px-2 py-1 text-xs"
             />
             <button
