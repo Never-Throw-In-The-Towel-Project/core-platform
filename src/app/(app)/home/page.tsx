@@ -23,10 +23,9 @@ import { CheckinCard } from "@/components/today/CheckinCard";
 import { RoutineRow } from "@/components/today/RoutineRow";
 import { CompanySlot } from "@/components/today/CompanySlot";
 import { WeekStrip } from "@/components/today/WeekStrip";
-import { BadgeGrid } from "@/components/today/BadgeGrid";
-import { WinsBoard } from "@/components/today/WinsBoard";
-import { ReviewProgress } from "@/components/today/ReviewProgress";
 import { BadgeSync } from "@/components/today/BadgeSync";
+import { AskForSupport } from "@/components/AskForSupport";
+import { resolveHelplineNumber } from "@/lib/support/helpline";
 import { DayCarousel } from "@/components/content/DayCarousel";
 import { getDayContent } from "@/lib/content/queries";
 import { rotateForWeek, isoWeekdayFromName, DAY_LABEL } from "@/lib/content/rotation";
@@ -259,6 +258,20 @@ export default async function HomePage() {
     });
   }
 
+  const helplineNumber = resolveHelplineNumber();
+
+  // Right-rail "Also this week": contextual nudges toward the week's other
+  // loops (the design's compact list). Always ends with a Library entry so the
+  // block is never empty on a plain weekday.
+  const alsoThisWeek: { label: string; href: string }[] = [];
+  if (weeklyReviewOpen) alsoThisWeek.push({ label: "Weekly Review is open", href: "/weekly-review" });
+  if (todayWeekday === "sunday") {
+    alsoThisWeek.push({ label: "Sunday Setup is open", href: "/sunday-setup" });
+  } else if (todayWeekday === "saturday") {
+    alsoThisWeek.push({ label: "Sunday Setup opens tomorrow", href: "/sunday-setup" });
+  }
+  alsoThisWeek.push({ label: "Explore the Library", href: "/content" });
+
   return (
     <main className="min-h-full">
       <ProgressBand
@@ -344,7 +357,12 @@ export default async function HomePage() {
             <CompanySlot companyName={companyName} message={companyMessage} skinColor={companySkin} />
           </div>
 
-          {/* Right rail (desktop) / stacked below (mobile) */}
+          {/* Right rail (desktop) / stacked below (mobile) -- the design's
+              action-first rail: this week at a glance, the active challenge,
+              the always-available support entry point, and a compact "also
+              this week" list. Badges, the wins board and the 30/90-day review
+              milestones live on the Journey screen (and wins on Community), so
+              they're not duplicated here. */}
           <aside className="space-y-6">
             <section>
               <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">The Week</h2>
@@ -353,28 +371,24 @@ export default async function HomePage() {
               </div>
             </section>
 
-            {/* Challenges brought into the daily loop: the member's own
-                in-progress programmes (private, own-rows-only) with a pure
-                completion count -- never an "expected day", so nothing ever
-                reads as behind. Falls back to a gentle discover nudge, and to
-                nothing at all when no challenges are published yet. */}
+            {/* Active challenge: the member's own in-progress programme (private,
+                own-rows-only, a pure completion count -- never an "expected
+                day", so nothing reads as behind), or a gentle discover nudge.
+                Hidden entirely when no challenges are published yet so it never
+                links into an empty page. */}
             {activeChallenges.length > 0 ? (
-              <section>
+              <section className="border-2 border-foreground p-5">
                 <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
-                  Your challenges
+                  Active challenge
                 </h2>
-                <div className="mt-2 space-y-2">
-                  {activeChallenges.map((c) => {
+                <div className="mt-3 space-y-5">
+                  {activeChallenges.slice(0, 2).map((c) => {
                     const pct =
                       c.length_days > 0 ? Math.min(100, Math.round((c.completed_days / c.length_days) * 100)) : 0;
                     const complete = c.completed_days >= c.length_days && c.length_days > 0;
                     return (
-                      <Link
-                        key={c.id}
-                        href={`/challenges/${c.id}`}
-                        className="block border border-rule-hairline p-3 transition-colors hover:bg-foreground/[0.03]"
-                      >
-                        <p className="line-clamp-1 text-sm font-extrabold leading-tight tracking-tight">{c.title}</p>
+                      <Link key={c.id} href={`/challenges/${c.id}`} className="block">
+                        <p className="text-lg font-extrabold leading-tight tracking-tight">{c.title}</p>
                         <div className="mt-2 flex items-center justify-between text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
                           <span>{complete ? "Complete" : "In progress"}</span>
                           <span>
@@ -395,44 +409,68 @@ export default async function HomePage() {
                     );
                   })}
                 </div>
-              </section>
-            ) : hasPublishedChallenges ? (
-              <section>
-                <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Challenges</h2>
                 <Link
                   href="/challenges"
-                  className="mt-2 block border border-rule-hairline p-3 text-sm font-semibold text-brand-accent-deep transition-colors hover:bg-foreground/[0.03]"
+                  className="mt-4 inline-block text-xs font-extrabold uppercase tracking-wide text-brand-accent-deep"
                 >
-                  Start a guided challenge →
+                  All challenges →
+                </Link>
+              </section>
+            ) : hasPublishedChallenges ? (
+              <section className="border-2 border-foreground p-5">
+                <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
+                  Active challenge
+                </h2>
+                <p className="mt-3 text-lg font-extrabold leading-tight tracking-tight">Nothing running yet.</p>
+                <p className="mt-1.5 text-sm text-muted">
+                  Guided programmes run a few days at a time. Start one whenever you like.
+                </p>
+                <Link
+                  href="/challenges"
+                  className="mt-4 inline-block text-xs font-extrabold uppercase tracking-wide text-brand-accent-deep"
+                >
+                  Browse challenges →
                 </Link>
               </section>
             ) : null}
 
-            <section>
-              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Badges</h2>
-              <div className="mt-2">
-                <BadgeGrid badges={stats.badges} />
+            {/* Support: the person-led "check in with me" flow, always present
+                and never triggered by anything the member logs. A second entry
+                point to the same dialog the header/inline bar opens. */}
+            <section className="bg-brand-background p-5 text-brand-foreground">
+              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-brand-accent-light">
+                Support
+              </h2>
+              <p className="mt-2 text-lg font-extrabold leading-tight tracking-tight">
+                Someone can check in with you.
+              </p>
+              <p className="mt-1.5 text-sm text-muted-on-ink">
+                You choose when. Nothing here triggers it for you.
+              </p>
+              <div className="mt-4">
+                <AskForSupport helplineNumber={helplineNumber} variant="block" label="Ask for a check-in" />
               </div>
             </section>
 
-            <section>
-              <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Wins Board</h2>
-              <div className="mt-2">
-                <WinsBoard wins={stats.recentWins} />
-              </div>
-            </section>
-
-            <ReviewProgress
-              pct={stats.ringPct}
-              daysToReview={stats.daysToReview}
-              reviewLabel={stats.reviewLabel}
-              reviewComplete={stats.reviewComplete}
-            />
-
-            {weeklyReviewOpen && (
-              <Link href="/weekly-review" className="block text-sm font-semibold text-brand-accent-deep underline">
-                Weekly Review is open →
-              </Link>
+            {/* Also this week: contextual nudges toward the week's other loops. */}
+            {alsoThisWeek.length > 0 && (
+              <section>
+                <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
+                  Also this week
+                </h2>
+                <div className="mt-2 border-y border-rule-hairline">
+                  {alsoThisWeek.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="flex items-center justify-between border-b border-rule-hairline py-3 text-sm font-semibold last:border-b-0 hover:text-brand-accent-deep"
+                    >
+                      {item.label}
+                      <span aria-hidden className="text-muted">→</span>
+                    </Link>
+                  ))}
+                </div>
+              </section>
             )}
           </aside>
         </div>

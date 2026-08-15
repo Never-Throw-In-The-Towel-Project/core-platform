@@ -32,9 +32,11 @@ const FOCUSABLE_SELECTOR =
 export function AskForSupport({
   helplineNumber,
   variant = "floating",
+  label = "I want someone to check in with me",
 }: {
   helplineNumber?: string;
-  variant?: "floating" | "inline" | "header";
+  variant?: "floating" | "inline" | "header" | "block";
+  label?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [state, formAction, isPending] = useActionState(submitSupportRequest, initialState);
@@ -110,10 +112,14 @@ export function AskForSupport({
               ? // Desktop: the support link that lives in the ink header, in
                 // accent-light (#ff9783 -> ~7.9:1 on ink).
                 "text-xs font-extrabold uppercase tracking-wide text-brand-accent-light hover:text-brand-accent-light-2"
-              : "fixed bottom-4 right-4 z-50 rounded-full bg-brand-accent px-5 py-3 text-sm font-semibold text-brand-accent-foreground shadow-lg"
+              : variant === "block"
+                ? // Card CTA: a full-width solid-accent button, e.g. the Today
+                  // right-rail Support card sitting on the ink surface.
+                  "block w-full bg-brand-accent px-4 py-3 text-center text-xs font-extrabold uppercase tracking-wide text-brand-accent-foreground hover:brightness-110"
+                : "fixed bottom-4 right-4 z-50 rounded-full bg-brand-accent px-5 py-3 text-sm font-semibold text-brand-accent-foreground shadow-lg"
         }
       >
-        I want someone to check in with me
+        {label}
       </button>
 
       {isOpen && (
