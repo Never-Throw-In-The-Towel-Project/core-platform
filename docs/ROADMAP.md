@@ -28,6 +28,32 @@ the gap between "built" and "hardened, accessible, and fully spec-complete."
 
 ---
 
+## Next up — the short launch-polish list (parked 2026-08-15)
+
+Four items surfaced by the launch-readiness sweep that are worth clearing
+before/around go-live. All are already documented in detail elsewhere; this
+is the consolidated "pick these up next" shortlist so they don't get lost:
+
+1. **Manifest colours + maskable icon.** `src/app/manifest.ts` ships
+   `background_color`/`theme_color` as dark `#0a0a0a` while the app is a light
+   theme, and there is no maskable-purpose icon (Android home-screen icons get
+   letterboxed). Small. _Detail: Priority 2 · item 6 below._
+2. **Offline-capable PWA.** `public/sw.js` registers only when push is enabled
+   and has no `fetch` handler / precache / offline submit queue, so the
+   "installable, offline-capable" manifest claim overstates reality. Either
+   implement app-shell caching + an offline form queue and register on load, or
+   narrow the claim. Medium–large. _Detail: Priority 2 · item 6 below._
+3. **Real 90-day PDF export.** The member's 90-day review "PDF export" is still
+   the browser print dialog; wire it to the existing server-side
+   `@react-pdf/renderer` pipeline (already powering the HR impact report) for a
+   real, shareable file. Small–medium. _Detail: Priority 2 · item 4 below._
+4. **Error tracking + push-failure alerting.** No Sentry/equivalent, and no
+   central alert when a cron job (esp. the push dispatcher) fails — the
+   `/api/health` probe and `[cron:*]` logs make failures visible only on a
+   pull. Needs an ops address. _Detail: `docs/LAUNCH_READINESS.md` "Still open."_
+
+---
+
 ## Strategic direction — the content platform (the next chapter)
 
 Full detail: `docs/CONTENT_PLATFORM_STRATEGY.md`. The shift is from
