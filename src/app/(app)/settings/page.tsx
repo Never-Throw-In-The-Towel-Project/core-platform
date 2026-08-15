@@ -11,7 +11,7 @@ export default async function SettingsPage() {
 
   return (
     <main className="mx-auto max-w-xl px-6 py-12">
-      <h1 className="text-2xl font-bold">Settings</h1>
+      <h1 className="text-3xl font-extrabold tracking-tight">Settings</h1>
       <div className="mt-6 space-y-4">
         <TimezoneForm currentTimezone={profile.timezone} />
         <NotificationTimesForm
@@ -23,15 +23,15 @@ export default async function SettingsPage() {
       </div>
 
       <div className="mt-10 space-y-4">
-        <h2 className="text-sm font-semibold">Your data</h2>
-        <div className="rounded-lg border border-black/10 p-4">
+        <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Your data</h2>
+        <div className="border border-rule-hairline p-4">
           <p className="text-sm font-medium">Download your data</p>
-          <p className="mt-1 text-xs opacity-60">
+          <p className="mt-1 text-xs text-muted">
             A copy of your profile, routines, reviews, steps, badges and community posts, as JSON.
           </p>
           <a
             href="/api/account/export"
-            className="mt-3 inline-block rounded-md border border-black/20 px-3 py-1.5 text-xs font-semibold hover:bg-black/5"
+            className="mt-3 inline-block border border-rule-border px-3 py-1.5 text-xs font-semibold hover:bg-foreground/[0.03]"
           >
             Download my data
           </a>

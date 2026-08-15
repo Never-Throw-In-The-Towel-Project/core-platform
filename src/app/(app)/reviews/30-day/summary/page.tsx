@@ -58,11 +58,11 @@ export default async function ThirtyDaySummaryPage() {
 
   return (
     <main className="mx-auto max-w-xl px-6 py-12 print:text-black">
-      <Link href="/journey" className="mb-4 inline-block text-sm opacity-70 hover:opacity-100 print:hidden">
+      <Link href="/journey" className="mb-4 inline-block text-sm text-muted hover:text-foreground print:hidden">
         ← My Journey
       </Link>
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">30-Day Summary</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight">30-Day Summary</h1>
         <PrintButton />
       </div>
 
@@ -77,18 +77,18 @@ export default async function ThirtyDaySummaryPage() {
 
         {stepsStat.averageDailySteps !== null && (
           <div>
-            <dt className="font-medium">Average daily steps</dt>
-            <dd className="mt-0.5 opacity-80">
+            <dt className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Average daily steps</dt>
+            <dd className="mt-0.5">
               {stepsStat.averageDailySteps.toLocaleString()} steps/day
-              <span className="opacity-60"> · over {stepsStat.daysLogged} logged days</span>
+              <span className="text-muted"> · over {stepsStat.daysLogged} logged days</span>
             </dd>
           </div>
         )}
 
         {r.self_assessment && (
           <div>
-            <dt className="font-medium">Self assessment</dt>
-            <dd className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1 opacity-80">
+            <dt className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Self assessment</dt>
+            <dd className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1">
               {(Object.keys(r.self_assessment) as (keyof typeof r.self_assessment)[]).map((key) => (
                 <span key={key}>
                   {key}: {r.self_assessment![key]}
@@ -115,8 +115,8 @@ function Field({ label, value }: { label: string; value: string | null | undefin
   if (!value) return null;
   return (
     <div>
-      <dt className="font-medium">{label}</dt>
-      <dd className="mt-0.5 opacity-80">{value}</dd>
+      <dt className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">{label}</dt>
+      <dd className="mt-0.5">{value}</dd>
     </div>
   );
 }
