@@ -22,7 +22,7 @@ export function ThemedCheckinForm({ weekday, mondayGoals, quote, podcastEpisode 
   if (state.status === "success") {
     return (
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold">{config.title} complete.</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight">{config.title} complete.</h1>
       </div>
     );
   }
@@ -31,22 +31,22 @@ export function ThemedCheckinForm({ weekday, mondayGoals, quote, podcastEpisode 
     <form action={formAction} className="space-y-6">
       <input type="hidden" name="weekday" value={weekday} />
       <header>
-        <h1 className="text-2xl font-bold">{config.title}</h1>
-        <p className="opacity-80">{config.subtitle}</p>
+        <h1 className="text-2xl font-extrabold tracking-tight">{config.title}</h1>
+        <p className="text-muted">{config.subtitle}</p>
       </header>
 
       {quote && (
-        <blockquote className="rounded-lg border border-black/10 p-4 text-sm italic">
+        <blockquote className="border border-rule-hairline p-4 text-sm italic">
           &ldquo;{quote.quote_text}&rdquo;
-          {quote.author && <footer className="mt-1 not-italic opacity-70">— {quote.author}</footer>}
+          {quote.author && <footer className="mt-1 not-italic text-muted">— {quote.author}</footer>}
         </blockquote>
       )}
 
       {podcastEpisode && (
-        <div className="rounded-lg border border-black/10 p-4 text-sm">
+        <div className="border border-rule-hairline p-4 text-sm">
           <p className="font-medium">🎙️ This month&apos;s podcast episode</p>
           <p className="mt-1">{podcastEpisode.title}</p>
-          <a href={podcastEpisode.embed_url} className="mt-2 inline-block underline opacity-80">
+          <a href={podcastEpisode.embed_url} className="mt-2 inline-block underline text-muted">
             Listen now
           </a>
         </div>
@@ -61,7 +61,7 @@ export function ThemedCheckinForm({ weekday, mondayGoals, quote, podcastEpisode 
               name={`goal${n}`}
               type="text"
               placeholder={`Goal ${n}`}
-              className="w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+              className="w-full border border-rule-border bg-transparent px-3 py-2"
             />
           ))}
         </fieldset>
@@ -73,7 +73,7 @@ export function ThemedCheckinForm({ weekday, mondayGoals, quote, podcastEpisode 
       {weekday === "friday" && mondayGoals && mondayGoals.length > 0 && (
         <fieldset className="space-y-2 text-sm">
           <legend className="mb-1 font-medium">Did you achieve your goals from Monday?</legend>
-          <ul className="list-inside list-disc rounded-lg border border-black/10 p-3 opacity-80">
+          <ul className="list-inside list-disc border border-rule-hairline p-3 text-muted">
             {mondayGoals.map((goal, i) => (
               <li key={i}>{goal}</li>
             ))}
@@ -94,24 +94,24 @@ export function ThemedCheckinForm({ weekday, mondayGoals, quote, podcastEpisode 
             <textarea
               name={field.key}
               rows={2}
-              className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+              className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
             />
           ) : (
             <input
               name={field.key}
               type="text"
-              className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+              className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
             />
           )}
         </label>
       ))}
 
-      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
 
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-md bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+        className="w-full bg-brand-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Saving…" : `Complete ${config.title}`}
       </button>

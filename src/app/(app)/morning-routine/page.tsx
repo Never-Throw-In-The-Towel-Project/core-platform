@@ -14,10 +14,10 @@ export default async function MorningRoutinePage() {
   return (
     <main className="mx-auto max-w-xl px-6 py-12">
       <div className="mb-6 flex items-center justify-between text-sm">
-        <Link href="/home" className="opacity-70 hover:opacity-100">
+        <Link href="/home" className="text-muted hover:text-foreground">
           ← Morning Routine
         </Link>
-        <span className="opacity-70">Day {activeDayCount}</span>
+        <span className="text-muted">Day {activeDayCount}</span>
       </div>
       <MorningRoutineForm />
     </main>

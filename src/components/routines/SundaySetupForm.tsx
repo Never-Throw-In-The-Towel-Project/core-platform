@@ -13,8 +13,8 @@ export function SundaySetupForm() {
   if (state.status === "success") {
     return (
       <div className="space-y-4 text-center">
-        <h1 className="text-2xl font-bold">Ready for Monday.</h1>
-        <Link href="/home" className="inline-block text-sm font-semibold text-brand-accent underline">
+        <h1 className="text-2xl font-extrabold tracking-tight">Ready for Monday.</h1>
+        <Link href="/home" className="inline-block text-sm font-semibold text-brand-accent-deep underline">
           Back to Today →
         </Link>
       </div>
@@ -24,13 +24,13 @@ export function SundaySetupForm() {
   return (
     <form action={formAction} className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold">Sunday Setup</h1>
-        <p className="opacity-80">A little prep goes a long way.</p>
+        <h1 className="text-2xl font-extrabold tracking-tight">Sunday Setup</h1>
+        <p className="text-muted">A little prep goes a long way.</p>
       </header>
 
       <div className="space-y-2 text-sm">
         <p className="font-medium">Is there anything you can do today to make Monday easier?</p>
-        <ul className="list-inside list-disc opacity-70">
+        <ul className="list-inside list-disc text-muted">
           {SUGGESTIONS.map((suggestion) => (
             <li key={suggestion}>{suggestion}</li>
           ))}
@@ -42,7 +42,7 @@ export function SundaySetupForm() {
         <textarea
           name="prepNotes"
           rows={3}
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
         />
       </label>
 
@@ -51,16 +51,16 @@ export function SundaySetupForm() {
         <textarea
           name="intention"
           rows={2}
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
         />
       </label>
 
-      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
 
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-md bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+        className="w-full bg-brand-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Saving…" : "Save Sunday Setup"}
       </button>

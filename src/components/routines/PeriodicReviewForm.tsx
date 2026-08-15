@@ -39,16 +39,16 @@ export function PeriodicReviewForm({
     const summaryHref = isNinetyDay ? "/reviews/90-day/summary" : "/reviews/30-day/summary";
     return (
       <div className="mx-auto max-w-xl space-y-6 px-6 py-16 text-center">
-        <h1 className="text-2xl font-bold">You&apos;ve completed your {periodLabel} days.</h1>
-        <p className="opacity-80">Keep on living.</p>
+        <h1 className="text-2xl font-extrabold tracking-tight">You&apos;ve completed your {periodLabel} days.</h1>
+        <p className="text-muted">Keep on living.</p>
         <div className="flex flex-col items-center gap-3 pt-2">
           <Link
             href={summaryHref}
-            className="w-full max-w-xs bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground"
+            className="w-full max-w-xs bg-brand-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground"
           >
             See your summary →
           </Link>
-          <Link href="/journey" className="text-sm font-semibold text-brand-accent underline">
+          <Link href="/journey" className="text-sm font-semibold text-brand-accent-deep underline">
             Back to My Journey
           </Link>
         </div>
@@ -77,7 +77,7 @@ export function PeriodicReviewForm({
 
       <div className="mx-auto max-w-xl space-y-8 px-6 py-10">
         <div>
-          <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Looking back</p>
+          <p className="text-xs font-semibold tracking-wide uppercase text-muted">Looking back</p>
           <div className="mt-2 space-y-4">
             <Field
               name="mostProudOf"
@@ -95,7 +95,7 @@ export function PeriodicReviewForm({
 
         {isNinetyDay && (
           <div>
-            <p className="text-xs font-semibold tracking-wide uppercase opacity-60">The last quarter</p>
+            <p className="text-xs font-semibold tracking-wide uppercase text-muted">The last quarter</p>
             <div className="mt-2 space-y-4">
               <Field name="lifeChanges" label="What has changed in my life over the last 90 days?" />
               <Field name="nextPeriodVision" label="What do I want the next 90 days to look like?" />
@@ -104,16 +104,16 @@ export function PeriodicReviewForm({
         )}
 
         <fieldset>
-          <legend className="text-xs font-semibold tracking-wide uppercase opacity-60">My top {winCount} wins</legend>
+          <legend className="text-xs font-semibold tracking-wide uppercase text-muted">My top {winCount} wins</legend>
           <div className="mt-2">
             {Array.from({ length: winCount }, (_, i) => i + 1).map((n) => (
-              <div key={n} className="flex items-center gap-3 border-t border-current/10 py-2">
+              <div key={n} className="flex items-center gap-3 border-t border-rule-hairline py-2">
                 <span className="text-sm font-semibold text-brand-accent">{n}</span>
                 <input
                   name={`win_${n}`}
                   type="text"
                   placeholder="Add a win"
-                  className="flex-1 bg-transparent py-1 text-sm outline-none placeholder:opacity-40"
+                  className="flex-1 bg-transparent py-1 text-sm outline-none placeholder:text-muted"
                 />
               </div>
             ))}
@@ -121,20 +121,20 @@ export function PeriodicReviewForm({
         </fieldset>
 
         <fieldset>
-          <legend className="text-xs font-semibold tracking-wide uppercase opacity-60">Self assessment</legend>
-          <p className="mt-2 text-sm opacity-70">
+          <legend className="text-xs font-semibold tracking-wide uppercase text-muted">Self assessment</legend>
+          <p className="mt-2 text-sm text-muted">
             Rate yourself 1–10.{isNinetyDay ? " Compared against your 30-day scores." : " You'll compare these against your 90 day scores."}
           </p>
           <div className="mt-3 space-y-3">
             {SELF_ASSESSMENT_DIMENSIONS.map((dimension) => (
               <div
                 key={dimension.key}
-                className="flex flex-col gap-2 border-t border-current/10 py-3 first:border-t-0 sm:flex-row sm:items-center sm:gap-3 sm:border-t-0 sm:py-0"
+                className="flex flex-col gap-2 border-t border-rule-hairline py-3 first:border-t-0 sm:flex-row sm:items-center sm:gap-3 sm:border-t-0 sm:py-0"
               >
                 <span className="text-sm font-medium sm:w-32 sm:shrink-0">
                   {dimension.label}
                   {isNinetyDay && comparisonSelfAssessment && (
-                    <span className="block text-xs font-normal opacity-60">
+                    <span className="block text-xs font-normal text-muted">
                       30-day: {comparisonSelfAssessment[dimension.key]}
                     </span>
                   )}
@@ -148,7 +148,7 @@ export function PeriodicReviewForm({
                         onClick={() => setRatings((prev) => ({ ...prev, [dimension.key]: n }))}
                         className={
                           "h-8 flex-1 sm:h-6 " +
-                          ((ratings[dimension.key] ?? 0) >= n ? "bg-brand-accent" : "bg-current/10")
+                          ((ratings[dimension.key] ?? 0) >= n ? "bg-brand-accent" : "bg-foreground/10")
                         }
                         aria-label={`${dimension.label}: ${n}`}
                       />
@@ -166,31 +166,31 @@ export function PeriodicReviewForm({
 
         <Field name="focusNextPeriod" label={`My focus for the next ${periodLabel} days`} />
 
-        <div className="border border-current/15 p-4">
+        <div className="border border-rule-border p-4">
           <p className="italic">
             &ldquo;I have completed {periodLabel} days. I will continue to show up, trust the
             process, and keep moving forward.&rdquo;
           </p>
           <div className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
             <label className="block">
-              <span className="text-xs font-semibold tracking-wide uppercase opacity-60">Name</span>
+              <span className="text-xs font-semibold tracking-wide uppercase text-muted">Name</span>
               <input
                 name="commitmentSignedName"
                 type="text"
                 required
-                className="mt-1 w-full border-b border-current/20 bg-transparent py-1"
+                className="mt-1 w-full border-b border-rule-border bg-transparent py-1"
               />
             </label>
             <div>
-              <span className="text-xs font-semibold tracking-wide uppercase opacity-60">Date</span>
-              <p className="mt-1 border-b border-current/20 py-1">{today}</p>
+              <span className="text-xs font-semibold tracking-wide uppercase text-muted">Date</span>
+              <p className="mt-1 border-b border-rule-border py-1">{today}</p>
             </div>
           </div>
-          {state.status === "error" && <p className="mt-3 text-sm text-red-700">{state.message}</p>}
+          {state.status === "error" && <p className="mt-3 text-sm text-brand-accent-deep">{state.message}</p>}
           <button
             type="submit"
             disabled={isPending}
-            className="mt-4 w-full bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+            className="mt-4 w-full bg-brand-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
           >
             {isPending ? "Saving…" : `Sign and save my ${periodLabel} days →`}
           </button>
@@ -202,9 +202,9 @@ export function PeriodicReviewForm({
 
 function Field({ name, label }: { name: string; label: string }) {
   return (
-    <label className="block border-t border-current/10 pt-4 text-sm">
+    <label className="block border-t border-rule-hairline pt-4 text-sm">
       <span className="font-medium">{label}</span>
-      <textarea name={name} rows={2} className="mt-2 w-full border border-current/15 bg-transparent px-3 py-2" />
+      <textarea name={name} rows={2} className="mt-2 w-full border border-rule-border bg-transparent px-3 py-2" />
     </label>
   );
 }

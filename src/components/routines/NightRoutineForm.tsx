@@ -14,7 +14,7 @@ export function NightRoutineForm({ initialSteps = null }: { initialSteps?: numbe
     return (
       <div className="space-y-2 text-center">
         <p className="text-4xl">🌙</p>
-        <h1 className="text-2xl font-bold">Good work today. Rest well.</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight">Good work today. Rest well.</h1>
       </div>
     );
   }
@@ -22,8 +22,8 @@ export function NightRoutineForm({ initialSteps = null }: { initialSteps?: numbe
   return (
     <form action={formAction} className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold">🌙 Night Routine</h1>
-        <p className="opacity-80">Tomorrow is a new day, rest up and go again.</p>
+        <h1 className="text-2xl font-extrabold tracking-tight">🌙 Night Routine</h1>
+        <p className="text-muted-on-ink">Tomorrow is a new day, rest up and go again.</p>
       </header>
 
       <fieldset className="space-y-2 text-sm">
@@ -39,7 +39,7 @@ export function NightRoutineForm({ initialSteps = null }: { initialSteps?: numbe
         ))}
       </fieldset>
 
-      <p className="rounded-lg border border-white/10 p-4 text-sm">
+      <p className="border border-ink-hairline p-4 text-sm">
         Don&apos;t underestimate a comfy set of pyjamas.
       </p>
 
@@ -48,7 +48,7 @@ export function NightRoutineForm({ initialSteps = null }: { initialSteps?: numbe
         <textarea
           name="gratitude"
           rows={2}
-          className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-ink-hairline bg-transparent px-3 py-2"
         />
       </label>
 
@@ -57,7 +57,7 @@ export function NightRoutineForm({ initialSteps = null }: { initialSteps?: numbe
         <textarea
           name="highlight"
           rows={2}
-          className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-ink-hairline bg-transparent px-3 py-2"
         />
       </label>
 
@@ -75,13 +75,13 @@ export function NightRoutineForm({ initialSteps = null }: { initialSteps?: numbe
                 className="peer sr-only"
                 required
               />
-              <span className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-white/20 text-sm peer-checked:bg-brand-accent peer-checked:text-brand-accent-foreground">
+              <span className="flex h-9 w-9 cursor-pointer items-center justify-center border border-ink-hairline text-sm peer-checked:bg-brand-accent peer-checked:text-brand-accent-foreground">
                 {n}
               </span>
             </label>
           ))}
         </div>
-        <p className="mt-1 text-xs opacity-60">Private to you. Never shared or reported.</p>
+        <p className="mt-1 text-xs text-muted-on-ink">Private to you. Never shared or reported.</p>
       </fieldset>
 
       <label className="block text-sm">
@@ -89,13 +89,13 @@ export function NightRoutineForm({ initialSteps = null }: { initialSteps?: numbe
         <textarea
           name="lookingAhead"
           rows={2}
-          className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-ink-hairline bg-transparent px-3 py-2"
         />
       </label>
 
       <label className="block text-sm">
         <span className="font-medium">
-          Steps today <span className="font-normal opacity-60">(optional)</span>
+          Steps today <span className="font-normal text-muted-on-ink">(optional)</span>
         </span>
         <input
           type="number"
@@ -106,23 +106,23 @@ export function NightRoutineForm({ initialSteps = null }: { initialSteps?: numbe
           step={1}
           defaultValue={initialSteps ?? undefined}
           placeholder="e.g. 8,000"
-          className="mt-1 w-full rounded-md border border-white/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-ink-hairline bg-transparent px-3 py-2"
         />
-        <span className="mt-1 block text-xs opacity-60">
+        <span className="mt-1 block text-xs text-muted-on-ink">
           Private to you. Never shared or reported.
         </span>
       </label>
 
-      <p className="text-center text-sm italic opacity-80">
+      <p className="text-center text-sm italic text-muted-on-ink">
         Tomorrow is a new day, rest up and go again.
       </p>
 
-      {state.status === "error" && <p className="text-sm text-red-400">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-brand-accent-light">{state.message}</p>}
 
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-md bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+        className="w-full bg-brand-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Saving…" : "Complete Night Routine"}
       </button>

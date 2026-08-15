@@ -26,7 +26,7 @@ export function WorkoutWednesdayForm({
   if (state.status === "success") {
     return (
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold">Workout Wednesday complete. Nice work.</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight">Workout Wednesday complete. Nice work.</h1>
       </div>
     );
   }
@@ -34,8 +34,8 @@ export function WorkoutWednesdayForm({
   return (
     <form action={formAction} className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold">Workout Wednesday</h1>
-        <p className="opacity-80">Move the body. 5 exercises, 40s work / 20s rest, repeat 4 times.</p>
+        <h1 className="text-2xl font-extrabold tracking-tight">Workout Wednesday</h1>
+        <p className="text-muted">Move the body. 5 exercises, 40s work / 20s rest, repeat 4 times.</p>
       </header>
 
       <fieldset>
@@ -52,7 +52,7 @@ export function WorkoutWednesdayForm({
                 className="peer sr-only"
                 required
               />
-              <span className="cursor-pointer rounded-full border border-black/20 px-3 py-1.5 text-sm peer-checked:bg-brand-accent peer-checked:text-brand-accent-foreground">
+              <span className="cursor-pointer border border-rule-border px-3 py-1.5 text-sm peer-checked:bg-brand-accent peer-checked:text-brand-accent-foreground">
                 {option.label}
               </span>
             </label>
@@ -61,7 +61,7 @@ export function WorkoutWednesdayForm({
       </fieldset>
 
       {!workout || workout.exercises.length === 0 ? (
-        <p className="rounded-lg border border-black/10 p-4 text-sm opacity-80">
+        <p className="border border-rule-hairline p-4 text-sm text-muted">
           This week&apos;s workout isn&apos;t loaded yet -- check back soon.
         </p>
       ) : (
@@ -71,7 +71,7 @@ export function WorkoutWednesdayForm({
             return (
               <li
                 key={exercise.exercise_order}
-                className="flex items-center justify-between rounded-lg border border-black/10 p-4 text-sm"
+                className="flex items-center justify-between border border-rule-hairline p-4 text-sm"
               >
                 <span>
                   {exercise.exercise_order}. {exercise.exercise_name}
@@ -81,12 +81,12 @@ export function WorkoutWednesdayForm({
                     href={`https://vimeo.com/${video.vimeo_id}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="underline opacity-80"
+                    className="underline text-muted"
                   >
                     Watch demo
                   </a>
                 ) : (
-                  <span className="text-xs opacity-50">No demo yet</span>
+                  <span className="text-xs text-muted">No demo yet</span>
                 )}
               </li>
             );
@@ -94,12 +94,12 @@ export function WorkoutWednesdayForm({
         </ol>
       )}
 
-      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
 
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-md bg-brand-accent px-4 py-3 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+        className="w-full bg-brand-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Saving…" : "Complete Workout Wednesday"}
       </button>

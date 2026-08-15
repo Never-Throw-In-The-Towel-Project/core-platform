@@ -55,7 +55,7 @@ export default async function CheckinPage({
 
   return (
     <main className="mx-auto max-w-xl px-6 py-12">
-      <Link href="/home" className="mb-6 inline-block text-sm opacity-70 hover:opacity-100">
+      <Link href="/home" className="mb-6 inline-block text-sm text-muted hover:text-foreground">
         ← Today
       </Link>
       {await renderCheckin(weekday, profile.id, profile.timezone, now, privateClient)}
