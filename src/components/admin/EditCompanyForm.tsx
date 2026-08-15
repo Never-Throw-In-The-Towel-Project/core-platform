@@ -25,7 +25,7 @@ export function EditCompanyForm({ company }: { company: EditableCompany }) {
   const [state, formAction, isPending] = useActionState(updateCompany, initialRoutineState);
 
   return (
-    <form action={formAction} className="space-y-4 rounded-lg border border-black/10 p-5">
+    <form action={formAction} className="space-y-4 border border-rule-hairline p-5">
       <input type="hidden" name="companyId" value={company.id} />
 
       <label className="block text-sm">
@@ -36,7 +36,7 @@ export function EditCompanyForm({ company }: { company: EditableCompany }) {
           required
           maxLength={120}
           defaultValue={company.name}
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
         />
       </label>
 
@@ -47,51 +47,51 @@ export function EditCompanyForm({ company }: { company: EditableCompany }) {
           maxLength={2000}
           rows={3}
           defaultValue={company.welcome_copy ?? ""}
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
         />
-        <span className="mt-1 block text-xs opacity-60">Shown to this company&apos;s members. Optional.</span>
+        <span className="mt-1 block text-xs text-muted">Shown to this company&apos;s members. Optional.</span>
       </label>
 
-      <fieldset className="space-y-3 border-t border-black/10 pt-3">
-        <legend className="text-xs font-semibold opacity-70">Support contact</legend>
-        <p className="text-xs opacity-60">Where this company&apos;s &ldquo;Ask for Support&rdquo; alerts route.</p>
+      <fieldset className="space-y-3 border-t border-rule-hairline pt-3">
+        <legend className="text-xs font-semibold text-muted">Support contact</legend>
+        <p className="text-xs text-muted">Where this company&apos;s &ldquo;Ask for Support&rdquo; alerts route.</p>
         <label className="block text-sm">
           Name
-          <input name="supportContactName" type="text" maxLength={120} defaultValue={company.support_contact_name ?? ""} className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2" />
+          <input name="supportContactName" type="text" maxLength={120} defaultValue={company.support_contact_name ?? ""} className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2" />
         </label>
         <div className="flex flex-col gap-3 sm:flex-row">
           <label className="block flex-1 text-sm">
             Email
-            <input name="supportContactEmail" type="email" defaultValue={company.support_contact_email ?? ""} className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2" />
+            <input name="supportContactEmail" type="email" defaultValue={company.support_contact_email ?? ""} className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2" />
           </label>
           <label className="block flex-1 text-sm">
             Phone
-            <input name="supportContactPhone" type="tel" maxLength={40} defaultValue={company.support_contact_phone ?? ""} className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2" />
+            <input name="supportContactPhone" type="tel" maxLength={40} defaultValue={company.support_contact_phone ?? ""} className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2" />
           </label>
         </div>
       </fieldset>
 
-      <fieldset className="space-y-3 border-t border-black/10 pt-3">
-        <legend className="text-xs font-semibold opacity-70">Brand colours</legend>
+      <fieldset className="space-y-3 border-t border-rule-hairline pt-3">
+        <legend className="text-xs font-semibold text-muted">Brand colours</legend>
         <div className="flex gap-4">
           <label className="text-sm">
             Primary
-            <input name="primaryColor" type="color" defaultValue={company.primary_color ?? "#111111"} className="mt-1 block h-9 w-16 rounded-md border border-black/20 bg-transparent" />
+            <input name="primaryColor" type="color" defaultValue={company.primary_color ?? "#111111"} className="mt-1 block h-9 w-16 border border-rule-border bg-transparent" />
           </label>
           <label className="text-sm">
             Accent
-            <input name="accentColor" type="color" defaultValue={company.accent_color ?? "#ff563c"} className="mt-1 block h-9 w-16 rounded-md border border-black/20 bg-transparent" />
+            <input name="accentColor" type="color" defaultValue={company.accent_color ?? "#ff563c"} className="mt-1 block h-9 w-16 border border-rule-border bg-transparent" />
           </label>
         </div>
       </fieldset>
 
-      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
-      {state.status === "success" && <p className="text-sm font-medium text-green-700">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
+      {state.status === "success" && <p className="text-sm font-medium text-foreground">{state.message}</p>}
 
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-md bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+        className="bg-brand-accent px-4 py-2 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Saving…" : "Save changes"}
       </button>

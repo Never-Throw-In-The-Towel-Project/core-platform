@@ -40,13 +40,13 @@ function WizardFields() {
           maxLength={120}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
         />
       </label>
 
       <div className="block text-sm">
         Portal address
-        <div className="mt-1 flex items-center rounded-md border border-black/20">
+        <div className="mt-1 flex items-center border border-rule-border">
           <input
             name="slug"
             type="text"
@@ -58,12 +58,12 @@ function WizardFields() {
               setSlug(slugify(e.target.value));
               setSlugEdited(true);
             }}
-            className="w-full rounded-l-md bg-transparent px-3 py-2"
+            className="w-full bg-transparent px-3 py-2"
             aria-label="Portal subdomain"
           />
           <span className="whitespace-nowrap px-3 text-sm text-muted">.{ROOT_DOMAIN}</span>
         </div>
-        <span className="mt-1 block text-xs opacity-60">
+        <span className="mt-1 block text-xs text-muted">
           {effectiveSlug ? (
             <>
               Portal will be live at{" "}
@@ -77,51 +77,51 @@ function WizardFields() {
         </span>
       </div>
 
-      <fieldset className="space-y-3 border-t border-black/10 pt-3">
-        <legend className="text-xs font-semibold opacity-70">First HR admin</legend>
+      <fieldset className="space-y-3 border-t border-rule-hairline pt-3">
+        <legend className="text-xs font-semibold text-muted">First HR admin</legend>
         <div className="flex flex-col gap-3 sm:flex-row">
           <label className="block flex-1 text-sm">
             Name
-            <input name="hrName" type="text" required maxLength={80} className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2" />
+            <input name="hrName" type="text" required maxLength={80} className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2" />
           </label>
           <label className="block flex-1 text-sm">
             Email
-            <input name="hrEmail" type="email" required className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2" />
+            <input name="hrEmail" type="email" required className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2" />
           </label>
         </div>
-        <p className="text-xs opacity-60">They&apos;ll get an email invite to set a password and land in their Workspace.</p>
+        <p className="text-xs text-muted">They&apos;ll get an email invite to set a password and land in their Workspace.</p>
       </fieldset>
 
-      <fieldset className="space-y-3 border-t border-black/10 pt-3">
-        <legend className="text-xs font-semibold opacity-70">Brand colours (optional)</legend>
+      <fieldset className="space-y-3 border-t border-rule-hairline pt-3">
+        <legend className="text-xs font-semibold text-muted">Brand colours (optional)</legend>
         <div className="flex gap-4">
           <label className="text-sm">
             Primary
-            <input name="primaryColor" type="color" defaultValue="#111111" className="mt-1 block h-9 w-16 rounded-md border border-black/20 bg-transparent" />
+            <input name="primaryColor" type="color" defaultValue="#111111" className="mt-1 block h-9 w-16 border border-rule-border bg-transparent" />
           </label>
           <label className="text-sm">
             Accent
-            <input name="accentColor" type="color" defaultValue="#ff563c" className="mt-1 block h-9 w-16 rounded-md border border-black/20 bg-transparent" />
+            <input name="accentColor" type="color" defaultValue="#ff563c" className="mt-1 block h-9 w-16 border border-rule-border bg-transparent" />
           </label>
         </div>
-        <p className="text-xs opacity-50">Leave as-is to use the default NTITT theme.</p>
+        <p className="text-xs text-muted">Leave as-is to use the default NTITT theme.</p>
       </fieldset>
 
       <details className="text-sm">
-        <summary className="cursor-pointer text-xs font-semibold opacity-70">Support contact (optional)</summary>
+        <summary className="cursor-pointer text-xs font-semibold text-muted">Support contact (optional)</summary>
         <div className="mt-3 space-y-3">
           <label className="block text-sm">
             Name
-            <input name="supportContactName" type="text" maxLength={120} className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2" />
+            <input name="supportContactName" type="text" maxLength={120} className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2" />
           </label>
           <div className="flex flex-col gap-3 sm:flex-row">
             <label className="block flex-1 text-sm">
               Email
-              <input name="supportContactEmail" type="email" className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2" />
+              <input name="supportContactEmail" type="email" className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2" />
             </label>
             <label className="block flex-1 text-sm">
               Phone
-              <input name="supportContactPhone" type="tel" maxLength={40} className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2" />
+              <input name="supportContactPhone" type="tel" maxLength={40} className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2" />
             </label>
           </div>
         </div>
@@ -144,23 +144,23 @@ export function NewCompanyWizard() {
   const fieldsKey = state.status === "success" ? state.message : "new-company-form";
 
   return (
-    <form action={formAction} className="space-y-4 rounded-lg border border-black/10 p-5">
+    <form action={formAction} className="space-y-4 border border-rule-hairline p-5">
       <div>
         <h2 className="text-sm font-semibold">New company</h2>
-        <p className="mt-1 text-xs opacity-60">
+        <p className="mt-1 text-xs text-muted">
           Creates a live, branded portal and invites the first HR admin — no DNS or setup needed.
         </p>
       </div>
 
       <WizardFields key={fieldsKey} />
 
-      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
-      {state.status === "success" && <p className="text-sm font-medium text-green-700">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
+      {state.status === "success" && <p className="text-sm font-medium text-foreground">{state.message}</p>}
 
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-md bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+        className="bg-brand-accent px-4 py-2 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Creating…" : "Create company & invite HR"}
       </button>

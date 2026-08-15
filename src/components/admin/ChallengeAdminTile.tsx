@@ -18,14 +18,14 @@ export function ChallengeAdminTile({ view, todayIso }: { view: AdminChallengeVie
   // isn't tempted to create a duplicate), and knows what it's waiting on.
   if (challenge.status === "pending_confirmation") {
     return (
-      <div className="border border-current/15 p-5">
-        <p className="text-xs font-semibold uppercase tracking-wide opacity-60">Step challenge — awaiting confirmation</p>
+      <div className="border border-rule-border p-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">Step challenge — awaiting confirmation</p>
         <p className="mt-1 text-lg font-extrabold">{challenge.title}</p>
-        <p className="mt-3 text-sm opacity-70">
+        <p className="mt-3 text-sm text-muted">
           Waiting on Anthony to confirm his availability. He&apos;s been emailed a confirmation link; the
           challenge goes live and staff can opt in as soon as he confirms.
         </p>
-        <p className="mt-3 text-xs opacity-60">
+        <p className="mt-3 text-xs text-muted">
           Target: {target} steps · Reward: {rewardTypeLabel(challenge.reward_type)} — {challenge.reward_name}
         </p>
       </div>
@@ -33,27 +33,27 @@ export function ChallengeAdminTile({ view, todayIso }: { view: AdminChallengeVie
   }
 
   return (
-    <div className="border border-current/15 p-5">
+    <div className="border border-rule-border p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide opacity-60">Active step challenge</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Active step challenge</p>
           <p className="mt-1 text-lg font-extrabold">{challenge.title}</p>
         </div>
-        <span className="shrink-0 text-xs opacity-60">{daysLeft} days left</span>
+        <span className="shrink-0 text-xs text-muted">{daysLeft} days left</span>
       </div>
 
       {!totals ? (
-        <p className="mt-3 text-sm opacity-70">
+        <p className="mt-3 text-sm text-muted">
           Team progress updates daily — figures appear after the first day of logging.
         </p>
       ) : totals.suppressed ? (
-        <p className="mt-3 text-sm opacity-70">
+        <p className="mt-3 text-sm text-muted">
           The team total appears once at least 5 staff are contributing ({totals.contributor_count} so far).
         </p>
       ) : (
         <p className="mt-3 text-3xl font-extrabold">
           {totals.total_steps.toLocaleString()}
-          <span className="text-lg font-semibold opacity-50"> / {target} steps</span>
+          <span className="text-lg font-semibold text-muted"> / {target} steps</span>
         </p>
       )}
 
@@ -64,11 +64,11 @@ export function ChallengeAdminTile({ view, todayIso }: { view: AdminChallengeVie
         <span>{totals?.target_reached ? "🎉 Target reached" : "In progress"}</span>
       </div>
 
-      <div className="mt-4 border-t border-current/10 pt-3">
-        <p className="text-xs opacity-60">
+      <div className="mt-4 border-t border-rule-hairline pt-3">
+        <p className="text-xs text-muted">
           Reward: {rewardTypeLabel(challenge.reward_type)} — {challenge.reward_name}
         </p>
-        <p className="mt-1 text-xs opacity-60">
+        <p className="mt-1 text-xs text-muted">
           You see the team total and opt-in rate only — never individual steps or who opted in.
         </p>
       </div>

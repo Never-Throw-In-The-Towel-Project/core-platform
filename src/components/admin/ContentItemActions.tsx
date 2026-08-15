@@ -58,7 +58,7 @@ export function ContentItemActions({
           {delPending ? "…" : "Delete"}
         </button>
       </form>
-      {error ? <span className="text-[10px] text-red-700">{error}</span> : null}
+      {error ? <span className="text-[10px] text-brand-accent-deep">{error}</span> : null}
     </span>
   );
 }

@@ -13,10 +13,10 @@ export function InviteEmployeeForm() {
   }, [state]);
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-3 rounded-lg border border-black/10 p-4">
+    <form ref={formRef} action={formAction} className="space-y-3 border border-rule-hairline p-4">
       <div>
         <h2 className="text-sm font-semibold">Invite an employee</h2>
-        <p className="mt-1 text-xs opacity-60">
+        <p className="mt-1 text-xs text-muted">
           Sends a sign-in link. Their account is created for this company as soon as you send it.
         </p>
       </div>
@@ -27,7 +27,7 @@ export function InviteEmployeeForm() {
           type="text"
           required
           maxLength={80}
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
         />
       </label>
       <label className="block text-sm">
@@ -36,17 +36,17 @@ export function InviteEmployeeForm() {
           name="email"
           type="email"
           required
-          className="mt-1 w-full rounded-md border border-black/20 bg-transparent px-3 py-2"
+          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
         />
       </label>
-      {state.status === "error" && <p className="text-sm text-red-700">{state.message}</p>}
+      {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
       {state.status === "success" && (
-        <p className="text-sm opacity-60">Invite sent.</p>
+        <p className="text-sm text-muted">Invite sent.</p>
       )}
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-md bg-brand-accent px-4 py-2 text-sm font-semibold text-brand-accent-foreground disabled:opacity-50"
+        className="bg-brand-accent px-4 py-2 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
       >
         {isPending ? "Sending…" : "Send invite"}
       </button>
