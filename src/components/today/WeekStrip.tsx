@@ -13,18 +13,25 @@ const DAYS: { key: DayKey; letter: string; weekday: boolean }[] = [
 ];
 
 /**
- * The seven-cell week strip: completed weekdays ink-filled, today's completed
+ * The seven-cell week strip: completed weekdays filled, today's completed
  * check-in in the vivid accent, the current day outlined, everything else
  * (future days AND -- deliberately, so nothing shames a missed day -- past
  * days without a check-in) shown as a quiet inactive cell. Weekends carry no
  * themed check-in, so they're always inactive.
+ *
+ * `onDark` swaps the completed/today/inactive palettes for the ones that read
+ * on the ink progress band (a light fill instead of ink, `inactive-ink` cells)
+ * -- the design's home for this strip; the default palette is for a light
+ * surface.
  */
 export function WeekStrip({
   completedWeekdays,
   todayKey,
+  onDark = false,
 }: {
   completedWeekdays: Set<Weekday>;
   todayKey: DayKey;
+  onDark?: boolean;
 }) {
   return (
     <div className="flex gap-1" role="list" aria-label="This week">
@@ -36,11 +43,17 @@ export function WeekStrip({
         if (done && isToday) {
           cls = "bg-brand-accent-vivid text-white border-transparent";
         } else if (done) {
-          cls = "bg-brand-background text-brand-foreground border-transparent";
+          cls = onDark
+            ? "bg-brand-foreground text-brand-background border-transparent"
+            : "bg-brand-background text-brand-foreground border-transparent";
         } else if (isToday && weekday) {
-          cls = "border-2 border-brand-accent-vivid text-foreground";
+          cls = onDark
+            ? "border-2 border-brand-accent-vivid text-brand-foreground"
+            : "border-2 border-brand-accent-vivid text-foreground";
         } else {
-          cls = "bg-inactive text-muted-on-ink border-transparent";
+          cls = onDark
+            ? "bg-inactive-ink text-muted-on-ink border-transparent"
+            : "bg-inactive text-muted-on-ink border-transparent";
         }
 
         return (
