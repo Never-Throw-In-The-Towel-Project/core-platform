@@ -156,7 +156,11 @@ export default async function BrainPage({
           {/* ---- Auto-organise (AI batch: propose folder + tags, admin approves) ---- */}
           {visible.length > 0 && (
             <div className="mt-4">
-              <BrainAutoOrganize itemIds={visible.map((i) => i.id)} aiConfigured={aiConfigured} />
+              <BrainAutoOrganize
+                itemIds={visible.map((i) => i.id)}
+                folderNames={folders.map((f) => f.name)}
+                aiConfigured={aiConfigured}
+              />
             </div>
           )}
 

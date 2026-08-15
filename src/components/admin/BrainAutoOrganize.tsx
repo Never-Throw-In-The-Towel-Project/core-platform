@@ -7,23 +7,32 @@ import {
   type OrganizationPlan,
 } from "@/lib/actions/aiOrganize";
 
+const NEW_SENTINEL = "__new__";
+
 /**
  * The Brain's "auto-organise" control: ask the AI to propose a folder + tags for
- * the items currently in view, review the plan, tick which to apply, and commit.
- * Assistive-with-confirm — proposeOrganizationAction writes nothing; only the
- * admin's "Apply" (applyOrganizationAction) files and retags. Mirrors the
- * ContentStudioForm "Suggest" pattern (useTransition around a returning action),
- * scaled to a batch.
+ * the items currently in view, review the plan, adjust any proposed folder, tick
+ * which to apply, and commit. Assistive-with-confirm — proposeOrganizationAction
+ * writes nothing; only the admin's "Apply" (applyOrganizationAction) files and
+ * retags. The per-row folder is editable: pick another existing folder, keep the
+ * AI's suggestion, or type a brand-new name.
  */
 export function BrainAutoOrganize({
   itemIds,
+  folderNames,
   aiConfigured,
 }: {
   itemIds: string[];
+  /** Existing folder names, so a proposal can be redirected to one of them. */
+  folderNames: string[];
   aiConfigured: boolean;
 }) {
   const [plan, setPlan] = useState<OrganizationPlan | null>(null);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  // Editable target folder per item (starts from the AI's proposal).
+  const [folderByItem, setFolderByItem] = useState<Record<string, string>>({});
+  // Rows switched to "type a new folder name" mode.
+  const [customItems, setCustomItems] = useState<Set<string>>(new Set());
   const [proposePending, startPropose] = useTransition();
   const [applyPending, startApply] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +50,8 @@ export function BrainAutoOrganize({
       if (result.status === "ok") {
         setPlan(result.plan);
         setExcluded(new Set());
+        setCustomItems(new Set());
+        setFolderByItem(Object.fromEntries(result.plan.proposals.map((p) => [p.itemId, p.folder])));
       } else {
         setError(result.message);
       }
@@ -56,13 +67,38 @@ export function BrainAutoOrganize({
     });
   }
 
+  function setFolder(itemId: string, value: string) {
+    setFolderByItem((prev) => ({ ...prev, [itemId]: value }));
+  }
+
+  function enterCustom(itemId: string) {
+    setCustomItems((prev) => new Set(prev).add(itemId));
+    setFolder(itemId, "");
+  }
+
+  function exitCustom(itemId: string, resetTo: string) {
+    setCustomItems((prev) => {
+      const next = new Set(prev);
+      next.delete(itemId);
+      return next;
+    });
+    setFolder(itemId, resetTo);
+  }
+
   function apply() {
     if (!plan) return;
-    const assignments = plan.proposals
-      .filter((p) => !excluded.has(p.itemId))
-      .map((p) => ({ itemId: p.itemId, folder: p.folder, tags: p.tags }));
+    const included = plan.proposals.filter((p) => !excluded.has(p.itemId));
+    const assignments = included.map((p) => ({
+      itemId: p.itemId,
+      folder: (folderByItem[p.itemId] ?? p.folder).trim(),
+      tags: p.tags,
+    }));
     if (assignments.length === 0) {
       setError("Tick at least one item to apply.");
+      return;
+    }
+    if (assignments.some((a) => a.folder.length === 0)) {
+      setError("Give every selected item a folder name.");
       return;
     }
     setError(null);
@@ -71,6 +107,7 @@ export function BrainAutoOrganize({
       if (result.status === "success") {
         setPlan(null);
         setExcluded(new Set());
+        setCustomItems(new Set());
         setNote(`Organised ${assignments.length} item${assignments.length === 1 ? "" : "s"}.`);
       } else {
         setError(result.status === "error" ? result.message : "Couldn’t apply the changes. Please try again.");
@@ -91,7 +128,7 @@ export function BrainAutoOrganize({
         </button>
         <span className="text-xs text-muted">
           Proposes a folder &amp; tags for the {itemIds.length} item{itemIds.length === 1 ? "" : "s"} in view — you approve
-          before anything changes.
+          (and can tweak) before anything changes.
         </span>
         {note && (
           <span className="text-xs font-semibold text-foreground" role="status">
@@ -108,6 +145,20 @@ export function BrainAutoOrganize({
   }
 
   const selectedCount = plan.proposals.length - excluded.size;
+
+  // Folder options: existing folders first, then any new names the AI proposed,
+  // deduped case-insensitively so an existing "Sleep" and a proposed "sleep"
+  // collapse to one entry.
+  const existingLower = new Set(folderNames.map((n) => n.toLowerCase()));
+  const optionNames: string[] = [];
+  const seenLower = new Set<string>();
+  for (const name of [...folderNames, ...plan.proposals.map((p) => p.folder)]) {
+    const lower = name.toLowerCase();
+    if (!seenLower.has(lower)) {
+      seenLower.add(lower);
+      optionNames.push(name);
+    }
+  }
 
   return (
     <div className="border border-brand-accent">
@@ -148,35 +199,80 @@ export function BrainAutoOrganize({
       <ul className="divide-y divide-rule-hairline">
         {plan.proposals.map((p) => {
           const included = !excluded.has(p.itemId);
+          const chosen = folderByItem[p.itemId] ?? p.folder;
+          const inCustom = customItems.has(p.itemId);
+          const isNew = chosen.trim().length > 0 && !existingLower.has(chosen.trim().toLowerCase());
           return (
-            <li key={p.itemId}>
-              <label className="flex cursor-pointer items-start gap-3 px-4 py-3">
+            <li key={p.itemId} className="px-4 py-3">
+              <div className="flex items-start gap-3">
                 <input
                   type="checkbox"
                   checked={included}
                   onChange={() => toggle(p.itemId)}
-                  className="mt-0.5 h-4 w-4 shrink-0"
+                  aria-label={`Include ${p.title}`}
+                  className="mt-1 h-4 w-4 shrink-0"
                 />
-                <span className={`min-w-0 flex-1 ${included ? "" : "opacity-40"}`}>
+                <div className={`min-w-0 flex-1 ${included ? "" : "opacity-40"}`}>
                   <span className="block truncate text-sm font-semibold">{p.title}</span>
-                  <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">→</span>
-                    <span className="border border-rule-border px-1.5 py-0.5 text-[11px] font-semibold">
-                      {p.folder}
-                    </span>
-                    {p.isNewFolder && (
+
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">Folder</span>
+                    {inCustom ? (
+                      <>
+                        <input
+                          type="text"
+                          value={chosen}
+                          onChange={(e) => setFolder(p.itemId, e.target.value)}
+                          placeholder="New folder name"
+                          maxLength={80}
+                          aria-label={`New folder name for ${p.title}`}
+                          className="border border-rule-border bg-transparent px-2 py-0.5 text-xs"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => exitCustom(p.itemId, p.folder)}
+                          className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted hover:text-foreground"
+                        >
+                          Pick existing
+                        </button>
+                      </>
+                    ) : (
+                      <select
+                        value={chosen}
+                        onChange={(e) => {
+                          if (e.target.value === NEW_SENTINEL) enterCustom(p.itemId);
+                          else setFolder(p.itemId, e.target.value);
+                        }}
+                        aria-label={`Folder for ${p.title}`}
+                        className="max-w-[12rem] truncate border border-rule-border bg-transparent px-2 py-0.5 text-xs font-semibold"
+                      >
+                        {optionNames.map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                        <option value={NEW_SENTINEL}>＋ New folder…</option>
+                      </select>
+                    )}
+                    {isNew && (
                       <span className="border border-brand-accent bg-brand-accent px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-brand-accent-foreground">
                         New
                       </span>
                     )}
-                    {p.tags.map((tag) => (
-                      <span key={tag} className="border border-rule-hairline px-1.5 py-0.5 text-[10px] text-muted">
-                        {tag}
-                      </span>
-                    ))}
-                  </span>
-                </span>
-              </label>
+                  </div>
+
+                  {p.tags.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">Tags</span>
+                      {p.tags.map((tag) => (
+                        <span key={tag} className="border border-rule-hairline px-1.5 py-0.5 text-[10px] text-muted">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </li>
           );
         })}
