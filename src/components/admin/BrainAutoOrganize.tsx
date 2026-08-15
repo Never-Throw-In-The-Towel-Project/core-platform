@@ -9,10 +9,19 @@ import {
 
 const NEW_SENTINEL = "__new__";
 
+// Whole-library organise: the browser slices the in-view items into batches of
+// CHUNK and calls the propose action once per batch (each = one AI call, so no
+// single request runs long), then merges them into one review plan. New folder
+// names proposed in earlier batches are fed into later ones, so the run
+// converges on a single coherent folder set. MAX_ORGANIZE bounds one run's
+// cost/latency; anything beyond it is reported and left for a follow-up pass.
+const CHUNK = 40;
+const MAX_ORGANIZE = 400;
+
 /**
  * The Brain's "auto-organise" control: ask the AI to propose a folder + tags for
- * the items currently in view, review the plan, adjust any proposed folder, tick
- * which to apply, and commit. Assistive-with-confirm — proposeOrganizationAction
+ * the items currently in view, review the whole plan, adjust any proposed folder,
+ * tick which to apply, and commit. Assistive-with-confirm — proposeOrganizationAction
  * writes nothing; only the admin's "Apply" (applyOrganizationAction) files and
  * retags. The per-row folder is editable: pick another existing folder, keep the
  * AI's suggestion, or type a brand-new name.
@@ -37,6 +46,8 @@ export function BrainAutoOrganize({
   const [applyPending, startApply] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  // Progress across the whole-library batches while proposing.
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
   if (!aiConfigured) {
     return <p className="text-xs text-muted">AI organising isn’t configured in this environment.</p>;
@@ -45,15 +56,51 @@ export function BrainAutoOrganize({
   function propose() {
     setError(null);
     setNote(null);
+    setProgress(null);
     startPropose(async () => {
-      const result = await proposeOrganizationAction({ itemIds });
-      if (result.status === "ok") {
-        setPlan(result.plan);
+      const targets = itemIds.slice(0, MAX_ORGANIZE);
+      const overflow = itemIds.length - targets.length;
+      const chunks: string[][] = [];
+      for (let i = 0; i < targets.length; i += CHUNK) chunks.push(targets.slice(i, i + CHUNK));
+
+      const merged: OrganizationPlan["proposals"] = [];
+      // New folder names proposed so far (display name keyed by lowercase), fed
+      // into each later chunk so it reuses them rather than inventing variants.
+      const newFolderByLower = new Map<string, string>();
+      let failure: string | null = null;
+
+      for (const chunk of chunks) {
+        setProgress({ done: merged.length, total: targets.length });
+        const result = await proposeOrganizationAction({
+          itemIds: chunk,
+          knownNewFolders: Array.from(newFolderByLower.values()),
+        });
+        if (result.status !== "ok") {
+          failure = result.message;
+          break;
+        }
+        merged.push(...result.plan.proposals);
+        for (const p of result.plan.proposals) {
+          if (p.isNewFolder) {
+            const lower = p.folder.toLowerCase();
+            if (!newFolderByLower.has(lower)) newFolderByLower.set(lower, p.folder);
+          }
+        }
+      }
+
+      setProgress(null);
+
+      if (merged.length > 0) {
+        setPlan({ proposals: merged, truncated: overflow });
         setExcluded(new Set());
         setCustomItems(new Set());
-        setFolderByItem(Object.fromEntries(result.plan.proposals.map((p) => [p.itemId, p.folder])));
+        setFolderByItem(Object.fromEntries(merged.map((p) => [p.itemId, p.folder])));
+        // A mid-run failure still leaves a usable partial plan — surface it.
+        if (failure) {
+          setError(`Organised ${merged.length}, then hit a snag: ${failure} Review these and run again for the rest.`);
+        }
       } else {
-        setError(result.message);
+        setError(failure ?? "The AI didn’t return any suggestions. Please try again.");
       }
     });
   }
@@ -124,11 +171,17 @@ export function BrainAutoOrganize({
           disabled={proposePending || itemIds.length === 0}
           className="border border-brand-accent px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-brand-accent-deep transition-colors hover:bg-brand-accent hover:text-brand-accent-foreground disabled:opacity-40"
         >
-          {proposePending ? "Thinking…" : "✦ Auto-organise with AI"}
+          {proposePending
+            ? progress
+              ? `Organising… ${progress.done}/${progress.total}`
+              : "Thinking…"
+            : "✦ Auto-organise with AI"}
         </button>
         <span className="text-xs text-muted">
-          Proposes a folder &amp; tags for the {itemIds.length} item{itemIds.length === 1 ? "" : "s"} in view — you approve
-          (and can tweak) before anything changes.
+          {itemIds.length > MAX_ORGANIZE
+            ? `Proposes folders & tags for the first ${MAX_ORGANIZE} of ${itemIds.length} items in view`
+            : `Proposes folders & tags for all ${itemIds.length} item${itemIds.length === 1 ? "" : "s"} in view`}
+          , reviewed in one plan — you approve (and can tweak) before anything changes.
         </span>
         {note && (
           <span className="text-xs font-semibold text-foreground" role="status">

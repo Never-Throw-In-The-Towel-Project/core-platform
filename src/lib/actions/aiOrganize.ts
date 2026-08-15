@@ -48,6 +48,9 @@ export type ProposeOrganizationResult =
 
 export async function proposeOrganizationAction(input: {
   itemIds: string[];
+  /** Folder names proposed in earlier chunks of a whole-library run, so this
+   *  chunk reuses them instead of inventing near-duplicate variants. */
+  knownNewFolders?: string[];
 }): Promise<ProposeOrganizationResult> {
   await requireNtittAdmin();
 
@@ -59,6 +62,9 @@ export async function proposeOrganizationAction(input: {
   if (!parsed.success) {
     return { status: "error", message: "There’s nothing here to organise." };
   }
+
+  const knownNew = z.array(z.string().trim().min(1).max(80)).max(200).safeParse(input.knownNewFolders ?? []);
+  const knownNewFolders = knownNew.success ? knownNew.data : [];
 
   const batch = parsed.data.slice(0, MAX_BATCH);
   const truncated = parsed.data.length - batch.length;
@@ -83,7 +89,11 @@ export async function proposeOrganizationAction(input: {
 
     const proposals = await proposeContentOrganization(
       items.map((i) => ({ id: i.id, title: i.title, summary: i.summary, type: i.type, tags: i.tags })),
-      folders.map((f) => f.name)
+      // The model sees DB folders PLUS names proposed in earlier chunks, so a
+      // whole-library run converges on one folder set instead of many variants.
+      // folderByLower (DB folders only) still decides isNewFolder below, so an
+      // earlier-chunk name correctly stays flagged "New" until it's created.
+      [...folders.map((f) => f.name), ...knownNewFolders]
     );
 
     const byId = new Map(items.map((i) => [i.id, i]));
