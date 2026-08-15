@@ -208,7 +208,7 @@ export default async function JourneyPage() {
         <div className="space-y-6">
           {activeChallenge && (
             <Link
-              href="/challenge"
+              href="/step-challenge"
               className="block border border-current/10 p-4 transition-colors hover:bg-current/[0.03]"
             >
               <p className="text-xs font-semibold tracking-wide uppercase opacity-60">Company challenge</p>

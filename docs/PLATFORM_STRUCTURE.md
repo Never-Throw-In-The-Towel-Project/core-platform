@@ -1,8 +1,29 @@
 # Platform Structure — three journeys, three hosts
 
-Status: **approved plan, in build.** This is the reference for how the platform
-is organised by *who you are*. It supersedes the ad-hoc role-link structure
-described in earlier docs.
+Status: **largely built.** Phases 0–1.5 shipped (PRs #88 / #92 / #93 + the content
+Studio); Phase 2 is done bar HR onboarding; Phase 3 is in progress. This is the
+reference for how the platform is organised by *who you are*. It supersedes the
+ad-hoc role-link structure described in earlier docs.
+
+### Build status (updated 2026-08-15)
+
+- ✅ **Live:** the **Control Tower** (`/admin/*`, one layout-level
+  `requireNtittAdmin`), the **Company Workspace** (`(company)/workspace/*`), and
+  **role-aware cross-subdomain landing** (`src/lib/auth/landing.ts`). The five
+  admin surfaces are relocated with 301s (`next.config.ts`).
+- 🛠️ **Remaining (code):** HR/NTITT-admin onboarding — today every role is routed
+  through the employee first-run before role landing; a content **edit** action in
+  the Studio; hiding Direct members' "My Company" community space.
+- **Naming decided:** the singular step-challenge route is now **`/step-challenge`**
+  (was `/challenge`; permanent redirect in place) to end the one-letter collision
+  with the `/challenges` programmes. The admin authoring surface **stays
+  `/admin/challenges`** — the `/admin/programmes` rename shown in the tables below
+  was dropped, because its motivating ambiguity (`/admin` meaning both the HR
+  dashboard and NTITT admin) is already resolved by the `/workspace` move, and the
+  rename would only split naming from the member-facing `/challenges`.
+- ⚙️ **Remaining (NTITT dashboards, not code):** the Vercel `admin.` + `*.`
+  wildcard domains and the Supabase redirect-allow-list / cookie-domain config
+  (Phase 0 ops) — the go-live gate for the subdomain hosts.
 
 ## Why
 
@@ -58,7 +79,7 @@ prefixes; this also removes the old `/admin`-means-two-things ambiguity.
 | Today | Becomes |
 |---|---|
 | `(app)/community/admin/content` | `/admin/content` (Content Studio) |
-| `(app)/community/admin/challenges(/[id])` | `/admin/programmes(/[id])` |
+| `(app)/community/admin/challenges(/[id])` | `/admin/challenges(/[id])` (kept "challenges", not "programmes" — see Build status) |
 | `(app)/community/admin` (moderation) | `/admin/moderation` |
 | `(app)/community/admin/podcast-guests` | `/admin/podcast` |
 | `(app)/admin/invite` (create company + invite) | `/admin/companies` + `/admin/people` |
@@ -118,7 +139,8 @@ schema; no admin role ever reads it. HR see only one-way `company_*` aggregates.
 - **New (small):** the `/admin` shell + layout guard + nav; the `/workspace`
   sub-nav + HR onboarding; the Company-management wizard + console; a content
   **edit** action (today create/delete only); role-aware landing; proxy host
-  rules; disambiguate `/challenge` (step) vs `/challenges` (programmes).
+  rules; disambiguate the step route (`/challenge` → `/step-challenge`) from the
+  `/challenges` programmes.
 - **Dropped (by decision):** HR content-curation surface, company "groups"
   model, tiering/entitlements.
 
@@ -135,8 +157,9 @@ schema; no admin role ever reads it. HR see only one-way `company_*` aggregates.
 - **Phase 1.5 — Company management**: the self-serve wizard + console.
 - **Phase 2 — Company site**: rename `(admin)` → `(company)`; `/workspace`
   sub-nav; HR onboarding; land HR on `/workspace`.
-- **Phase 3 — Core polish**: wire role-aware landing end-to-end; disambiguate the
-  challenge routes; content-edit action; hide Direct "My Company".
+- **Phase 3 — Core polish**: role-aware landing (✅ done); disambiguate the
+  challenge routes (✅ `/challenge` → `/step-challenge`); content-edit action;
+  HR/NTITT-admin onboarding; hide Direct "My Company".
 
 ## Ownership split
 
