@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireHrAdmin } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { AskForSupport } from "@/components/AskForSupport";
+import { BrandMark } from "@/components/BrandMark";
 import { WorkspaceNav } from "@/components/company/WorkspaceNav";
 import { resolveHelplineNumber } from "@/lib/support/helpline";
 
@@ -43,9 +44,12 @@ export default async function CompanyLayout({ children }: { children: React.Reac
     <div className="flex min-h-full flex-1 flex-col">
       <header className="border-b border-black/10">
         <div className="flex items-center justify-between px-6 py-4">
-          <div>
-            <p className="text-sm font-bold tracking-tight">{companyName} Workspace</p>
-            <p className="text-xs opacity-60">HR admin · {profile.display_name}</p>
+          <div className="flex items-center gap-3">
+            <BrandMark tone="onLight" size={22} />
+            <div>
+              <p className="text-sm font-bold tracking-tight">{companyName} Workspace</p>
+              <p className="text-xs opacity-60">HR admin · {profile.display_name}</p>
+            </div>
           </div>
           <Link href="/home" className="text-sm underline opacity-80">
             My Today screen

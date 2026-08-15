@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireNtittAdmin } from "@/lib/auth/dal";
 import { AdminNav } from "@/components/admin/AdminNav";
+import { BrandMark } from "@/components/BrandMark";
 
 /**
  * The NTITT Control Tower ("NTITT Admin") -- the ntitt_admin-only site where
@@ -32,7 +33,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="flex min-h-full flex-1 flex-col bg-background text-foreground">
       <header className="border-b border-rule-hairline">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-3">
-          <Link href="/admin" className="text-sm font-extrabold uppercase tracking-wide">
+          <Link href="/admin" className="flex items-center gap-2.5 text-sm font-extrabold uppercase tracking-wide">
+            <BrandMark tone="onLight" size={22} />
             NTITT Admin
           </Link>
           <div className="flex items-center gap-4 text-xs">

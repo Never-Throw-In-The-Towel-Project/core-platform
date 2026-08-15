@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AskForSupport } from "@/components/AskForSupport";
+import { BrandMark } from "@/components/BrandMark";
 import { HeaderNav } from "./HeaderNav";
 import type { Profile } from "@/types/database";
 
@@ -33,13 +34,7 @@ export function AppHeader({
       <div className="bg-brand-background text-brand-foreground">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3">
           <Link href="/home" className="flex items-center gap-2.5">
-            <span
-              className="grid h-6 w-6 place-items-center text-[11px] font-extrabold text-white"
-              style={{ background: "var(--brand-accent-vivid)" }}
-              aria-hidden
-            >
-              N
-            </span>
+            <BrandMark tone="onDark" size={26} />
             <span className="text-xs font-extrabold uppercase tracking-[0.13em]">
               <span className="hidden sm:inline">Never Throw In The Towel</span>
               <span className="sm:hidden">NTITT</span>
