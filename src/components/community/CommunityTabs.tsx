@@ -39,7 +39,8 @@ export function CommunityTabs({ showCompanyTab = true }: { showCompanyTab?: bool
                       : "border-transparent text-muted hover:text-foreground"
                   }`}
                 >
-                  {tab.label}
+                  <span className="sm:hidden">{tab.shortLabel}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
                 </Link>
               </li>
             );
