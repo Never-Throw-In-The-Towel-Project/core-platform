@@ -42,16 +42,16 @@ export default async function CompanyLayout({ children }: { children: React.Reac
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <header className="border-b border-black/10">
+      <header className="border-b border-rule-hairline">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
             <BrandMark tone="onLight" size={22} />
             <div>
               <p className="text-sm font-bold tracking-tight">{companyName} Workspace</p>
-              <p className="text-xs opacity-60">HR admin · {profile.display_name}</p>
+              <p className="text-xs text-muted">HR admin · {profile.display_name}</p>
             </div>
           </div>
-          <Link href="/home" className="text-sm underline opacity-80">
+          <Link href="/home" className="text-sm text-muted underline hover:text-foreground">
             My Today screen
           </Link>
         </div>
