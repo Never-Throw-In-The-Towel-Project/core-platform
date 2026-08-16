@@ -7,6 +7,7 @@ import { ScheduleControl } from "@/components/admin/ScheduleControl";
 import { buildMonthGrid, monthTitle, shiftMonth, parseMonthParam, monthParam } from "@/lib/content/calendarMonth";
 import { isAiConfigured } from "@/lib/ai/client";
 import { CalendarWeekSuggest } from "@/components/admin/CalendarWeekSuggest";
+import { CalendarMonthSuggest } from "@/components/admin/CalendarMonthSuggest";
 import { CalendarChannelSelect } from "@/components/admin/CalendarChannelSelect";
 import { isVisibleOnChannel } from "@/lib/content/channelVisibility";
 import type { ContentItem, VideoCategory } from "@/types/database";
@@ -133,6 +134,7 @@ export default async function ContentCalendarPage({
           monthIndex={sel.monthIndex}
           todayIso={todayIso}
           channel={channel}
+          aiConfigured={aiConfigured}
         />
       ) : (
         <WeekBoard items={visibleItems} aiConfigured={aiConfigured} />
@@ -240,12 +242,14 @@ function MonthView({
   monthIndex,
   todayIso,
   channel,
+  aiConfigured,
 }: {
   items: ContentItem[];
   year: number;
   monthIndex: number;
   todayIso: string;
   channel: string;
+  aiConfigured: boolean;
 }) {
   const weeks = buildMonthGrid(year, monthIndex, todayIso);
 
@@ -284,6 +288,12 @@ function MonthView({
           </span>
         </div>
       </div>
+
+      {unscheduled.length > 0 && (
+        <div className="mt-4">
+          <CalendarMonthSuggest itemIds={unscheduled.map((i) => i.id)} aiConfigured={aiConfigured} />
+        </div>
+      )}
 
       {/* Weekday header row */}
       <div className="mt-4 grid grid-cols-7 border-l border-t border-rule-hairline">
