@@ -19,6 +19,10 @@
     {
       "path": "/api/jobs/send-push-notifications",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/jobs/publish-scheduled-content",
+      "schedule": "0 1 * * *"
     }
   ]
 }

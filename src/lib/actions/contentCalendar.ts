@@ -63,3 +63,53 @@ export async function setContentItemDay(
   revalidatePath("/home");
   return { status: "success" };
 }
+
+const ScheduleSchema = z.object({
+  itemId: z.string().uuid(),
+  // "" clears the schedule (null); yyyy-mm-dd sets a publish date.
+  date: z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]),
+});
+
+/**
+ * Schedule (or unschedule) a content item's publish date — the Month view.
+ * Setting a date on a DRAFT hands it to the publish-scheduled-content cron,
+ * which flips it live on that day; "" clears it. This action itself never
+ * publishes, so a scheduled piece stays a reviewable draft until its date.
+ * ntitt_admin only (the content_items UPDATE RLS policy is the real gate).
+ */
+export async function scheduleContentItem(
+  _prevState: RoutineActionState,
+  formData: FormData
+): Promise<RoutineActionState> {
+  await verifySession();
+  const profile = await getProfile();
+  if (profile.role !== "ntitt_admin") {
+    return { status: "error", message: "You don’t have access to the calendar." };
+  }
+
+  const parsed = ScheduleSchema.safeParse({
+    itemId: formData.get("itemId"),
+    date: formData.get("date") ?? "",
+  });
+  if (!parsed.success) {
+    return { status: "error", message: "Enter a valid date." };
+  }
+
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("content_items")
+      .update({ scheduled_for: parsed.data.date === "" ? null : parsed.data.date })
+      .eq("id", parsed.data.itemId);
+    if (error) {
+      return { status: "error", message: "Couldn’t schedule that item. Please try again." };
+    }
+  } catch {
+    return { status: "error", message: "Couldn’t schedule that item. Please try again." };
+  }
+
+  revalidatePath("/admin/calendar");
+  revalidatePath("/admin/content");
+  revalidatePath("/admin/brain");
+  return { status: "success" };
+}
