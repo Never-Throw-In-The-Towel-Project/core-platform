@@ -111,9 +111,11 @@ export async function updateNotificationTimes(
 
 /**
  * "Users choose their own display name -- does not have to be their real
- * name" (brief). Community-facing (see src/lib/community/queries.ts) but
- * edited from the Community right rail, not a dedicated settings page --
- * matches where the design reference puts it.
+ * name" (brief). Community-facing (see src/lib/community/queries.ts). Editable
+ * from two places that share this action: the Community right rail, and the
+ * per-role Settings pages (member /settings, HR /workspace/settings, super
+ * admin /admin/settings) -- hence the settings revalidations below alongside
+ * the community boards.
  */
 export async function updateDisplayName(
   _prevState: RoutineActionState,
@@ -145,5 +147,10 @@ export async function updateDisplayName(
   revalidatePath("/community");
   revalidatePath("/community/wins");
   revalidatePath("/community/company");
+  revalidatePath("/settings");
+  // "layout" so the display name shown in each role shell's header/sidebar
+  // (the (company) header, the Admin sidebar) refreshes too, not just the page.
+  revalidatePath("/workspace", "layout");
+  revalidatePath("/admin", "layout");
   return { status: "success" };
 }

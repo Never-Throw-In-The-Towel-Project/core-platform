@@ -14,6 +14,7 @@ export const ADMIN_SECTIONS: { href: string; label: string; countKey?: AdminCoun
   { href: "/admin/moderation", label: "Moderation", countKey: "moderation" },
   { href: "/admin/podcast", label: "Podcast Guests" },
   { href: "/admin/companies", label: "Companies", countKey: "companies" },
+  { href: "/admin/settings", label: "Settings" },
 ];
 
 /** The section whose page is currently shown (longest-prefix match). */

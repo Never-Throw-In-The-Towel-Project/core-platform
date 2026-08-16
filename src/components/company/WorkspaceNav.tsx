@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/workspace/challenges", label: "Challenges" },
   { href: "/workspace/events", label: "Events" },
   { href: "/workspace/reports", label: "Reports" },
+  { href: "/workspace/settings", label: "Settings" },
 ];
 
 export function WorkspaceNav() {
