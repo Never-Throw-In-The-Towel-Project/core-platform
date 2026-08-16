@@ -1,7 +1,7 @@
 import Image from "next/image";
 
 /**
- * The story rail on the Today progress band: circular grayscale portraits of
+ * The story rail on the Today progress band: circular portraits of
  * Anthony's content -- an unseen story gets a 3px accent ring, a seen one a
  * muted ring. The full-screen story viewer is not yet designed (an open
  * decision in the handoff), so these are intentionally rendered as static
@@ -9,8 +9,8 @@ import Image from "next/image";
  * target that would currently do nothing.
  *
  * Reuses the photography already committed under public/site (the same shots
- * the handoff renamed into designs/assets); every image is grayscale via the
- * shared .grayscale-photo treatment.
+ * the handoff renamed into designs/assets); every image is graded via the
+ * shared .site-photo treatment.
  */
 export interface Story {
   key: string;
@@ -37,7 +37,7 @@ export function StoryRail({ stories }: { stories: Story[] }) {
                   alt=""
                   fill
                   sizes="48px"
-                  className="grayscale-photo object-cover"
+                  className="site-photo object-cover"
                 />
               </span>
             </span>

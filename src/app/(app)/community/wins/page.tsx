@@ -72,7 +72,7 @@ export default async function WinsBoardPage() {
               alt=""
               fill
               sizes="224px"
-              className="grayscale-photo object-cover"
+              className="site-photo object-cover"
             />
           </div>
         </div>
