@@ -5,6 +5,8 @@ import { listAllContentForAdmin } from "@/lib/content/queries";
 import { CalendarDayControl } from "@/components/admin/CalendarDayControl";
 import { ScheduleControl } from "@/components/admin/ScheduleControl";
 import { buildMonthGrid, monthTitle, shiftMonth, parseMonthParam, monthParam } from "@/lib/content/calendarMonth";
+import { isAiConfigured } from "@/lib/ai/client";
+import { CalendarWeekSuggest } from "@/components/admin/CalendarWeekSuggest";
 import type { ContentItem, VideoCategory } from "@/types/database";
 
 const TYPE_LABEL: Record<ContentItem["type"], string> = {
@@ -62,6 +64,7 @@ export default async function ContentCalendarPage({
   const now = new Date();
   const todayIso = now.toISOString().slice(0, 10);
   const sel = parseMonthParam(month) ?? { year: now.getUTCFullYear(), monthIndex: now.getUTCMonth() };
+  const aiConfigured = isAiConfigured();
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-12">
@@ -82,7 +85,7 @@ export default async function ContentCalendarPage({
       {isMonth ? (
         <MonthView items={items} year={sel.year} monthIndex={sel.monthIndex} todayIso={todayIso} />
       ) : (
-        <WeekBoard items={items} />
+        <WeekBoard items={items} aiConfigured={aiConfigured} />
       )}
     </main>
   );
@@ -104,7 +107,7 @@ function ViewTab({ href, label, active }: { href: string; label: string; active:
 
 // ---- Week view -------------------------------------------------------------
 
-function WeekBoard({ items }: { items: ContentItem[] }) {
+function WeekBoard({ items, aiConfigured }: { items: ContentItem[]; aiConfigured: boolean }) {
   const itemsForDay = (day: number) =>
     day === 0 ? items.filter((i) => i.day_of_week == null) : items.filter((i) => i.day_of_week === day);
   const assignedCount = items.filter((i) => i.day_of_week != null).length;
@@ -119,6 +122,12 @@ function WeekBoard({ items }: { items: ContentItem[] }) {
         {assignedCount} of {items.length} item{items.length === 1 ? "" : "s"} assigned to a day. Choose a weekday on a
         card and it joins that day’s bank — members see it on that weekday through the rotation.
       </p>
+      <div className="mt-4">
+        <CalendarWeekSuggest
+          itemIds={items.filter((i) => i.day_of_week == null).map((i) => i.id)}
+          aiConfigured={aiConfigured}
+        />
+      </div>
       <div className="mt-6 flex gap-4 overflow-x-auto pb-4">
         {WEEK_COLUMNS.map((col) => {
           const colItems = itemsForDay(col.day);
