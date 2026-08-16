@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { requireNtittAdmin } from "@/lib/auth/dal";
+import { requireHrAdmin, requireNtittAdmin } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { provisionInvite } from "@/lib/invite/provision";
 import { RESERVED_SUBDOMAINS } from "@/lib/tenant/resolve";
@@ -241,5 +241,72 @@ export async function updateCompany(
 
   revalidatePath("/admin/companies");
   revalidatePath(`/admin/companies/${d.companyId}`);
+  return { status: "success", message: "Changes saved." };
+}
+
+const UpdateMyCompanySchema = z.object({
+  welcomeCopy: z.string().trim().max(2000).optional(),
+  supportContactName: z.string().trim().max(120).optional(),
+  supportContactEmail: z.union([z.email(), z.literal("")]).optional(),
+  supportContactPhone: z.string().trim().max(40).optional(),
+  primaryColor: optionalHex,
+  accentColor: optionalHex,
+});
+
+/**
+ * hr_admin edits THEIR OWN company's member-facing settings from
+ * /workspace/settings: welcome copy, support-contact routing (where the "Ask
+ * for Support" alerts go) and brand colours. company_id comes from the
+ * caller's verified profile, NEVER form input, so an HR admin can only ever
+ * touch their own company. Writes through the service-role client because
+ * `companies` has no UPDATE RLS policy -- same trust model as the ntitt_admin
+ * updateCompany, but gated by requireHrAdmin and scoped to one fixed id.
+ *
+ * Name and slug are deliberately NOT editable here: they're the portal's
+ * identity, owned by NTITT (updateCompany), and changing the slug would break
+ * every existing {slug}.neverthrowinthetowel.uk link.
+ */
+export async function updateMyCompany(
+  _prevState: RoutineActionState,
+  formData: FormData
+): Promise<RoutineActionState> {
+  const profile = await requireHrAdmin();
+
+  const parsed = UpdateMyCompanySchema.safeParse({
+    welcomeCopy: formData.get("welcomeCopy") ?? undefined,
+    supportContactName: formData.get("supportContactName") ?? undefined,
+    supportContactEmail: formData.get("supportContactEmail") ?? undefined,
+    supportContactPhone: formData.get("supportContactPhone") ?? undefined,
+    primaryColor: formData.get("primaryColor") ?? undefined,
+    accentColor: formData.get("accentColor") ?? undefined,
+  });
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
+  }
+  const d = parsed.data;
+
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("companies")
+      .update({
+        welcome_copy: d.welcomeCopy || null,
+        support_contact_name: d.supportContactName || null,
+        support_contact_email: d.supportContactEmail || null,
+        support_contact_phone: d.supportContactPhone || null,
+        primary_color: d.primaryColor || null,
+        accent_color: d.accentColor || null,
+      })
+      .eq("id", profile.company_id);
+    if (error) {
+      return { status: "error", message: "Couldn't save changes. Please try again." };
+    }
+  } catch {
+    return { status: "error", message: "Couldn't save changes. Please try again." };
+  }
+
+  // "layout" so the company skin strip (member header) re-reads the new colours.
+  revalidatePath("/workspace/settings");
+  revalidatePath("/home", "layout");
   return { status: "success", message: "Changes saved." };
 }
