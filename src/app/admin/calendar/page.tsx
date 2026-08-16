@@ -9,6 +9,7 @@ import { isAiConfigured } from "@/lib/ai/client";
 import { CalendarWeekSuggest } from "@/components/admin/CalendarWeekSuggest";
 import { CalendarMonthSuggest } from "@/components/admin/CalendarMonthSuggest";
 import { CalendarChannelSelect } from "@/components/admin/CalendarChannelSelect";
+import { ContentStudioForm } from "@/components/admin/ContentStudioForm";
 import { isVisibleOnChannel } from "@/lib/content/channelVisibility";
 import type { ContentItem, VideoCategory } from "@/types/database";
 
@@ -50,13 +51,16 @@ const WEEKDAY_HEADERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export default async function ContentCalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; month?: string; channel?: string }>;
+  searchParams: Promise<{ view?: string; month?: string; channel?: string; add?: string; addDay?: string }>;
 }) {
   await requireNtittAdmin();
-  const { view, month, channel: channelParam } = await searchParams;
+  const { view, month, channel: channelParam, add, addDay } = await searchParams;
   const isMonth = view === "month";
   const viewName: "week" | "month" = isMonth ? "month" : "week";
   const channel = channelParam || "all";
+  // A day clicked to add content on: a yyyy-mm-dd date (Month) or a 0–7 weekday (Week).
+  const addDate = add && /^\d{4}-\d{2}-\d{2}$/.test(add) ? add : null;
+  const addDayNum = addDay !== undefined && /^[0-7]$/.test(addDay) ? Number(addDay) : null;
 
   let items: ContentItem[] = [];
   let companies: { id: string; name: string }[] = [];
@@ -150,9 +154,17 @@ export default async function ContentCalendarPage({
           todayIso={todayIso}
           channel={channel}
           aiConfigured={aiConfigured}
+          companies={companies}
+          addDate={addDate}
         />
       ) : (
-        <WeekBoard items={visibleItems} aiConfigured={aiConfigured} />
+        <WeekBoard
+          items={visibleItems}
+          aiConfigured={aiConfigured}
+          channel={channel}
+          companies={companies}
+          addDay={addDayNum}
+        />
       )}
     </main>
   );
@@ -183,27 +195,55 @@ function ViewTab({ href, label, active }: { href: string; label: string; active:
 
 // ---- Week view -------------------------------------------------------------
 
-function WeekBoard({ items, aiConfigured }: { items: ContentItem[]; aiConfigured: boolean }) {
+function WeekBoard({
+  items,
+  aiConfigured,
+  channel,
+  companies,
+  addDay,
+}: {
+  items: ContentItem[];
+  aiConfigured: boolean;
+  channel: string;
+  companies: { id: string; name: string }[];
+  addDay: number | null;
+}) {
   const itemsForDay = (day: number) =>
     day === 0 ? items.filter((i) => i.day_of_week == null) : items.filter((i) => i.day_of_week === day);
   const assignedCount = items.filter((i) => i.day_of_week != null).length;
-
-  if (items.length === 0) {
-    return <EmptyContent />;
-  }
+  const addDayHref = (n: number) => `${calendarHref("week", channel)}&addDay=${n}`;
 
   return (
     <>
       <p className="mt-4 text-sm text-muted">
-        {assignedCount} of {items.length} item{items.length === 1 ? "" : "s"} assigned to a day. Choose a weekday on a
-        card and it joins that day’s bank — members see it on that weekday through the rotation.
+        {items.length === 0
+          ? "Nothing here yet — click a day’s + to add content straight onto that weekday."
+          : `${assignedCount} of ${items.length} item${items.length === 1 ? "" : "s"} assigned to a day. Click a day’s + to add new content there, or pick a weekday on a card to move it — members see it on that weekday through the rotation.`}
       </p>
-      <div className="mt-4">
-        <CalendarWeekSuggest
-          itemIds={items.filter((i) => i.day_of_week == null).map((i) => i.id)}
-          aiConfigured={aiConfigured}
+
+      {addDay != null && (
+        <AddComposer
+          heading={`New content · ${WEEK_COLUMNS.find((c) => c.day === addDay)?.name ?? "the week"}`}
+          hint={
+            addDay === 0
+              ? "Not tied to a weekday — surfaces every day once published."
+              : "Joins that weekday’s bank and surfaces to members on that day."
+          }
+          backHref={calendarHref("week", channel)}
+          companies={companies}
+          defaultDayOfWeek={addDay}
         />
-      </div>
+      )}
+
+      {items.length > 0 && (
+        <div className="mt-4">
+          <CalendarWeekSuggest
+            itemIds={items.filter((i) => i.day_of_week == null).map((i) => i.id)}
+            aiConfigured={aiConfigured}
+          />
+        </div>
+      )}
+
       <div className="mt-6 flex gap-4 overflow-x-auto pb-4">
         {WEEK_COLUMNS.map((col) => {
           const colItems = itemsForDay(col.day);
@@ -212,8 +252,11 @@ function WeekBoard({ items, aiConfigured }: { items: ContentItem[]; aiConfigured
               <header className="border-b border-rule-hairline px-3 py-2.5">
                 <div className="flex items-baseline justify-between gap-2">
                   <h2 className="text-sm font-extrabold tracking-tight">{col.name}</h2>
-                  <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
-                    {colItems.length}
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
+                      {colItems.length}
+                    </span>
+                    <AddLink href={addDayHref(col.day)} label={`Add content for ${col.name}`} />
                   </span>
                 </div>
                 <p className="mt-0.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-brand-accent-deep">
@@ -258,6 +301,8 @@ function MonthView({
   todayIso,
   channel,
   aiConfigured,
+  companies,
+  addDate,
 }: {
   items: ContentItem[];
   year: number;
@@ -265,8 +310,11 @@ function MonthView({
   todayIso: string;
   channel: string;
   aiConfigured: boolean;
+  companies: { id: string; name: string }[];
+  addDate: string | null;
 }) {
   const weeks = buildMonthGrid(year, monthIndex, todayIso);
+  const addHref = (iso: string) => `${calendarHref("month", channel, monthParam(year, monthIndex))}&add=${iso}`;
 
   const byDate = new Map<string, ContentItem[]>();
   for (const item of items) {
@@ -280,10 +328,6 @@ function MonthView({
 
   const prev = shiftMonth(year, monthIndex, -1);
   const next = shiftMonth(year, monthIndex, 1);
-
-  if (items.length === 0) {
-    return <EmptyContent />;
-  }
 
   return (
     <>
@@ -303,6 +347,22 @@ function MonthView({
           </span>
         </div>
       </div>
+
+      {items.length === 0 && (
+        <p className="mt-3 text-xs text-muted">
+          Nothing scheduled yet — click a day’s + to add content and set it live on that date.
+        </p>
+      )}
+
+      {addDate && (
+        <AddComposer
+          heading={`New content · ${formatIsoDate(addDate)}`}
+          hint="Goes live on this date. It sits as a scheduled draft until then."
+          backHref={calendarHref("month", channel, monthParam(year, monthIndex))}
+          companies={companies}
+          scheduledFor={addDate}
+        />
+      )}
 
       {unscheduled.length > 0 && (
         <div className="mt-4">
@@ -341,6 +401,7 @@ function MonthView({
                 >
                   {cell.day}
                 </span>
+                {cell.inMonth && <AddLink href={addHref(cell.iso)} label={`Add content for ${cell.iso}`} />}
               </div>
               <ul className="mt-1 flex flex-col gap-1">
                 {cellItems.map((item) => (
@@ -435,18 +496,65 @@ function NavLink({ href, label }: { href: string; label: string }) {
   );
 }
 
-function EmptyContent() {
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "2026-08-20" → "20 Aug 2026" (pure, no locale). */
+function formatIsoDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${d} ${MONTH_ABBR[m - 1]} ${y}`;
+}
+
+/** The small "+" on a day cell / column header that opens the add composer for it. */
+function AddLink({ href, label }: { href: string; label: string }) {
   return (
-    <p className="mt-8 text-sm text-muted">
-      No content yet — add pieces in the{" "}
-      <Link href="/admin/brain" className="font-semibold text-brand-accent-deep hover:underline">
-        Brain
-      </Link>{" "}
-      or{" "}
-      <Link href="/admin/content" className="font-semibold text-brand-accent-deep hover:underline">
-        Content Studio
-      </Link>
-      , then plan them here.
-    </p>
+    <Link
+      href={href}
+      aria-label={label}
+      title={label}
+      className="flex h-4 w-4 shrink-0 items-center justify-center border border-rule-border text-[11px] font-bold leading-none text-brand-accent-deep transition-colors hover:bg-brand-accent hover:text-brand-accent-foreground"
+    >
+      +
+    </Link>
+  );
+}
+
+/**
+ * The add-content composer opened by clicking a day. Reuses the Studio form,
+ * pre-set to a publish date (Month) or a weekday (Week). A "Cancel" link drops
+ * the add param and returns to the plain view.
+ */
+function AddComposer({
+  heading,
+  hint,
+  backHref,
+  companies,
+  scheduledFor,
+  defaultDayOfWeek,
+}: {
+  heading: string;
+  hint: string;
+  backHref: string;
+  companies: { id: string; name: string }[];
+  scheduledFor?: string;
+  defaultDayOfWeek?: number;
+}) {
+  return (
+    <div className="mt-4 border border-brand-accent">
+      <div className="flex items-start justify-between gap-3 border-b border-rule-hairline bg-foreground/[0.03] px-4 py-2.5">
+        <div>
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-brand-accent-deep">{heading}</p>
+          <p className="mt-0.5 text-xs text-muted">{hint}</p>
+        </div>
+        <Link
+          href={backHref}
+          className="shrink-0 px-2 py-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted hover:text-foreground"
+        >
+          Cancel
+        </Link>
+      </div>
+      <div className="p-4">
+        <ContentStudioForm companies={companies} scheduledFor={scheduledFor} defaultDayOfWeek={defaultDayOfWeek} />
+      </div>
+    </div>
   );
 }
