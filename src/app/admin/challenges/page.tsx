@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { listAllChallengesForAdmin } from "@/lib/challenges/queries";
 import { ChallengeStudioForm } from "@/components/admin/ChallengeStudioForm";
 import type { Challenge, VideoCategory } from "@/types/database";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 const CATEGORY_LABEL: Record<VideoCategory, string> = {
   mental_fitness: "Mental Fitness",
@@ -39,20 +40,19 @@ export default async function AdminChallengesPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-deep">Admin</p>
-      <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Challenges</h1>
-      <p className="mt-1 text-sm text-muted">
-        Create a guided programme, then open it to sequence its days from the content library.
-      </p>
+    <main className="mx-auto max-w-3xl px-6 py-10">
+      <AdminPageHeader
+        title="Challenges"
+        description="Create a guided programme, then open it to sequence its days from the content library."
+      />
 
       <div className="mt-8">
         <ChallengeStudioForm />
       </div>
 
       <div className="mt-10">
-        <h2 className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">
-          All challenges ({challenges.length})
+        <h2 className="flex items-baseline gap-2 border-b-2 border-foreground pb-2 text-[11px] font-extrabold uppercase tracking-[0.16em]">
+          All challenges <span className="text-brand-accent-deep">{challenges.length}</span>
         </h2>
         {challenges.length === 0 ? (
           <p className="mt-3 text-sm text-muted">Nothing yet — create your first above.</p>

@@ -14,6 +14,7 @@ import { CalendarDraggable } from "@/components/admin/CalendarDraggable";
 import { CalendarDropZone } from "@/components/admin/CalendarDropZone";
 import { isVisibleOnChannel } from "@/lib/content/channelVisibility";
 import type { ContentItem, VideoCategory } from "@/types/database";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 const TYPE_LABEL: Record<ContentItem["type"], string> = {
   video: "Video",
@@ -118,14 +119,18 @@ export default async function ContentCalendarPage({
   const channelLabel = channelOptions.find((o) => o.value === channel)?.label ?? "All channels";
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-12">
-      <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-deep">Admin</p>
-      <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Calendar</h1>
-      <p className="mt-1 max-w-2xl text-sm text-muted">
-        Plan how content reaches members. <strong className="font-semibold text-foreground">Week</strong> assigns
-        content to the recurring Monday–Sunday motivation framework; <strong className="font-semibold text-foreground">Month</strong>{" "}
-        schedules a piece to go live on a specific date.
-      </p>
+    <main className="mx-auto max-w-7xl px-6 py-10">
+      <AdminPageHeader
+        title="Calendar"
+        description={
+          <>
+            Plan how content reaches members. <strong className="font-semibold text-foreground">Week</strong> assigns
+            content to the recurring Monday–Sunday motivation framework;{" "}
+            <strong className="font-semibold text-foreground">Month</strong> schedules a piece to go live on a
+            specific date.
+          </>
+        }
+      />
 
       {/* View toggle + channel filter */}
       <div className="mt-6 flex flex-wrap items-end justify-between gap-3 border-b border-rule-hairline">

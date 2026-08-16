@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DIRECT_COMPANY_ID } from "@/lib/tenant/constants";
 import { InviteStaffForm } from "@/components/admin/InviteStaffForm";
 import { NewCompanyWizard } from "@/components/admin/NewCompanyWizard";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "neverthrowinthetowel.uk";
 
@@ -46,19 +47,19 @@ export default async function CompaniesPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <h1 className="text-2xl font-extrabold tracking-tight">Companies</h1>
-      <p className="mt-1 text-sm text-muted">
-        Stand up a branded partner portal and invite its HR admin — no DNS or engineering needed.
-      </p>
+    <main className="mx-auto max-w-3xl px-6 py-10">
+      <AdminPageHeader
+        title="Companies"
+        description="Stand up a branded partner portal and invite its HR admin — no DNS or engineering needed."
+      />
 
       <div className="mt-8">
         <NewCompanyWizard />
       </div>
 
       <section className="mt-10">
-        <h2 className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">
-          All companies ({companies.length})
+        <h2 className="flex items-baseline gap-2 border-b-2 border-foreground pb-2 text-[11px] font-extrabold uppercase tracking-[0.16em]">
+          All companies <span className="text-brand-accent-deep">{companies.length}</span>
         </h2>
         {companies.length === 0 ? (
           <p className="mt-3 text-sm text-muted">No partner companies yet — create your first above.</p>

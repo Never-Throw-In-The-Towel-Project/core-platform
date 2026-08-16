@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getDisplayNames } from "@/lib/community/queries";
 import { ModerationQueueItem } from "@/components/community/ModerationQueueItem";
 import type { CommunityPost, CommunityReport } from "@/types/database";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 /**
  * "Basic moderation tools for the NTITT admin... so flagged posts can be
@@ -52,12 +53,9 @@ export default async function CommunityModerationPage() {
 
   if (!reports || reports.length === 0) {
     return (
-      <main className="mx-auto max-w-2xl px-6 py-12">
-        <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-deep">
-          Admin
-        </p>
-        <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Moderation Queue</h1>
-        <p className="mt-4 text-sm text-muted">No open reports. All clear.</p>
+      <main className="mx-auto max-w-3xl px-6 py-10">
+        <AdminPageHeader title="Moderation Queue" description="Review and act on reported community posts." />
+        <p className="mt-6 text-sm text-muted">No open reports. All clear.</p>
       </main>
     );
   }
@@ -65,12 +63,11 @@ export default async function CommunityModerationPage() {
   const postById = new Map((posts ?? []).map((p) => [p.id, p]));
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-deep">Admin</p>
-      <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Moderation Queue</h1>
-      <p className="mt-1 text-sm text-muted">
-        {reports.length} open report{reports.length === 1 ? "" : "s"}.
-      </p>
+    <main className="mx-auto max-w-3xl px-6 py-10">
+      <AdminPageHeader
+        title="Moderation Queue"
+        description={`${reports.length} open report${reports.length === 1 ? "" : "s"} to review.`}
+      />
       <div className="mt-6 space-y-4">
         {reports.map((report) => (
           <ModerationQueueItem

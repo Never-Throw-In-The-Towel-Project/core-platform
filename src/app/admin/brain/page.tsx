@@ -12,6 +12,7 @@ import { BrainFolderCreate } from "@/components/admin/BrainFolderCreate";
 import { BrainFolderSettings } from "@/components/admin/BrainFolderSettings";
 import { BrainAutoOrganize } from "@/components/admin/BrainAutoOrganize";
 import type { ContentFolder, ContentItem, VideoCategory } from "@/types/database";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 const TYPE_LABEL: Record<ContentItem["type"], string> = {
   video: "Video",
@@ -88,13 +89,11 @@ export default async function BrainPage({
   const aiConfigured = isAiConfigured();
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-12">
-      <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-deep">Admin</p>
-      <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Brain</h1>
-      <p className="mt-1 max-w-2xl text-sm text-muted">
-        The knowledge base the AI serves from. Upload or link content of any kind — videos, PDFs, images, external
-        links — file it into folders, and tag it so the brain can sort and arrange it for the right day, channel and member.
-      </p>
+    <main className="mx-auto max-w-6xl px-6 py-10">
+      <AdminPageHeader
+        title="Brain"
+        description="The knowledge base the AI serves from. Upload or link content of any kind — videos, PDFs, images, external links — file it into folders, and tag it so the brain can sort and arrange it for the right day, channel and member."
+      />
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[16rem_1fr]">
         {/* ---- Folder sidebar ---- */}
