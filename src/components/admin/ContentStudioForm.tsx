@@ -43,6 +43,8 @@ export function ContentStudioForm({
   item,
   existingChannelIds = [],
   folderId,
+  scheduledFor,
+  defaultDayOfWeek,
 }: {
   companies: { id: string; name: string }[];
   item?: ContentItem;
@@ -51,8 +53,20 @@ export function ContentStudioForm({
    *  (createContentItem reads `folderId`). Ignored in edit mode — folder moves
    *  for an existing item go through moveItemToFolder. */
   folderId?: string | null;
+  /** When adding onto a calendar date: pre-set the publish date (createContentItem
+   *  reads `scheduledFor`) and default to a scheduled draft. Create mode only. */
+  scheduledFor?: string;
+  /** When adding onto a weekday column: pre-select the day-of-week. Create mode only. */
+  defaultDayOfWeek?: number;
 }) {
   const isEdit = item != null;
+  // The weekday a fresh add starts on (calendar Week-add), else blank.
+  const initialDay =
+    item?.day_of_week != null
+      ? String(item.day_of_week)
+      : defaultDayOfWeek != null && defaultDayOfWeek >= 1 && defaultDayOfWeek <= 7
+        ? String(defaultDayOfWeek)
+        : "";
   const [state, formAction, isPending] = useActionState(
     isEdit ? updateContentItem : createContentItem,
     initialRoutineState
@@ -65,7 +79,7 @@ export function ContentStudioForm({
   const [title, setTitle] = useState(item?.title ?? "");
   const [summary, setSummary] = useState(item?.summary ?? "");
   const [category, setCategory] = useState<string>(item?.category ?? "mental_fitness");
-  const [dayOfWeek, setDayOfWeek] = useState(item?.day_of_week != null ? String(item.day_of_week) : "");
+  const [dayOfWeek, setDayOfWeek] = useState(initialDay);
   const [tags, setTags] = useState(item?.tags.join(", ") ?? "");
 
   const [suggestPending, startSuggest] = useTransition();
@@ -90,7 +104,8 @@ export function ContentStudioForm({
       setTitle("");
       setSummary("");
       setCategory("mental_fitness");
-      setDayOfWeek("");
+      // Keep the calendar-add day so several pieces can be added to the same slot.
+      setDayOfWeek(initialDay);
       setTags("");
       setSuggestNote(null);
     }
@@ -313,12 +328,32 @@ export function ContentStudioForm({
         </div>
       </fieldset>
 
+      {!isEdit && scheduledFor !== undefined && (
+        <div>
+          <label htmlFor="content-scheduled" className={LABEL}>
+            Publish date
+          </label>
+          <input
+            id="content-scheduled"
+            name="scheduledFor"
+            type="date"
+            defaultValue={scheduledFor}
+            className={FIELD}
+          />
+          <p className="mt-1 text-xs text-muted">
+            Goes live automatically on this date. Leave “Publish now” unchecked to keep it a scheduled draft until then.
+          </p>
+        </div>
+      )}
+
       <label className="flex items-center gap-2 text-sm font-semibold">
         <input
           type="checkbox"
           name="publish"
           value="true"
-          defaultChecked={item ? item.is_published : true}
+          // A calendar-scheduled add defaults to a draft (the cron takes it live
+          // on its date); everything else defaults to publish-now.
+          defaultChecked={item ? item.is_published : scheduledFor === undefined}
           className="h-4 w-4"
         />
         Publish now (uncheck to save as a draft)

@@ -73,6 +73,15 @@ export async function createContentItem(
     return { status: "error", message: "Something went wrong with the selected folder. Please try again." };
   }
 
+  // Optional publish date, set when adding straight onto a calendar day. A draft
+  // carrying it auto-publishes on that date (publish-scheduled-content cron).
+  const scheduledForRaw = formData.get("scheduledFor");
+  const scheduledFor =
+    typeof scheduledForRaw === "string" && scheduledForRaw.length > 0 ? scheduledForRaw : null;
+  if (scheduledFor && !/^\d{4}-\d{2}-\d{2}$/.test(scheduledFor)) {
+    return { status: "error", message: "Enter a valid publish date." };
+  }
+
   const tags = (data.tags ?? "")
     .split(",")
     .map((t) => t.trim())
@@ -115,6 +124,7 @@ export async function createContentItem(
         tags,
         is_published: data.publish === "true",
         folder_id: folderId,
+        scheduled_for: scheduledFor,
         created_by: session.userId,
       })
       .select("id")
