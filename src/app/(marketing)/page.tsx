@@ -52,7 +52,15 @@ const TESTIMONIALS: Testimonial[] = [
   },
 ];
 
-type Offering = { title: string; blurb: string; image: string; href?: string };
+type Offering = {
+  title: string;
+  blurb: string;
+  image: string;
+  href?: string;
+  /** object-position for the 16/10 card crop, when the subject isn't centred
+   *  (e.g. a tall portrait whose face sits near the top). Defaults to centre. */
+  imagePosition?: string;
+};
 
 // Each offering reuses one of the 5 real event/founder photos supplied by
 // Anthony (public/site/*.jpg) -- matches neverthrowinthetowel.com's actual
@@ -72,6 +80,8 @@ const OFFERINGS: Offering[] = [
     blurb: "Each episode, we sit down with guests who've faced real challenges.",
     image: "/site/podcast-recording.jpg",
     href: "/podcast",
+    // Tall portrait, three faces in the upper third -- pull the crop up to them.
+    imagePosition: "object-[50%_30%]",
   },
   {
     title: "Free Monthly Meet-Ups in Nature",
@@ -83,12 +93,16 @@ const OFFERINGS: Offering[] = [
     blurb: "Walk, talk, breathe, and reset with Anthony -- a full day in nature tailored to you.",
     image: "/site/hero-boxing.jpg",
     href: "/what-i-do/coaching",
+    // Full-length boxer portrait -- keep the head, not the mid-torso.
+    imagePosition: "object-top",
   },
   {
     title: "Keynote Speaking",
     blurb: "Anthony also delivers standalone keynotes, fully tailored to suit your timescale and audience.",
     image: "/site/founder-speaking.jpg",
     href: "/documentary",
+    // Speaker at a podium -- head sits high in frame, so anchor to the top.
+    imagePosition: "object-top",
   },
 ];
 
@@ -148,7 +162,7 @@ function OfferingCard({ offering }: { offering: Offering }) {
           alt=""
           fill
           sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 100vw"
-          className="site-photo object-cover"
+          className={`site-photo object-cover ${offering.imagePosition ?? ""}`}
         />
       </div>
       <div className="flex flex-1 flex-col gap-2 p-5">
@@ -292,7 +306,7 @@ export default async function MarketingHomePage() {
               alt=""
               fill
               sizes="(min-width: 1024px) 42vw, 100vw"
-              className="site-photo object-cover"
+              className="site-photo object-cover object-top"
               preload
             />
           </div>
@@ -465,7 +479,7 @@ export default async function MarketingHomePage() {
                 alt="Recording the Never Throw In The Towel podcast"
                 fill
                 sizes="(min-width: 768px) 45vw, 100vw"
-                className="site-photo object-cover"
+                className="site-photo object-cover object-[50%_30%]"
               />
             </div>
           </div>
