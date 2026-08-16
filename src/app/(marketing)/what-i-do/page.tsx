@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
-const OFFERINGS = [
+const OFFERINGS: { title: string; blurb: string; image: string; href: string; imagePosition?: string }[] = [
   {
     title: "Pop-Up Barbershop",
     blurb: "A keynote followed by free haircuts on-site -- a stigma-free way for men to open up.",
@@ -13,6 +13,8 @@ const OFFERINGS = [
     blurb: "You make the change -- structured, personal coaching starting with a day in nature.",
     image: "/site/founder-speaking.jpg",
     href: "/what-i-do/coaching",
+    // Portrait of the speaker -- keep the head in the wide card crop.
+    imagePosition: "object-top",
   },
 ];
 
@@ -37,7 +39,7 @@ export default function WhatIDoPage() {
                 alt={offering.title}
                 width={800}
                 height={450}
-                className="h-full w-full object-cover"
+                className={`h-full w-full object-cover ${offering.imagePosition ?? ""}`}
               />
             </div>
             <div className="flex flex-1 flex-col gap-2 p-5">
