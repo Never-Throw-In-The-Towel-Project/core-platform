@@ -281,16 +281,16 @@ export default async function MarketingHomePage() {
 
             <p className="mt-6 max-w-lg text-[15px] leading-relaxed text-muted-on-ink-2 sm:text-base">{heroCopy}</p>
 
-            <div className="mt-8 flex flex-wrap items-center gap-3">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
               <Link
                 href="/login"
-                className="inline-flex items-center justify-center bg-brand-foreground px-7 py-3.5 text-sm font-extrabold uppercase tracking-wide text-brand-background transition-colors hover:bg-brand-accent hover:text-brand-accent-foreground"
+                className="inline-flex w-full items-center justify-center bg-brand-foreground px-7 py-3.5 text-sm font-extrabold uppercase tracking-wide text-brand-background transition-colors hover:bg-brand-accent hover:text-brand-accent-foreground sm:w-auto"
               >
                 Sign in
               </Link>
               <Link
                 href="/documentary"
-                className="inline-flex items-center justify-center border border-muted-on-ink-2 px-7 py-3.5 text-sm font-extrabold uppercase tracking-wide text-brand-foreground transition-colors hover:border-brand-accent-light hover:text-brand-accent-light"
+                className="inline-flex w-full items-center justify-center border border-muted-on-ink-2 px-7 py-3.5 text-sm font-extrabold uppercase tracking-wide text-brand-foreground transition-colors hover:border-brand-accent-light hover:text-brand-accent-light sm:w-auto"
               >
                 Watch the Documentary
               </Link>
