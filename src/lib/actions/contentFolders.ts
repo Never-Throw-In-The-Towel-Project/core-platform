@@ -39,6 +39,23 @@ async function requireAdmin(): Promise<{ userId: string } | { error: RoutineActi
   return { userId: session.userId };
 }
 
+/**
+ * Whether a folder named `name` already exists (case-insensitive), optionally
+ * excluding one id (for rename). Folder counts are small, so a full read + JS
+ * compare is simplest and sidesteps LIKE-wildcard escaping on the name.
+ */
+async function folderNameExists(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  name: string,
+  excludeId?: string
+): Promise<boolean> {
+  const target = name.trim().toLowerCase();
+  const { data } = await supabase.from("content_folders").select("id, name");
+  return ((data as { id: string; name: string }[] | null) ?? []).some(
+    (f) => f.id !== excludeId && f.name.toLowerCase() === target
+  );
+}
+
 export async function createFolder(
   _prevState: RoutineActionState,
   formData: FormData
@@ -56,6 +73,12 @@ export async function createFolder(
 
   try {
     const supabase = await createClient();
+    // Reject a duplicate name (case-insensitive), matching how the auto-organise
+    // apply path dedupes folder names — otherwise the two create paths disagree
+    // and "Sleep"/"sleep" split items between indistinguishable folders.
+    if (await folderNameExists(supabase, parsed.data.name)) {
+      return { status: "error", message: `A folder called “${parsed.data.name}” already exists.` };
+    }
     const { error } = await supabase.from("content_folders").insert({
       name: parsed.data.name,
       description: parsed.data.description ?? null,
@@ -90,6 +113,9 @@ export async function renameFolder(
 
   try {
     const supabase = await createClient();
+    if (await folderNameExists(supabase, parsed.data.name, parsed.data.id)) {
+      return { status: "error", message: `A folder called “${parsed.data.name}” already exists.` };
+    }
     const { error } = await supabase
       .from("content_folders")
       .update({ name: parsed.data.name, description: parsed.data.description ?? null })

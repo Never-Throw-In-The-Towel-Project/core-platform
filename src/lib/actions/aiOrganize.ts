@@ -26,6 +26,11 @@ import { type RoutineActionState } from "./routineState";
 // One AI call stays cheap and within max_tokens; a larger view organises in
 // batches. The action reports how many were left for a follow-up pass.
 const MAX_BATCH = 40;
+// Apply is a DB-only write, not an AI call, so it must accept a whole-library
+// plan — the client (BrainAutoOrganize) proposes in 40-item chunks but MERGES
+// them into one plan up to MAX_ORGANIZE (400) before a single Apply. Capping
+// apply at MAX_BATCH silently rejected any plan over 40 items.
+const MAX_APPLY = 400;
 
 type OrganizationProposalView = {
   itemId: string;
@@ -135,7 +140,7 @@ export async function applyOrganizationAction(input: {
 }): Promise<RoutineActionState> {
   const profile = await requireNtittAdmin();
 
-  const parsed = z.array(AssignmentSchema).min(1).max(MAX_BATCH).safeParse(input.assignments);
+  const parsed = z.array(AssignmentSchema).min(1).max(MAX_APPLY).safeParse(input.assignments);
   if (!parsed.success) {
     return { status: "error", message: "Nothing selected to apply." };
   }

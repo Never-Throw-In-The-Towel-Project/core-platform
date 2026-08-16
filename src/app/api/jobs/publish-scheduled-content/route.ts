@@ -26,7 +26,10 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabase
     .from("content_items")
-    .update({ is_published: true })
+    // Clear scheduled_for as we publish: the date is a one-time "publish when it
+    // arrives" instruction, now spent. Leaving it set would let a later manual
+    // unpublish match this same query and silently re-publish the item.
+    .update({ is_published: true, scheduled_for: null })
     .eq("is_published", false)
     .not("scheduled_for", "is", null)
     .lte("scheduled_for", today)
