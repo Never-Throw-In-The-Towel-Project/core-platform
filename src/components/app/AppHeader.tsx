@@ -13,9 +13,10 @@ import type { Profile } from "@/types/database";
  * support CTA.
  *
  * The primary tabs move into this bar on desktop and the bottom tab bar takes
- * over below lg -- so the header carries the support entry point on desktop,
- * where there is no bottom bar, keeping "support on every screen" true at every
- * width (on mobile it's the inline bar above the bottom nav).
+ * over below lg. The header carries the support entry point on desktop (the
+ * "Check in with me" button); on mobile it's the "Check in with me" item inside
+ * the account menu (the ☰) -- so "support on every screen" stays true at every
+ * width, without a bar across the bottom.
  */
 export function AppHeader({
   profile,
@@ -63,10 +64,10 @@ export function AppHeader({
               </span>
             </div>
 
-            {/* Mobile: everything collapses into the account menu; support is the
-                inline bar above the bottom tab bar. */}
+            {/* Mobile: everything collapses into the account menu, which also
+                carries the "Check in with me" support entry (no bottom bar). */}
             <div className="sm:hidden">
-              <AppHeaderMenu role={profile.role} trigger="hamburger" />
+              <AppHeaderMenu role={profile.role} trigger="hamburger" showCheckIn helplineNumber={helplineNumber} />
             </div>
           </div>
         </div>
