@@ -1,13 +1,15 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireNtittAdmin } from "@/lib/auth/dal";
-import { AdminNav } from "@/components/admin/AdminNav";
-import { BrandMark } from "@/components/BrandMark";
+import { createClient } from "@/lib/supabase/server";
+import { AdminSidebar } from "@/components/admin/AdminSidebar";
+import { AdminTopBar } from "@/components/admin/AdminTopBar";
+import { AdminMobileHeader } from "@/components/admin/AdminMobileHeader";
+import { type AdminCounts } from "@/components/admin/adminSections";
 
 /**
- * The NTITT Control Tower ("NTITT Admin") -- the ntitt_admin-only site where
+ * The NTITT Admin Centre -- the ntitt_admin-only super-admin site where
  * Anthony's team curate content, run moderation, and manage partner companies.
- * Separate from the member app (no member header / bottom nav) and from the HR
+ * Separate from the member app (no member header / bottom nav) and the HR
  * cockpit.
  *
  * The guard lives HERE, at the layout, so every current and future /admin/*
@@ -15,9 +17,9 @@ import { BrandMark } from "@/components/BrandMark";
  * arrangement, where each admin page self-guarded per-page and a new page that
  * forgot the call would be reachable by any employee.
  *
- * Own light shell (bg-background/text-foreground), like the marketing group,
- * overriding the root layout's dark default -- an admin tool, not the dark
- * member app. Once the domains are live this tree is served at the root of
+ * The shell is the "Admin Centre" design: a dark section sidebar + breadcrumb
+ * top bar (the chrome), wrapping a light content area (the tool). Once the
+ * domains are live this tree is served at the root of
  * admin.neverthrowinthetowel.uk (see docs/PLATFORM_STRUCTURE.md).
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -29,24 +31,36 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/onboarding");
   }
 
+  // Sidebar badge counts. head:true fetches only the count, no rows -- cheap
+  // even on every admin page. A transient failure degrades to no badges, never
+  // a broken shell.
+  let counts: AdminCounts = {};
+  try {
+    const supabase = await createClient();
+    const [contentC, challengesC, moderationC, companiesC] = await Promise.all([
+      supabase.from("content_items").select("*", { count: "exact", head: true }),
+      supabase.from("challenges").select("*", { count: "exact", head: true }),
+      supabase.from("community_reports").select("*", { count: "exact", head: true }).eq("resolved", false),
+      supabase.from("companies").select("*", { count: "exact", head: true }),
+    ]);
+    counts = {
+      content: contentC.count ?? undefined,
+      challenges: challengesC.count ?? undefined,
+      moderation: moderationC.count ?? undefined,
+      companies: companiesC.count ?? undefined,
+    };
+  } catch {
+    counts = {};
+  }
+
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-background text-foreground">
-      <header className="border-b border-rule-hairline">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-3">
-          <Link href="/admin" className="flex items-center gap-2.5 text-sm font-extrabold uppercase tracking-wide">
-            <BrandMark tone="onLight" size={22} />
-            NTITT Admin
-          </Link>
-          <div className="flex items-center gap-4 text-xs">
-            <span className="hidden text-muted sm:inline">{profile.display_name}</span>
-            <Link href="/home" className="font-semibold text-muted hover:text-foreground">
-              Exit to app →
-            </Link>
-          </div>
-        </div>
-        <AdminNav />
-      </header>
-      <div className="flex-1">{children}</div>
+    <div className="flex min-h-full flex-1 bg-background text-foreground">
+      <AdminSidebar counts={counts} displayName={profile.display_name} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <AdminMobileHeader counts={counts} />
+        <AdminTopBar />
+        <div className="flex-1">{children}</div>
+      </div>
     </div>
   );
 }

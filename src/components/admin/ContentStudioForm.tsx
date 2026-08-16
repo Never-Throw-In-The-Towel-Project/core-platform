@@ -45,6 +45,7 @@ export function ContentStudioForm({
   folderId,
   scheduledFor,
   defaultDayOfWeek,
+  bare = false,
 }: {
   companies: { id: string; name: string }[];
   item?: ContentItem;
@@ -58,6 +59,9 @@ export function ContentStudioForm({
   scheduledFor?: string;
   /** When adding onto a weekday column: pre-select the day-of-week. Create mode only. */
   defaultDayOfWeek?: number;
+  /** Drop the form's own border/padding when it already sits inside a card (the
+   *  Content Studio "New piece" panel) — avoids a doubled frame. */
+  bare?: boolean;
 }) {
   const isEdit = item != null;
   // The weekday a fresh add starts on (calendar Week-add), else blank.
@@ -128,7 +132,7 @@ export function ContentStudioForm({
   }
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-5 border border-rule-border p-5">
+    <form ref={formRef} action={formAction} className={bare ? "space-y-5" : "space-y-5 border border-rule-border p-5"}>
       {isEdit && <input type="hidden" name="id" value={item.id} />}
       {!isEdit && folderId && <input type="hidden" name="folderId" value={folderId} />}
       <div className="grid gap-4 sm:grid-cols-2">
