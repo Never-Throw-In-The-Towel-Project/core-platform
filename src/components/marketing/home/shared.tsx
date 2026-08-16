@@ -130,21 +130,22 @@ export function PartnerLogoStrip() {
 }
 
 /**
- * A testimonial card: paper on the ink band, a 3px vivid top strip echoing the
- * accent-edge motif. Quotes are real, supplied by Anthony.
+ * A testimonial card: a flat bordered card led by an oversized accent quote
+ * glyph, with the attribution set off below a hairline rule. Quotes are real,
+ * supplied by Anthony (some end mid-sentence -- that's the source text).
  */
 export function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
   return (
-    <figure className="flex flex-col bg-background text-foreground">
-      <span className="h-[3px] w-full bg-brand-accent-vivid" aria-hidden />
-      <div className="flex flex-1 flex-col gap-4 p-6 text-left">
-        <blockquote className="text-sm leading-relaxed text-foreground/80">
-          &ldquo;{testimonial.quote}&rdquo;
-        </blockquote>
-        <figcaption className="mt-auto text-xs font-extrabold uppercase tracking-wide text-brand-accent-deep">
-          {testimonial.name}
-        </figcaption>
-      </div>
+    <figure className="flex h-full flex-col border border-rule-border bg-background p-6 text-left">
+      <span aria-hidden className="text-6xl font-black leading-[0.5] text-brand-accent-vivid">
+        &ldquo;
+      </span>
+      <blockquote className="mt-4 flex-1 text-[15px] leading-relaxed text-foreground/80">
+        {testimonial.quote}
+      </blockquote>
+      <figcaption className="mt-6 border-t border-rule-hairline pt-4 text-xs font-extrabold uppercase tracking-wide text-brand-accent-deep">
+        {testimonial.name}
+      </figcaption>
     </figure>
   );
 }

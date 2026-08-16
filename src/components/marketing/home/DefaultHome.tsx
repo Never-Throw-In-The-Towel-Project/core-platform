@@ -82,13 +82,13 @@ function Hero() {
         </div>
 
         {/* LCP element -> preload hint (this Next deprecates `priority`). */}
-        <div className="relative aspect-square w-full overflow-hidden sm:aspect-[3/2] lg:aspect-square">
+        <div className="relative aspect-[4/3] w-full overflow-hidden">
           <Image
-            src="/site/hero-boxing.jpg"
-            alt=""
+            src="/site/home-hero.jpg"
+            alt="Anthony giving a haircut at a Never Throw In The Towel pop-up barbershop"
             fill
             sizes="(min-width: 1024px) 42vw, 100vw"
-            className="site-photo object-cover object-top"
+            className="site-photo object-cover object-center"
             preload
           />
         </div>
@@ -113,7 +113,18 @@ function ForWorkplace() {
           </p>
         </div>
 
-        <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
+        {/* Keynote in action -- the employer band's anchor image. */}
+        <div className="relative mt-10 aspect-[16/7] w-full overflow-hidden border border-ink-hairline">
+          <Image
+            src="/site/workplace-keynote.jpg"
+            alt="Anthony delivering a keynote"
+            fill
+            sizes="(min-width: 1024px) 64rem, 100vw"
+            className="site-photo object-cover object-center"
+          />
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
           {WORKPLACE_SERVICES.map((service) => (
             <div key={service.title} className="flex flex-col border border-ink-hairline p-6">
               <span className="h-[3px] w-10 bg-brand-accent-vivid" aria-hidden />
@@ -148,9 +159,13 @@ function ForWorkplace() {
 /* ---- Proof & story (paper, supporting) ------------------------------------ */
 function ProofAndStory() {
   return (
-    <section className="border-t border-rule-hairline bg-background px-6 py-16 text-foreground sm:py-20">
+    <section className="border-t border-rule-hairline bg-background px-6 py-16 text-foreground sm:py-24">
       <div className="mx-auto max-w-5xl">
-        <div className="grid grid-cols-1 items-start gap-10 md:grid-cols-2 md:gap-14">
+        {/* Balanced two-column (items-center, so the shorter text column no
+            longer leaves a void beside the tall portrait). The portrait sits on
+            an ink mat so the light studio shot has real contrast on the paper
+            ground, and a bold accent line carries the strapline. */}
+        <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-2 md:gap-14">
           <div>
             <Eyebrow>The story</Eyebrow>
             <h2 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">Why it exists.</h2>
@@ -159,12 +174,15 @@ function ProofAndStory() {
                 <p key={paragraph}>{paragraph}</p>
               ))}
             </div>
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+            <p className="mt-7 text-2xl font-extrabold tracking-tight text-brand-accent-deep sm:text-3xl">
+              Keep on living.
+            </p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
               <Link
                 href="/documentary"
-                className="text-sm font-extrabold uppercase tracking-wide text-brand-accent-deep underline-offset-4 hover:underline"
+                className="inline-flex items-center justify-center border-2 border-foreground px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-foreground transition-colors hover:bg-foreground hover:text-background"
               >
-                Watch the documentary →
+                Watch the documentary
               </Link>
               <Link
                 href="/podcast"
@@ -174,20 +192,23 @@ function ProofAndStory() {
               </Link>
             </div>
           </div>
-          <div className="relative aspect-[4/5] w-full border-2 border-foreground">
-            <Image
-              src="/site/founder-speaking.jpg"
-              alt="Anthony Hutton speaking on Never Throw In The Towel"
-              fill
-              sizes="(min-width: 768px) 40vw, 100vw"
-              className="site-photo object-cover object-top"
-            />
+          <div className="bg-brand-background p-3">
+            <div className="relative aspect-[4/5] w-full overflow-hidden">
+              <Image
+                src="/site/story-barbershop.jpg"
+                alt="A Never Throw In The Towel pop-up barbershop"
+                fill
+                sizes="(min-width: 768px) 40vw, 100vw"
+                className="site-photo object-cover object-center"
+              />
+            </div>
           </div>
         </div>
 
-        <div className="mt-14">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-muted">What people say</p>
-          <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="mt-16 border-t border-rule-hairline pt-14 sm:mt-20">
+          <Eyebrow>What people say</Eyebrow>
+          <h2 className="mt-4 text-2xl font-extrabold tracking-tight sm:text-3xl">In their words.</h2>
+          <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-3">
             {TESTIMONIALS.map((testimonial) => (
               <TestimonialCard key={testimonial.name} testimonial={testimonial} />
             ))}
@@ -201,8 +222,11 @@ function ProofAndStory() {
 /* ---- Closing CTA (ink) ---------------------------------------------------- */
 function ClosingCta() {
   return (
-    <section className="bg-brand-background px-6 py-16 text-center text-brand-foreground sm:py-20">
-      <div className="mx-auto max-w-2xl">
+    <section className="relative overflow-hidden bg-brand-background px-6 py-20 text-center text-brand-foreground sm:py-28">
+      {/* The community, behind an ink scrim so the copy stays legible. */}
+      <Image src="/site/community-large.jpg" alt="" fill sizes="100vw" className="object-cover object-center" />
+      <div className="absolute inset-0 bg-brand-background/85" aria-hidden />
+      <div className="relative z-10 mx-auto max-w-2xl">
         <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Ready to keep going?</h2>
         <p className="mt-3 text-[15px] leading-relaxed text-muted-on-ink-2 sm:text-base">
           Join a community that has your back, and tools you can use every single day.
