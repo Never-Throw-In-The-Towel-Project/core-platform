@@ -21,8 +21,8 @@ begin
     raise exception 'RLS disabled on % public/private table(s)', missing;
   end if;
   select count(*) into total from pg_tables where schemaname in ('public','private');
-  if total <> 35 then
-    raise exception 'expected 35 public+private tables (23+12), found %', total;
+  if total <> 37 then
+    raise exception 'expected 37 public+private tables (25+12), found %', total;
   end if;
   raise notice 'PASS  1  RLS enabled on all % public/private tables', total;
 end
@@ -274,6 +274,47 @@ begin
   end if;
 
   raise notice 'PASS  5c company step challenge: HR-gated writes, invited-clients-only CHECK, aggregate service-role-only, opt-ins private+RLS';
+end
+$$;
+
+-- ---- 5d. events: ntitt_admin-only writes; anon reads only published GLOBAL; --
+--          bookings have NO member insert policy (writes go via the functions).
+do $$
+declare wc text; anon_read text; nins int;
+begin
+  -- writes gated to ntitt_admin
+  select pg_get_expr(polwithcheck, polrelid) into wc
+    from pg_policy where polrelid = 'public.events'::regclass and polcmd = 'a';
+  if wc is null then raise exception 'no INSERT policy on events'; end if;
+  if position('ntitt_admin' in wc) = 0 then
+    raise exception 'events INSERT policy is not ntitt_admin gated: %', wc;
+  end if;
+
+  -- the public read policy must be scoped to published AND global (company_id null),
+  -- so anon can never be shown a company-scoped or draft event.
+  select pg_get_expr(polqual, polrelid) into anon_read
+    from pg_policy where polrelid = 'public.events'::regclass
+      and polname = 'public read published global events';
+  if anon_read is null then raise exception 'missing public events read policy'; end if;
+  if position('company_id' in anon_read) = 0 or position('is_published' in anon_read) = 0 then
+    raise exception 'public events read policy not scoped to published+global: %', anon_read;
+  end if;
+  if not has_table_privilege('anon','public.events','select') then
+    raise exception 'anon lacks SELECT grant on events (marketing surface)';
+  end if;
+  if has_table_privilege('anon','public.event_bookings','select') then
+    raise exception 'anon can read event_bookings (must be private to members/admin)';
+  end if;
+
+  -- event_bookings must have NO INSERT policy at all: every write goes through
+  -- book_event()/cancel_my_booking(), so a direct insert can't bypass capacity.
+  select count(*) into nins from pg_policy
+    where polrelid = 'public.event_bookings'::regclass and polcmd = 'a';
+  if nins <> 0 then
+    raise exception 'event_bookings has % INSERT policy(ies) -- bookings must only be written via book_event()', nins;
+  end if;
+
+  raise notice 'PASS  5d events: ntitt_admin-gated writes, anon reads published-global only, bookings function-only';
 end
 $$;
 
@@ -816,6 +857,166 @@ begin
   raise notice 'PASS  7c* the shared self-signup pool cannot host a company step challenge (CHECK)';
 end
 $$;
+
+-- ============================================================================
+-- LIVE RLS test of EVENTS: published-global reads reach anon; company + draft
+-- events never do; ntitt_admin-only authoring; direct booking inserts blocked;
+-- and the capacity -> waitlist -> auto-promotion cycle through book_event() /
+-- cancel_my_booking(). Reuses Company A/B, usera (A), userb (B) and the admin.
+-- ============================================================================
+insert into public.events (id, company_id, title, slug, starts_at, capacity, is_published) values
+  ('ea000000-0000-0000-0000-0000000000e1', null, 'Global dip', 'global-dip', now() + interval '7 days', 1, true),
+  ('ea000000-0000-0000-0000-0000000000e2', 'bbbbbbbb-0000-0000-0000-000000000002', 'Company B meetup', 'company-b-meetup', now() + interval '7 days', null, true),
+  ('ea000000-0000-0000-0000-0000000000e3', null, 'Draft dip', 'draft-dip', now() + interval '7 days', null, false);
+
+-- Harness only: vanilla Postgres grants schema USAGE to PUBLIC, but be explicit
+-- so the anon read below can't fail for a reason unrelated to the RLS policy.
+grant usage on schema public to anon;
+
+-- ---- as anon (the logged-out marketing site) ----
+set role anon;
+do $$
+declare visible int;
+begin
+  select count(*) into visible from public.events where id = 'ea000000-0000-0000-0000-0000000000e1';
+  if visible <> 1 then raise exception 'FAIL events-anon: published global event not visible to anon'; end if;
+  select count(*) into visible from public.events where id = 'ea000000-0000-0000-0000-0000000000e2';
+  if visible <> 0 then raise exception 'FAIL events-anon: a company-scoped event leaked to anon'; end if;
+  select count(*) into visible from public.events where id = 'ea000000-0000-0000-0000-0000000000e3';
+  if visible <> 0 then raise exception 'FAIL events-anon: a draft event leaked to anon'; end if;
+  raise notice 'PASS  8a* live: anon sees only published GLOBAL events';
+end
+$$;
+reset role;
+
+-- ---- as usera (Company A, not admin) ----
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$
+declare visible int; st text;
+begin
+  -- BLOCKED: a non-admin cannot author an event
+  begin
+    insert into public.events (title, slug, starts_at, is_published)
+    values ('sneaky', 'sneaky-ev', now() + interval '1 day', true);
+    raise exception 'FAIL events-write: a non-admin created an event';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- VISIBLE global; HIDDEN another company's event + draft
+  select count(*) into visible from public.events where id = 'ea000000-0000-0000-0000-0000000000e1';
+  if visible <> 1 then raise exception 'FAIL events-read: global event not visible to a member'; end if;
+  select count(*) into visible from public.events where id = 'ea000000-0000-0000-0000-0000000000e2';
+  if visible <> 0 then raise exception 'FAIL events-read: another company''s event leaked to a member'; end if;
+  select count(*) into visible from public.events where id = 'ea000000-0000-0000-0000-0000000000e3';
+  if visible <> 0 then raise exception 'FAIL events-read: a draft event leaked to a member'; end if;
+
+  -- BLOCKED: a direct booking insert (no member insert policy -> function-only)
+  begin
+    insert into public.event_bookings (event_id, user_id, status)
+    values ('ea000000-0000-0000-0000-0000000000e1', 'a0000000-0000-0000-0000-00000000000a', 'confirmed');
+    raise exception 'FAIL booking-write: a direct booking insert bypassed the function';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- BLOCKED: booking a company event you don't belong to (usera is Company A)
+  begin
+    perform public.book_event('ea000000-0000-0000-0000-0000000000e2');
+    raise exception 'FAIL booking: usera booked another company''s event';
+  exception when others then
+    if sqlerrm not like '%not bookable%' then raise; end if;
+  end;
+
+  -- ALLOWED: book the global event -> confirmed (capacity 1, first in)
+  st := public.book_event('ea000000-0000-0000-0000-0000000000e1');
+  if st <> 'confirmed' then raise exception 'FAIL booking: first booker not confirmed (got %)', st; end if;
+
+  raise notice 'PASS  8b* live: non-admin cannot author/direct-book; cross-company booking gated; first booker confirmed';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
+
+-- ---- as userb (Company B): waitlisted on the full global event ----
+select set_config('request.jwt.claim.sub', 'b0000000-0000-0000-0000-00000000000b', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$
+declare st text; mine int;
+begin
+  st := public.book_event('ea000000-0000-0000-0000-0000000000e1');
+  if st <> 'waitlisted' then raise exception 'FAIL booking: over-capacity booker not waitlisted (got %)', st; end if;
+
+  -- ISOLATION: userb sees only their own booking on the event
+  select count(*) into mine from public.event_bookings where event_id = 'ea000000-0000-0000-0000-0000000000e1';
+  if mine <> 1 then raise exception 'FAIL booking-read: expected userb to see exactly 1 (own) booking, saw %', mine; end if;
+
+  -- userb CAN book their OWN company's event
+  st := public.book_event('ea000000-0000-0000-0000-0000000000e2');
+  if st <> 'confirmed' then raise exception 'FAIL booking: a company member could not book their own company event (got %)', st; end if;
+
+  raise notice 'PASS  8c* live: over-capacity -> waitlisted; bookings own-rows isolated; own-company booking allowed';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
+
+-- ---- usera cancels the last confirmed seat -> userb auto-promoted ----
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$
+begin
+  perform public.cancel_my_booking('ea000000-0000-0000-0000-0000000000e1');
+  raise notice 'PASS  8d* live: usera cancelled a confirmed seat';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
+
+-- promotion + confirmed_count verified as the superuser (bypasses RLS)
+do $$
+declare userb_status text; cc int;
+begin
+  select status into userb_status from public.event_bookings
+    where event_id = 'ea000000-0000-0000-0000-0000000000e1' and user_id = 'b0000000-0000-0000-0000-00000000000b';
+  if userb_status <> 'confirmed' then
+    raise exception 'FAIL waitlist: userb was not promoted after a cancellation (status %)', userb_status;
+  end if;
+  select confirmed_count into cc from public.events where id = 'ea000000-0000-0000-0000-0000000000e1';
+  if cc <> 1 then raise exception 'FAIL confirmed_count: expected 1 after cancel+promote, got %', cc; end if;
+  raise notice 'PASS  8e* live: waitlist auto-promotion + confirmed_count maintained';
+end
+$$;
+
+-- ---- as the ntitt_admin: authoring + reading the full roster ----
+select set_config('request.jwt.claim.sub', 'ee000000-0000-0000-0000-0000000000ad', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$
+declare roster int;
+begin
+  begin
+    insert into public.events (title, slug, starts_at, is_published, created_by)
+    values ('Admin event', 'admin-event', now() + interval '3 days', true, 'ee000000-0000-0000-0000-0000000000ad');
+  exception when insufficient_privilege then
+    raise exception 'FAIL events-write: an ntitt_admin was blocked from creating an event';
+  end;
+
+  -- admin sees the WHOLE roster (usera cancelled + userb confirmed = 2 rows)
+  select count(*) into roster from public.event_bookings where event_id = 'ea000000-0000-0000-0000-0000000000e1';
+  if roster < 2 then raise exception 'FAIL roster: ntitt_admin cannot see the full booking roster (saw %)', roster; end if;
+
+  raise notice 'PASS  8f* live: ntitt_admin authors events + reads the full roster';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
 
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'

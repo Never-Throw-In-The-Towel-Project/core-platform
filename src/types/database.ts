@@ -223,6 +223,61 @@ export interface ChallengeWithProgress extends Challenge {
   completed_days: number;
 }
 
+// Events -- real-world community meet-ups shown on three surfaces (super-admin
+// Studio, members' app, and the logged-out marketing site). See
+// supabase/migrations/20260817000000_events.sql. Named EventRow, not Event, to
+// avoid shadowing the DOM `Event` global in client components.
+export type EventBookingStatus = "confirmed" | "waitlisted" | "pending" | "cancelled";
+
+export interface EventRow {
+  id: string;
+  /** null = NTITT-global (public + every member); set = one company's staff only. */
+  company_id: string | null;
+  title: string;
+  slug: string;
+  summary: string | null;
+  description: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  location_name: string | null;
+  location_url: string | null;
+  image_url: string | null;
+  /** null = unlimited; else the confirmed-booking cap (further bookings waitlist). */
+  capacity: number | null;
+  /** Denormalised confirmed tally, kept current by book_event()/cancel_my_booking();
+   *  lets the anon marketing surface show "12 / 20 booked" without exposing bookings. */
+  confirmed_count: number;
+  is_published: boolean;
+  cancelled_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// A member/guest booking. Exactly one identity: user_id XOR guest_email (CHECK).
+export interface EventBooking {
+  id: string;
+  event_id: string;
+  user_id: string | null;
+  guest_name: string | null;
+  guest_email: string | null;
+  status: EventBookingStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+// A published event decorated with the caller's own booking status (null = not
+// booked / cancelled), for the members' list + detail views.
+export interface EventWithBooking extends EventRow {
+  my_booking_status: EventBookingStatus | null;
+}
+
+// A booking row joined to the member's display name (member bookings only;
+// guests carry their own name), for the admin attendee roster.
+export interface EventBookingWithIdentity extends EventBooking {
+  member: { display_name: string } | null;
+}
+
 // Self-reported daily steps (Track 2 · D2). A PRIVATE, never-reportable health
 // metric -- own-rows-only, exactly like sleep_score / day_rating. See the
 // step_entries migration.

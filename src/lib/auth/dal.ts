@@ -74,6 +74,26 @@ export const getProfile = cache(async (): Promise<Profile> => {
   return profile;
 });
 
+/**
+ * Like getProfile() but returns null instead of redirecting when there's no
+ * session -- for routes that render for BOTH logged-in and logged-out visitors
+ * (e.g. the public+member Events page). cache()-wrapped so a layout and its page
+ * share one lookup per request.
+ */
+export const getOptionalProfile = cache(async (): Promise<Profile | null> => {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+    return (data as Profile | null) ?? null;
+  } catch {
+    return null;
+  }
+});
+
 /** For (company) routes: verifies the session AND that the user is an hr_admin. */
 export const requireHrAdmin = cache(async (): Promise<Profile> => {
   const profile = await getProfile();

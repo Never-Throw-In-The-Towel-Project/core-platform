@@ -2,36 +2,8 @@ import { redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth/dal";
 import { BottomNav } from "@/components/BottomNav";
 import { AppHeader } from "@/components/app/AppHeader";
-import { createClient } from "@/lib/supabase/server";
+import { getCompanySkin } from "@/lib/app/skin";
 import { resolveHelplineNumber } from "@/lib/support/helpline";
-
-// The default NTITT skin colour when a company has none set (the brief's
-// table lists NTITT itself as #ec3013). Only ever colours the top strip and
-// the header chip -- never the accent.
-const DEFAULT_SKIN = "#ec3013";
-
-/**
- * Fetch the signed-in user's company name + skin colour for the header chip
- * and top strip. `companies` is public-readable (see lib/tenant/resolve.ts),
- * so the session client is enough. Defensive: any failure degrades to the
- * NTITT default rather than blocking every member screen.
- */
-async function getCompanySkin(companyId: string): Promise<{ name: string; skinColor: string }> {
-  try {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("companies")
-      .select("name, primary_color")
-      .eq("id", companyId)
-      .maybeSingle();
-    return {
-      name: data?.name ?? "NTITT",
-      skinColor: data?.primary_color ?? DEFAULT_SKIN,
-    };
-  } catch {
-    return { name: "NTITT", skinColor: DEFAULT_SKIN };
-  }
-}
 
 // Everything under (app) requires a session -- enforced here via
 // getProfile()/verifySession() (the hard boundary; proxy.ts's redirect is

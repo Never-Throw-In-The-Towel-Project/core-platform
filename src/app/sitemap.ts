@@ -9,6 +9,7 @@ const MARKETING_PATHS = [
   "/what-i-do",
   "/what-i-do/coaching",
   "/what-i-do/pop-up-barbershop",
+  "/events",
   "/documentary",
   "/podcast",
   "/privacy",

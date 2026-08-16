@@ -43,7 +43,12 @@ import { extractTenantSlug, cookieDomainForHost } from "@/lib/tenant/resolve";
 // linked from its footer) -- they MUST be reachable while logged out, both
 // for the footer links and because signup links to them before an account
 // exists. Any new public route under (marketing) needs adding here too.
-export const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth/callback", "/documentary", "/podcast", "/what-i-do", "/privacy", "/terms"];
+// /events is the one route served to BOTH audiences (a top-level route, not
+// under (marketing)) -- its own layout renders the app shell for a signed-in
+// member and the marketing shell for a logged-out visitor, so it must be public
+// here for the visitor case to be reachable. The prefix match below also covers
+// /events/<slug>.
+export const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth/callback", "/documentary", "/podcast", "/what-i-do", "/events", "/privacy", "/terms"];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

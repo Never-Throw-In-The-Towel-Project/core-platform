@@ -6,6 +6,7 @@ const SECTIONS = [
   { href: "/admin/brain", title: "Brain", desc: "The AI knowledge base — upload, foldered and tagged." },
   { href: "/admin/calendar", title: "Calendar", desc: "Plan content across the Mon–Sun motivation framework." },
   { href: "/admin/challenges", title: "Challenges", desc: "Build guided multi-day challenge programmes." },
+  { href: "/admin/events", title: "Events", desc: "List real-world meet-ups and manage bookings." },
   { href: "/admin/moderation", title: "Moderation", desc: "Review reported community posts." },
   { href: "/admin/podcast", title: "Podcast guests", desc: "See who's opted in to appear as a guest." },
   { href: "/admin/companies", title: "Companies", desc: "Create and manage partner company portals." },
