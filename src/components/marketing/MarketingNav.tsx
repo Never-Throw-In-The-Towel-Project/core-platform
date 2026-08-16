@@ -52,20 +52,33 @@ export function MarketingNav({ showSignup, skinColor }: { showSignup: boolean; s
               {link.label}
             </Link>
           ))}
-          {showSignup && (
+          {/* Individuals-first: on the default site "Create account" is the
+              accent CTA and "Sign in" a quiet link. On a partner subdomain
+              signup is invite-only (showSignup=false), so "Sign in" is the CTA
+              and there's no create-account path. */}
+          {showSignup ? (
+            <>
+              <Link
+                href="/login"
+                className="whitespace-nowrap font-semibold text-muted transition-colors hover:text-foreground"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/signup"
+                className="whitespace-nowrap bg-brand-accent px-5 py-2.5 text-xs font-extrabold uppercase tracking-wide text-brand-accent-foreground"
+              >
+                Create account
+              </Link>
+            </>
+          ) : (
             <Link
-              href="/signup"
-              className="whitespace-nowrap font-semibold text-muted transition-colors hover:text-foreground"
+              href="/login"
+              className="whitespace-nowrap bg-brand-accent px-5 py-2.5 text-xs font-extrabold uppercase tracking-wide text-brand-accent-foreground"
             >
-              Create account
+              Sign in
             </Link>
           )}
-          <Link
-            href="/login"
-            className="whitespace-nowrap bg-brand-accent px-5 py-2.5 text-xs font-extrabold uppercase tracking-wide text-brand-accent-foreground"
-          >
-            Sign in
-          </Link>
         </nav>
 
         <button
@@ -91,22 +104,32 @@ export function MarketingNav({ showSignup, skinColor }: { showSignup: boolean; s
               {link.label}
             </Link>
           ))}
-          {showSignup && (
+          {showSignup ? (
+            <>
+              <Link
+                href="/login"
+                onClick={() => setOpen(false)}
+                className="block border-b border-rule-hairline py-3 font-semibold text-muted transition-colors hover:text-foreground"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/signup"
+                onClick={() => setOpen(false)}
+                className="mt-4 block bg-brand-accent px-5 py-3 text-center text-xs font-extrabold uppercase tracking-wide text-brand-accent-foreground"
+              >
+                Create account
+              </Link>
+            </>
+          ) : (
             <Link
-              href="/signup"
+              href="/login"
               onClick={() => setOpen(false)}
-              className="block border-b border-rule-hairline py-3 font-semibold text-muted transition-colors hover:text-foreground"
+              className="mt-4 block bg-brand-accent px-5 py-3 text-center text-xs font-extrabold uppercase tracking-wide text-brand-accent-foreground"
             >
-              Create account
+              Sign in
             </Link>
           )}
-          <Link
-            href="/login"
-            onClick={() => setOpen(false)}
-            className="mt-4 block bg-brand-accent px-5 py-3 text-center text-xs font-extrabold uppercase tracking-wide text-brand-accent-foreground"
-          >
-            Sign in
-          </Link>
         </nav>
       )}
     </header>
