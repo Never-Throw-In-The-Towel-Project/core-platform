@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { requireNtittAdmin } from "@/lib/auth/dal";
+import { requireHrAdmin } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { getEventForAdmin, listBookingsForEvent } from "@/lib/events/queries";
 import { EventStudioForm } from "@/components/admin/EventStudioForm";
@@ -9,9 +9,10 @@ import { EventRosterList } from "@/components/events/EventRoster";
 import { formatEventWhen } from "@/lib/events/format";
 import type { EventRow, EventBookingWithIdentity } from "@/types/database";
 
-/** One event's editor: publish/cancel/delete controls, the booking roster, and an edit form. ntitt_admin only. */
-export default async function AdminEventEditorPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireNtittAdmin();
+/** One company event's editor for HR: publish/cancel/delete, the roster, and an
+ *  edit form. RLS returns the event only if it belongs to this admin's company. */
+export default async function WorkspaceEventEditorPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireHrAdmin();
   const { id } = await params;
 
   let event: EventRow | null = null;
@@ -30,12 +31,12 @@ export default async function AdminEventEditorPage({ params }: { params: Promise
   const cap = event.capacity;
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
+    <main className="mx-auto max-w-2xl px-6 py-8">
       <Link
-        href="/admin/events"
+        href="/workspace/events"
         className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-brand-accent-deep hover:underline"
       >
-        ← All events
+        ← Your events
       </Link>
 
       <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
@@ -73,6 +74,7 @@ export default async function AdminEventEditorPage({ params }: { params: Promise
           eventId={event.id}
           isPublished={event.is_published}
           isCancelled={Boolean(event.cancelled_at)}
+          backHref="/workspace/events"
         />
       </div>
 

@@ -2,9 +2,11 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { createEvent, updateEvent } from "@/lib/actions/events";
-import { initialRoutineState } from "@/lib/actions/routineState";
+import { initialRoutineState, type RoutineActionState } from "@/lib/actions/routineState";
 import { isoToBrowserLocalInput } from "@/lib/events/format";
 import type { EventRow } from "@/types/database";
+
+type EventFormAction = (prev: RoutineActionState, formData: FormData) => Promise<RoutineActionState>;
 
 const LABEL = "block text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted";
 const FIELD = "mt-1 w-full border border-rule-border bg-transparent px-3 py-2 text-sm";
@@ -23,10 +25,18 @@ const OPTIONAL = <span className="font-semibold normal-case tracking-normal text
  * (UTC) and the client (the admin's timezone) format it differently -- the
  * client value is the correct one and wins after hydration.
  */
-export function EventStudioForm({ event }: { event?: EventRow }) {
+export function EventStudioForm({
+  event,
+  createAction,
+}: {
+  event?: EventRow;
+  /** Overrides the create action (e.g. HR's company-scoped createCompanyEvent).
+   *  Ignored in edit mode, which always uses the shared updateEvent. */
+  createAction?: EventFormAction;
+}) {
   const isEdit = Boolean(event);
   const [state, formAction, isPending] = useActionState(
-    isEdit ? updateEvent : createEvent,
+    isEdit ? updateEvent : (createAction ?? createEvent),
     initialRoutineState
   );
   const formRef = useRef<HTMLFormElement>(null);

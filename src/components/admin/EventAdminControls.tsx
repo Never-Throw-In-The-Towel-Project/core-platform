@@ -7,15 +7,18 @@ import { initialRoutineState } from "@/lib/actions/routineState";
 
 const BTN = "border px-4 py-2 text-xs font-extrabold uppercase tracking-wide transition-colors disabled:opacity-50";
 
-/** Publish / cancel / delete controls for one event. ntitt_admin only. */
+/** Publish / cancel / delete controls for one event. Used by both the ntitt_admin
+ *  Studio and the HR Workspace; `backHref` is where a successful delete returns. */
 export function EventAdminControls({
   eventId,
   isPublished,
   isCancelled,
+  backHref = "/admin/events",
 }: {
   eventId: string;
   isPublished: boolean;
   isCancelled: boolean;
+  backHref?: string;
 }) {
   const router = useRouter();
   const [pubState, pubAction, pubPending] = useActionState(setEventPublished, initialRoutineState);
@@ -23,8 +26,8 @@ export function EventAdminControls({
   const [delState, delAction, delPending] = useActionState(deleteEvent, initialRoutineState);
 
   useEffect(() => {
-    if (delState.status === "success") router.push("/admin/events");
-  }, [delState, router]);
+    if (delState.status === "success") router.push(backHref);
+  }, [delState, router, backHref]);
 
   const errored =
     pubState.status === "error"
