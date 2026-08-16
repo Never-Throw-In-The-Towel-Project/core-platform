@@ -4,10 +4,27 @@ import { createClient } from "@/lib/supabase/server";
 import { getOptionalProfile } from "@/lib/auth/dal";
 import { getEventBySlugForMember, getPublicEventBySlug } from "@/lib/events/queries";
 import { EventBookButton } from "@/components/events/EventBookButton";
+import { GuestBookingForm } from "@/components/events/GuestBookingForm";
 import { formatEventWhen } from "@/lib/events/format";
 import type { EventRow, EventBookingStatus } from "@/types/database";
 
 type DetailEvent = EventRow & { my_booking_status?: EventBookingStatus | null };
+
+// Banner shown after a guest returns from a confirm/cancel email link (?guest=…).
+function guestBanner(flag: string | undefined): { text: string; tone: "good" | "muted" | "error" } | null {
+  switch (flag) {
+    case "confirmed":
+      return { text: "You’re booked in — see you there. We’ve emailed you the details.", tone: "good" };
+    case "waitlisted":
+      return { text: "You’re on the waitlist — we’ll email you the moment a place frees up.", tone: "good" };
+    case "cancelled":
+      return { text: "Your booking’s cancelled. You can book again any time.", tone: "muted" };
+    case "error":
+      return { text: "That link didn’t work — it may have expired. Try booking again below.", tone: "error" };
+    default:
+      return null;
+  }
+}
 
 /**
  * Event detail, for members and the public alike. A signed-in member gets the
@@ -15,9 +32,16 @@ type DetailEvent = EventRow & { my_booking_status?: EventBookingStatus | null };
  * is fetched through the caller's own client, so RLS decides visibility (a
  * visitor only ever resolves a published GLOBAL event).
  */
-export default async function EventDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function EventDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ guest?: string }>;
+}) {
   const profile = await getOptionalProfile();
   const { slug } = await params;
+  const banner = guestBanner((await searchParams).guest);
 
   let event: DetailEvent | null = null;
   try {
@@ -42,6 +66,22 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
       >
         ← All events
       </Link>
+
+      {banner && (
+        <p
+          className={
+            "mt-5 border-l-2 pl-4 text-sm font-semibold " +
+            (banner.tone === "good"
+              ? "border-foreground text-foreground"
+              : banner.tone === "error"
+                ? "border-brand-accent-deep text-brand-accent-deep"
+                : "border-rule-border text-muted")
+          }
+          role="status"
+        >
+          {banner.text}
+        </p>
+      )}
 
       {event.image_url && (
         <div className="mt-5 aspect-[16/9] w-full overflow-hidden border border-rule-border">
@@ -100,20 +140,22 @@ export default async function EventDetailPage({ params }: { params: Promise<{ sl
             isFull={isFull}
           />
         ) : (
-          <div className="space-y-3">
-            <Link
-              href={`/login?next=${encodeURIComponent(`/events/${event.slug}`)}`}
-              className="inline-flex bg-brand-accent px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground transition-opacity hover:opacity-90"
-            >
-              {isFull ? "Sign in to join the waitlist" : "Sign in to book"}
-            </Link>
-            <p className="text-sm text-muted">
-              New here?{" "}
-              <Link href="/signup" className="font-semibold underline underline-offset-2 hover:text-foreground">
-                Create your account
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <Link
+                href={`/login?next=${encodeURIComponent(`/events/${event.slug}`)}`}
+                className="inline-flex bg-brand-accent px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground transition-opacity hover:opacity-90"
+              >
+                {isFull ? "Sign in to join the waitlist" : "Sign in to book"}
               </Link>
-              .
-            </p>
+              <p className="text-sm text-muted">Already a member? Sign in for one-tap booking.</p>
+            </div>
+
+            <div className="flex items-center gap-3 text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">
+              <span className="h-px flex-1 bg-rule-hairline" /> or <span className="h-px flex-1 bg-rule-hairline" />
+            </div>
+
+            <GuestBookingForm eventId={event.id} slug={event.slug} isFull={isFull} />
           </div>
         )}
       </div>
