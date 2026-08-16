@@ -113,10 +113,22 @@ export async function listAllEventsForAdmin(supabase: AnyClient): Promise<EventR
   return (data as EventRow[] | null) ?? [];
 }
 
-/** A single event for the admin editor (any state). */
+/** A single event for the admin editor (any state). RLS: ntitt_admin sees all;
+ *  hr_admin sees their own company's. */
 export async function getEventForAdmin(supabase: AnyClient, id: string): Promise<EventRow | null> {
   const { data } = await supabase.from("events").select("*").eq("id", id).maybeSingle();
   return (data as EventRow | null) ?? null;
+}
+
+/** One company's own events (all states), soonest-first, for the HR Workspace.
+ *  RLS lets an hr_admin read their own company's events incl. drafts. */
+export async function listCompanyEvents(supabase: AnyClient, companyId: string): Promise<EventRow[]> {
+  const { data } = await supabase
+    .from("events")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("starts_at", { ascending: false });
+  return (data as EventRow[] | null) ?? [];
 }
 
 /**

@@ -95,6 +95,20 @@ async function ensureNtittAdmin(): Promise<RoutineActionState | null> {
   return null;
 }
 
+/**
+ * Update / publish / cancel / delete are open to BOTH authors: an ntitt_admin
+ * (global events) and an hr_admin (their own company's). The events RLS policies
+ * are the real scope boundary -- an hr_admin's UPDATE/DELETE only ever match rows
+ * whose company_id is their own -- so this is just the friendly access check.
+ */
+async function ensureEventEditor(): Promise<RoutineActionState | null> {
+  const profile = await getProfile();
+  if (profile.role !== "ntitt_admin" && profile.role !== "hr_admin") {
+    return { status: "error", message: "You don’t have access to events." };
+  }
+  return null;
+}
+
 /** Slugify a title, then make it unique against existing events by suffixing -2, -3, … */
 function slugifyBase(title: string): string {
   const base = title
@@ -106,11 +120,14 @@ function slugifyBase(title: string): string {
   return base || "event";
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function uniqueEventSlug(supabase: any, title: string, excludeId?: string): Promise<string> {
+async function uniqueEventSlug(title: string, excludeId?: string): Promise<string> {
   const base = slugifyBase(title);
-  // Pull existing slugs that share the base, then pick the first free variant.
-  const { data } = await supabase.from("events").select("id, slug").ilike("slug", `${base}%`);
+  // Slugs are globally unique, so the scan must see EVERY event -- including
+  // global drafts and other companies' events an hr_admin author can't read
+  // under RLS. Use the service-role client for this slug-only read (no PII), so
+  // a company author can't accidentally collide with a slug they can't see.
+  const admin = createAdminClient();
+  const { data } = await admin.from("events").select("id, slug").ilike("slug", `${base}%`);
   const taken = new Set(
     ((data as { id: string; slug: string }[] | null) ?? [])
       .filter((r) => r.id !== excludeId)
@@ -173,7 +190,7 @@ export async function createEvent(
 
   try {
     const supabase = await createClient();
-    const slug = await uniqueEventSlug(supabase, d.title);
+    const slug = await uniqueEventSlug(d.title);
     const { error } = await supabase.from("events").insert({
       company_id: null,
       title: d.title,
@@ -204,7 +221,7 @@ export async function updateEvent(
   formData: FormData
 ): Promise<RoutineActionState> {
   await verifySession();
-  const denied = await ensureNtittAdmin();
+  const denied = await ensureEventEditor();
   if (denied) return denied;
 
   const idParsed = uuid.safeParse(formData.get("eventId"));
@@ -222,7 +239,7 @@ export async function updateEvent(
 
   try {
     const supabase = await createClient();
-    const slug = await uniqueEventSlug(supabase, d.title, eventId);
+    const slug = await uniqueEventSlug(d.title, eventId);
     const { error } = await supabase
       .from("events")
       .update({
@@ -246,6 +263,8 @@ export async function updateEvent(
 
   revalidatePath("/admin/events");
   revalidatePath(`/admin/events/${eventId}`);
+  revalidatePath("/workspace/events");
+  revalidatePath(`/workspace/events/${eventId}`);
   revalidatePath("/events");
   return { status: "success", message: "Event updated." };
 }
@@ -255,7 +274,7 @@ export async function setEventPublished(
   formData: FormData
 ): Promise<RoutineActionState> {
   await verifySession();
-  const denied = await ensureNtittAdmin();
+  const denied = await ensureEventEditor();
   if (denied) return denied;
 
   const parsed = z
@@ -276,6 +295,8 @@ export async function setEventPublished(
 
   revalidatePath("/admin/events");
   revalidatePath(`/admin/events/${parsed.data.eventId}`);
+  revalidatePath("/workspace/events");
+  revalidatePath(`/workspace/events/${parsed.data.eventId}`);
   revalidatePath("/events");
   return { status: "success" };
 }
@@ -287,7 +308,7 @@ export async function setEventCancelled(
   formData: FormData
 ): Promise<RoutineActionState> {
   await verifySession();
-  const denied = await ensureNtittAdmin();
+  const denied = await ensureEventEditor();
   if (denied) return denied;
 
   const parsed = z
@@ -311,6 +332,8 @@ export async function setEventCancelled(
 
   revalidatePath("/admin/events");
   revalidatePath(`/admin/events/${parsed.data.eventId}`);
+  revalidatePath("/workspace/events");
+  revalidatePath(`/workspace/events/${parsed.data.eventId}`);
   revalidatePath("/events");
   return { status: "success" };
 }
@@ -321,7 +344,7 @@ export async function deleteEvent(
   formData: FormData
 ): Promise<RoutineActionState> {
   await verifySession();
-  const denied = await ensureNtittAdmin();
+  const denied = await ensureEventEditor();
   if (denied) return denied;
 
   const parsed = uuid.safeParse(formData.get("eventId"));
@@ -336,8 +359,63 @@ export async function deleteEvent(
   }
 
   revalidatePath("/admin/events");
+  revalidatePath("/workspace/events");
   revalidatePath("/events");
   return { status: "success", message: "Event deleted." };
+}
+
+// ============================================================================
+// HR-admin (company) event authoring. Same fields as the ntitt create, but the
+// event is scoped to the admin's OWN company (company_id = their profile). The
+// events INSERT RLS policy is the real gate (verified live by the harness);
+// this sets company_id and checks the role for a friendly message.
+// ============================================================================
+
+export async function createCompanyEvent(
+  _prev: RoutineActionState,
+  formData: FormData
+): Promise<RoutineActionState> {
+  const session = await verifySession();
+  const profile = await getProfile();
+  if (profile.role !== "hr_admin") {
+    return { status: "error", message: "You don’t have access to company events." };
+  }
+
+  const parsed = readEventForm(formData);
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check the fields and try again." };
+  }
+  const d = parsed.data;
+  if (d.endsAt && d.endsAt < d.startsAt) {
+    return { status: "error", message: "The end time can’t be before the start time." };
+  }
+
+  try {
+    const supabase = await createClient();
+    const slug = await uniqueEventSlug(d.title);
+    const { error } = await supabase.from("events").insert({
+      company_id: profile.company_id,
+      title: d.title,
+      slug,
+      summary: d.summary ?? null,
+      description: d.description ?? null,
+      starts_at: d.startsAt.toISOString(),
+      ends_at: d.endsAt ? d.endsAt.toISOString() : null,
+      location_name: d.locationName ?? null,
+      location_url: d.locationUrl ?? null,
+      image_url: d.imageUrl ?? null,
+      capacity: d.capacity ?? null,
+      is_published: d.publish === "true",
+      created_by: session.userId,
+    });
+    if (error) return { status: "error", message: "Something went wrong saving this event. Please try again." };
+  } catch {
+    return { status: "error", message: "Something went wrong saving this event. Please try again." };
+  }
+
+  revalidatePath("/workspace/events");
+  revalidatePath("/events");
+  return { status: "success", message: "Event created." };
 }
 
 // ============================================================================

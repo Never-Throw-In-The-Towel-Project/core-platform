@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/workspace", label: "Overview", exact: true },
   { href: "/workspace/people", label: "People" },
   { href: "/workspace/challenges", label: "Challenges" },
+  { href: "/workspace/events", label: "Events" },
   { href: "/workspace/reports", label: "Reports" },
 ];
 

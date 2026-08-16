@@ -1061,5 +1061,121 @@ begin
 end
 $$;
 
+-- ============================================================================
+-- LIVE test of PER-COMPANY event authoring (Phase 3): an hr_admin authors events
+-- for their OWN company only (never cross-company, never global, never the pool);
+-- their members see the published ones (not drafts, not other companies'); and HR
+-- reads the roster of their own events. Reuses Company A/B, hra (Company A HR),
+-- usera (Company A), userb (Company B).
+-- ============================================================================
+
+-- ---- as the Company A HR admin ----
+select set_config('request.jwt.claim.sub', '40000000-0000-0000-0000-00000000000a', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$
+begin
+  -- ALLOWED: a published event for OWN company
+  begin
+    insert into public.events (id, company_id, title, slug, starts_at, capacity, is_published)
+    values ('ea000000-0000-0000-0000-0000000000e6', 'aaaaaaaa-0000-0000-0000-000000000001',
+            'Company A social', 'company-a-social', now() + interval '5 days', 5, true);
+  exception when insufficient_privilege then
+    raise exception 'FAIL hr-event-write: HR blocked from creating an own-company event';
+  end;
+
+  -- ALLOWED: a draft too (to prove HR can see its own drafts below)
+  insert into public.events (id, company_id, title, slug, starts_at, is_published)
+    values ('ea000000-0000-0000-0000-0000000000e7', 'aaaaaaaa-0000-0000-0000-000000000001',
+            'Company A draft', 'company-a-draft', now() + interval '6 days', false);
+
+  -- BLOCKED: an event for ANOTHER company
+  begin
+    insert into public.events (company_id, title, slug, starts_at)
+    values ('bbbbbbbb-0000-0000-0000-000000000002', 'cross', 'cross-ev', now() + interval '5 days');
+    raise exception 'FAIL hr-event-write: HR created an event for another company';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- BLOCKED: a GLOBAL event (company_id NULL is ntitt_admin-only)
+  begin
+    insert into public.events (company_id, title, slug, starts_at)
+    values (null, 'sneaky global', 'sneaky-global', now() + interval '5 days');
+    raise exception 'FAIL hr-event-write: HR created a global event';
+  exception when insufficient_privilege then null;
+  end;
+
+  raise notice 'PASS  10a* live: HR authors own-company events; blocked cross-company + global';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
+
+-- pool guard: even the superuser can't put an event on the shared self-signup pool
+do $$
+begin
+  begin
+    insert into public.events (company_id, title, slug, starts_at)
+    values ('00000000-0000-0000-0000-000000000001', 'pool', 'pool-ev', now() + interval '5 days');
+    raise exception 'FAIL pool-guard: an event on the shared self-signup pool was allowed';
+  exception when check_violation then null;
+  end;
+  raise notice 'PASS  10b* the self-signup pool cannot host a company event (CHECK)';
+end
+$$;
+
+-- ---- as usera (Company A member): sees the published one, not the draft; books it ----
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$
+declare v int; st text;
+begin
+  select count(*) into v from public.events where id = 'ea000000-0000-0000-0000-0000000000e6';
+  if v <> 1 then raise exception 'FAIL member-read: own-company published event not visible to its member'; end if;
+  select count(*) into v from public.events where id = 'ea000000-0000-0000-0000-0000000000e7';
+  if v <> 0 then raise exception 'FAIL member-read: a company draft leaked to a member'; end if;
+  st := public.book_event('ea000000-0000-0000-0000-0000000000e6');
+  if st <> 'confirmed' then raise exception 'FAIL member-book: own-company event not bookable (got %)', st; end if;
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
+
+-- ---- as userb (Company B member): must NOT see Company A's event ----
+select set_config('request.jwt.claim.sub', 'b0000000-0000-0000-0000-00000000000b', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$
+declare v int;
+begin
+  select count(*) into v from public.events where id = 'ea000000-0000-0000-0000-0000000000e6';
+  if v <> 0 then raise exception 'FAIL member-read: another company''s event leaked to a member'; end if;
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
+
+-- ---- as the Company A HR admin: sees own drafts + reads the roster ----
+select set_config('request.jwt.claim.sub', '40000000-0000-0000-0000-00000000000a', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$
+declare v int;
+begin
+  select count(*) into v from public.events where id = 'ea000000-0000-0000-0000-0000000000e7';
+  if v <> 1 then raise exception 'FAIL hr-read: HR cannot see its own-company draft event'; end if;
+  select count(*) into v from public.event_bookings where event_id = 'ea000000-0000-0000-0000-0000000000e6';
+  if v <> 1 then raise exception 'FAIL hr-roster: HR cannot read its own-company event bookings (saw %)', v; end if;
+  raise notice 'PASS  10c* live: member sees published (not draft), cross-company hidden; HR reads own drafts + roster';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
+
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'
