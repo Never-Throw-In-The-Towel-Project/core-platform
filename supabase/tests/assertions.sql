@@ -205,6 +205,20 @@ begin
 end
 $$;
 
+-- ---- 4g. distribution calendar: content_items.scheduled_for (nullable date) --
+do $$
+declare col_type text; col_nullable text;
+begin
+  select data_type, is_nullable into col_type, col_nullable
+    from information_schema.columns
+    where table_schema = 'public' and table_name = 'content_items' and column_name = 'scheduled_for';
+  if col_type is null then raise exception 'content_items.scheduled_for missing (distribution calendar)'; end if;
+  if col_type <> 'date' then raise exception 'content_items.scheduled_for is % (expected date)', col_type; end if;
+  if col_nullable <> 'YES' then raise exception 'content_items.scheduled_for must be nullable'; end if;
+  raise notice 'PASS  4g content_items.scheduled_for present, date, nullable';
+end
+$$;
+
 -- ---- 5. challenges: ntitt_admin-only writes; participation is private -------
 do $$
 declare wc text; enroll_rls boolean;

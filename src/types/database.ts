@@ -142,6 +142,10 @@ export interface ContentItem {
   created_by: string | null;
   /** Which Brain folder this item is filed in; null = "Unfiled". */
   folder_id: string | null;
+  /** Distribution-calendar publish date (ISO yyyy-mm-dd). A draft carrying one
+   *  is auto-published on that date by the publish-scheduled-content cron;
+   *  null = not date-scheduled. */
+  scheduled_for: string | null;
   created_at: string;
 }
 
