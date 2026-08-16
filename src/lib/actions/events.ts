@@ -239,12 +239,13 @@ export async function updateEvent(
 
   try {
     const supabase = await createClient();
-    const slug = await uniqueEventSlug(d.title, eventId);
-    const { error } = await supabase
+    // The slug is deliberately NOT regenerated on edit: it's the public
+    // /events/<slug> URL (shared, marketed, bookmarked), so a title tweak must
+    // not silently 404 those links. It's set once at create.
+    const { data, error } = await supabase
       .from("events")
       .update({
         title: d.title,
-        slug,
         summary: d.summary ?? null,
         description: d.description ?? null,
         starts_at: d.startsAt.toISOString(),
@@ -255,8 +256,14 @@ export async function updateEvent(
         capacity: d.capacity ?? null,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", eventId);
+      .eq("id", eventId)
+      .select("id");
     if (error) return { status: "error", message: "Couldn’t save your changes. Please try again." };
+    // An RLS mismatch (e.g. an hr_admin editing a global/other-company event)
+    // returns 0 rows and no error -- report that rather than a false success.
+    if (!data || data.length === 0) {
+      return { status: "error", message: "You can’t edit this event, or it no longer exists." };
+    }
   } catch {
     return { status: "error", message: "Couldn’t save your changes. Please try again." };
   }
@@ -284,11 +291,13 @@ export async function setEventPublished(
 
   try {
     const supabase = await createClient();
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("events")
       .update({ is_published: parsed.data.publish === "true", updated_at: new Date().toISOString() })
-      .eq("id", parsed.data.eventId);
+      .eq("id", parsed.data.eventId)
+      .select("id");
     if (error) return { status: "error", message: "Couldn’t update that. Please try again." };
+    if (!data || data.length === 0) return { status: "error", message: "You can’t change this event." };
   } catch {
     return { status: "error", message: "Couldn’t update that. Please try again." };
   }
@@ -318,14 +327,16 @@ export async function setEventCancelled(
 
   try {
     const supabase = await createClient();
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("events")
       .update({
         cancelled_at: parsed.data.cancel === "true" ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", parsed.data.eventId);
+      .eq("id", parsed.data.eventId)
+      .select("id");
     if (error) return { status: "error", message: "Couldn’t update that. Please try again." };
+    if (!data || data.length === 0) return { status: "error", message: "You can’t change this event." };
   } catch {
     return { status: "error", message: "Couldn’t update that. Please try again." };
   }
@@ -352,8 +363,11 @@ export async function deleteEvent(
 
   try {
     const supabase = await createClient();
-    const { error } = await supabase.from("events").delete().eq("id", parsed.data);
+    const { data, error } = await supabase.from("events").delete().eq("id", parsed.data).select("id");
     if (error) return { status: "error", message: "Couldn’t delete that event. Please try again." };
+    if (!data || data.length === 0) {
+      return { status: "error", message: "You can’t delete this event, or it no longer exists." };
+    }
   } catch {
     return { status: "error", message: "Couldn’t delete that event. Please try again." };
   }
@@ -469,8 +483,10 @@ export async function requestGuestBooking(
       return { status: "error", message: "This event has already taken place." };
     }
 
-    // Floodgate against email-bombing via this one event: cap freshly-created
-    // pending bookings in a short window. (Per-email is already deduped below.)
+    // Coarse backstop against a distributed spam run through one event: cap
+    // freshly-created pending bookings in a short window. Set generously (a real
+    // meet-up won't see this many new guests in 10 min) so it can't block genuine
+    // bookings; the per-email resend throttle below is the primary anti-abuse gate.
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     const { count: recentPending } = await admin
       .from("event_bookings")
@@ -478,15 +494,15 @@ export async function requestGuestBooking(
       .eq("event_id", eventId)
       .eq("status", "pending")
       .gte("created_at", tenMinutesAgo);
-    if ((recentPending ?? 0) > 30) {
+    if ((recentPending ?? 0) > 60) {
       return { status: "error", message: "Lots of booking requests just now — please try again shortly." };
     }
 
     // One active booking per (event, email): reuse a pending one (resend the
-    // link), or tell them they're already in.
+    // link, throttled), or tell them they're already in.
     const { data: existing } = await admin
       .from("event_bookings")
-      .select("id, status, guest_name")
+      .select("id, status, guest_name, updated_at")
       .eq("event_id", eventId)
       .eq("guest_email", email)
       .neq("status", "cancelled")
@@ -498,6 +514,14 @@ export async function requestGuestBooking(
     if (existing) {
       if (existing.status === "confirmed" || existing.status === "waitlisted") {
         return { status: "success", message: "You’re already booked onto this one — check your email for the details." };
+      }
+      // ANTI EMAIL-BOMB: a pending booking already exists for this address, so
+      // don't re-send the confirm email if one went out recently. Re-submitting
+      // the public form with a victim's email therefore can't trigger more than
+      // one email per window (updated_at is bumped each time one is sent).
+      const lastSentMs = existing.updated_at ? new Date(existing.updated_at as string).getTime() : 0;
+      if (Date.now() - lastSentMs < 5 * 60 * 1000) {
+        return { status: "success", message: "Almost there — check your email to confirm your spot." };
       }
       bookingId = existing.id as string;
       guestName = (existing.guest_name as string | null) ?? name;
@@ -536,6 +560,10 @@ export async function requestGuestBooking(
       // Don't leave an orphan pending row if the email never went out.
       if (newlyInserted) await admin.from("event_bookings").delete().eq("id", bookingId).eq("status", "pending");
       return { status: "error", message: "We couldn’t send the confirmation email — please sign in to book instead." };
+    }
+    // Reset the resend window (a new insert already has updated_at ≈ now).
+    if (!newlyInserted) {
+      await admin.from("event_bookings").update({ updated_at: new Date().toISOString() }).eq("id", bookingId);
     }
   } catch {
     return { status: "error", message: "Couldn’t start your booking. Please try again." };

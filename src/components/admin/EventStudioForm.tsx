@@ -42,6 +42,22 @@ export function EventStudioForm({
   const formRef = useRef<HTMLFormElement>(null);
   const startsIsoRef = useRef<HTMLInputElement>(null);
   const endsIsoRef = useRef<HTMLInputElement>(null);
+  const startsLocalRef = useRef<HTMLInputElement>(null);
+  const endsLocalRef = useRef<HTMLInputElement>(null);
+
+  // Fill the visible datetime pickers from the stored instants in the ADMIN'S OWN
+  // timezone, client-side after mount. NOT via an SSR defaultValue: the server
+  // renders in UTC and an uncontrolled input keeps its SSR value through
+  // hydration, so a defaultValue would display UTC wall-clock (an hour off in
+  // BST). Setting .value on a ref keeps this lint-clean (no setState in effect).
+  useEffect(() => {
+    if (startsLocalRef.current && event?.starts_at) {
+      startsLocalRef.current.value = isoToBrowserLocalInput(event.starts_at);
+    }
+    if (endsLocalRef.current && event?.ends_at) {
+      endsLocalRef.current.value = isoToBrowserLocalInput(event.ends_at);
+    }
+  }, [event?.starts_at, event?.ends_at]);
 
   // On create success, clear the form for the next event. form.reset() also
   // restores the hidden ISO fields to their (empty) defaults -- no setState.
@@ -93,8 +109,7 @@ export function EventStudioForm({
             id="event-starts"
             type="datetime-local"
             required
-            suppressHydrationWarning
-            defaultValue={event?.starts_at ? isoToBrowserLocalInput(event.starts_at) : ""}
+            ref={startsLocalRef}
             onChange={(e) => {
               if (startsIsoRef.current) {
                 startsIsoRef.current.value = e.target.value ? new Date(e.target.value).toISOString() : "";
@@ -110,8 +125,7 @@ export function EventStudioForm({
           <input
             id="event-ends"
             type="datetime-local"
-            suppressHydrationWarning
-            defaultValue={event?.ends_at ? isoToBrowserLocalInput(event.ends_at) : ""}
+            ref={endsLocalRef}
             onChange={(e) => {
               if (endsIsoRef.current) {
                 endsIsoRef.current.value = e.target.value ? new Date(e.target.value).toISOString() : "";

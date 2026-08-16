@@ -12,7 +12,7 @@ import type { EventRow, EventBookingWithIdentity } from "@/types/database";
 /** One company event's editor for HR: publish/cancel/delete, the roster, and an
  *  edit form. RLS returns the event only if it belongs to this admin's company. */
 export default async function WorkspaceEventEditorPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireHrAdmin();
+  const profile = await requireHrAdmin();
   const { id } = await params;
 
   let event: EventRow | null = null;
@@ -24,7 +24,10 @@ export default async function WorkspaceEventEditorPage({ params }: { params: Pro
   } catch {
     event = null;
   }
-  if (!event) notFound();
+  // RLS lets an hr_admin READ published global events too (public read policy),
+  // so scope the editor to their OWN company -- a global/other-company id 404s
+  // rather than rendering an editor whose buttons would all no-op.
+  if (!event || event.company_id !== profile.company_id) notFound();
 
   const confirmed = bookings.filter((b) => b.status === "confirmed");
   const waitlisted = bookings.filter((b) => b.status === "waitlisted");

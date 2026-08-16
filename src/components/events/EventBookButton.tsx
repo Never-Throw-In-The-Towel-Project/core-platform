@@ -34,13 +34,9 @@ export function EventBookButton({
   const booked = myStatus === "confirmed" || myStatus === "waitlisted";
   const message =
     bookState.status !== "idle"
-      ? bookState.status === "error"
-        ? bookState.message
-        : bookState.message
+      ? bookState.message
       : cancelState.status !== "idle"
-        ? cancelState.status === "error"
-          ? cancelState.message
-          : cancelState.message
+        ? cancelState.message
         : null;
   const messageIsError = bookState.status === "error" || cancelState.status === "error";
 

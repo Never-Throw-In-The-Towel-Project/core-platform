@@ -31,11 +31,15 @@ function statusChip(e: EventCard): { label: string; className: string } {
  */
 export default async function EventsPage() {
   const profile = await getOptionalProfile();
+  // Treat a logged-in-but-not-onboarded user as a visitor, matching the layout
+  // (which gates the app shell on onboarding_completed): otherwise they'd get the
+  // marketing chrome wrapping member data + the one-tap member booking path.
+  const member = Boolean(profile?.onboarding_completed);
 
   let events: EventCard[] = [];
   try {
     const supabase = await createClient();
-    events = profile ? await listUpcomingEventsForMember(supabase) : await listPublicUpcomingEvents(supabase);
+    events = member ? await listUpcomingEventsForMember(supabase) : await listPublicUpcomingEvents(supabase);
   } catch {
     events = [];
   }
@@ -51,7 +55,7 @@ export default async function EventsPage() {
           <p className="mt-4 max-w-lg text-muted-on-ink-2">
             Cold-water dips, walks and meet-ups — get out of your own head and among people who get it.
           </p>
-          {!profile && (
+          {!member && (
             <p className="mt-4 text-sm text-muted-on-ink-2">
               Free to join —{" "}
               <Link href="/login" className="font-bold text-brand-accent-light-2 underline underline-offset-2">

@@ -1061,6 +1061,50 @@ begin
 end
 $$;
 
+-- ---- guest functions are service_role-only: anon + authenticated are BLOCKED --
+-- (regression guard for the default-PUBLIC-execute-grant bug: without the REVOKE
+-- in 20260820000000, either role could call these directly and bypass the token.)
+insert into public.event_bookings (id, event_id, guest_name, guest_email, status) values
+  ('9b000000-0000-0000-0000-0000000000b3', 'ea000000-0000-0000-0000-0000000000e5', 'Guest Three', 'guest3@x.test', 'pending');
+
+set role anon;
+do $$
+begin
+  begin
+    perform public.confirm_guest_booking('9b000000-0000-0000-0000-0000000000b3');
+    raise exception 'FAIL guest-lockdown: anon executed confirm_guest_booking';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.cancel_guest_booking('9b000000-0000-0000-0000-0000000000b3');
+    raise exception 'FAIL guest-lockdown: anon executed cancel_guest_booking';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS  9b* anon cannot execute the guest booking functions';
+end
+$$;
+reset role;
+
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+set role authenticated;
+do $$
+begin
+  begin
+    perform public.confirm_guest_booking('9b000000-0000-0000-0000-0000000000b3');
+    raise exception 'FAIL guest-lockdown: authenticated executed confirm_guest_booking';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.cancel_guest_booking('9b000000-0000-0000-0000-0000000000b3');
+    raise exception 'FAIL guest-lockdown: authenticated executed cancel_guest_booking';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS  9c* authenticated cannot execute the guest booking functions';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
 -- ============================================================================
 -- LIVE test of PER-COMPANY event authoring (Phase 3): an hr_admin authors events
 -- for their OWN company only (never cross-company, never global, never the pool);
