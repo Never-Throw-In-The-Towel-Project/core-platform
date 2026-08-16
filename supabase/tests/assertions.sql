@@ -1018,5 +1018,48 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select set_config('request.jwt.claim.role', '', false);
 
+-- ============================================================================
+-- LIVE test of GUEST booking (Phase 2): a 'pending' booking holds no seat;
+-- confirm_guest_booking() claims a seat or waitlists; cancel promotes the next
+-- guest. Run as the bootstrap superuser (which can execute the service_role-only
+-- functions). Fresh event so it doesn't collide with the member-booking fixtures.
+-- ============================================================================
+insert into public.events (id, company_id, title, slug, starts_at, capacity, is_published) values
+  ('ea000000-0000-0000-0000-0000000000e5', null, 'Guest dip', 'guest-dip', now() + interval '10 days', 1, true);
+insert into public.event_bookings (id, event_id, guest_name, guest_email, status) values
+  ('9b000000-0000-0000-0000-0000000000b1', 'ea000000-0000-0000-0000-0000000000e5', 'Guest One', 'guest1@x.test', 'pending'),
+  ('9b000000-0000-0000-0000-0000000000b2', 'ea000000-0000-0000-0000-0000000000e5', 'Guest Two', 'guest2@x.test', 'pending');
+
+do $$
+declare cc int; s1 text; s2 text; b2 text;
+begin
+  -- a pending booking consumes no capacity
+  select confirmed_count into cc from public.events where id = 'ea000000-0000-0000-0000-0000000000e5';
+  if cc <> 0 then raise exception 'FAIL guest: a pending booking consumed a seat (confirmed_count=%)', cc; end if;
+
+  -- confirm first -> confirmed
+  s1 := public.confirm_guest_booking('9b000000-0000-0000-0000-0000000000b1');
+  if s1 <> 'confirmed' then raise exception 'FAIL guest: first confirm not confirmed (got %)', s1; end if;
+
+  -- confirm second -> waitlisted (capacity 1 taken)
+  s2 := public.confirm_guest_booking('9b000000-0000-0000-0000-0000000000b2');
+  if s2 <> 'waitlisted' then raise exception 'FAIL guest: over-capacity confirm not waitlisted (got %)', s2; end if;
+
+  -- idempotent re-confirm returns the same status, claims nothing new
+  if public.confirm_guest_booking('9b000000-0000-0000-0000-0000000000b1') <> 'confirmed' then
+    raise exception 'FAIL guest: re-confirm not idempotent';
+  end if;
+
+  -- cancel the confirmed guest -> the waitlisted guest is promoted
+  perform public.cancel_guest_booking('9b000000-0000-0000-0000-0000000000b1');
+  select status into b2 from public.event_bookings where id = '9b000000-0000-0000-0000-0000000000b2';
+  if b2 <> 'confirmed' then raise exception 'FAIL guest: waitlisted guest not promoted after cancel (status %)', b2; end if;
+  select confirmed_count into cc from public.events where id = 'ea000000-0000-0000-0000-0000000000e5';
+  if cc <> 1 then raise exception 'FAIL guest: confirmed_count wrong after cancel+promote (got %)', cc; end if;
+
+  raise notice 'PASS  9* live: guest pending->confirm->waitlist->promote; pending holds no seat; confirm idempotent';
+end
+$$;
+
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'

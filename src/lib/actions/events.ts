@@ -3,7 +3,11 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { verifySession, getProfile } from "@/lib/auth/dal";
+import { signBookingToken } from "@/lib/events/guestToken";
+import { sendGuestBookingConfirmEmail } from "@/lib/events/guestEmail";
+import { formatEventWhen } from "@/lib/events/format";
 import { type RoutineActionState } from "./routineState";
 
 const uuid = z.string().uuid();
@@ -334,4 +338,131 @@ export async function deleteEvent(
   revalidatePath("/admin/events");
   revalidatePath("/events");
   return { status: "success", message: "Event deleted." };
+}
+
+// ============================================================================
+// GUEST booking (Phase 2). A logged-out visitor books a published GLOBAL event
+// with just a name + email. DOUBLE OPT-IN: this creates a 'pending' row (holds
+// no seat) and emails a tokenised confirm link; the seat is only claimed when
+// they click it (confirm_guest_booking, via /api/events/confirm). Written with
+// the service-role client because there is no anon INSERT policy on bookings.
+// ============================================================================
+
+const GuestBookingSchema = z.object({
+  eventId: uuid,
+  name: z.string().trim().min(1, "Add your name.").max(100),
+  email: z.string().trim().email("Enter a valid email address.").max(200),
+});
+
+export async function requestGuestBooking(
+  _prev: RoutineActionState,
+  formData: FormData
+): Promise<RoutineActionState> {
+  const parsed = GuestBookingSchema.safeParse({
+    eventId: formData.get("eventId"),
+    name: formData.get("name"),
+    email: formData.get("email"),
+  });
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check your name and email." };
+  }
+  const { eventId, name } = parsed.data;
+  const email = parsed.data.email.toLowerCase();
+  const slug = typeof formData.get("slug") === "string" ? String(formData.get("slug")) : null;
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!siteUrl) {
+    return { status: "error", message: "Guest booking isn’t available right now — please sign in to book." };
+  }
+
+  try {
+    const admin = createAdminClient();
+
+    // Guest booking is for published, non-cancelled, upcoming GLOBAL events only.
+    const { data: ev } = await admin
+      .from("events")
+      .select("id, title, slug, starts_at, ends_at, is_published, cancelled_at, company_id")
+      .eq("id", eventId)
+      .maybeSingle();
+    if (!ev || !ev.is_published || ev.company_id !== null || ev.cancelled_at) {
+      return { status: "error", message: "This event isn’t open for guest booking." };
+    }
+    if (new Date(ev.starts_at as string) < new Date()) {
+      return { status: "error", message: "This event has already taken place." };
+    }
+
+    // Floodgate against email-bombing via this one event: cap freshly-created
+    // pending bookings in a short window. (Per-email is already deduped below.)
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { count: recentPending } = await admin
+      .from("event_bookings")
+      .select("*", { count: "exact", head: true })
+      .eq("event_id", eventId)
+      .eq("status", "pending")
+      .gte("created_at", tenMinutesAgo);
+    if ((recentPending ?? 0) > 30) {
+      return { status: "error", message: "Lots of booking requests just now — please try again shortly." };
+    }
+
+    // One active booking per (event, email): reuse a pending one (resend the
+    // link), or tell them they're already in.
+    const { data: existing } = await admin
+      .from("event_bookings")
+      .select("id, status, guest_name")
+      .eq("event_id", eventId)
+      .eq("guest_email", email)
+      .neq("status", "cancelled")
+      .maybeSingle();
+
+    let bookingId: string;
+    let guestName: string;
+    const newlyInserted = !existing;
+    if (existing) {
+      if (existing.status === "confirmed" || existing.status === "waitlisted") {
+        return { status: "success", message: "You’re already booked onto this one — check your email for the details." };
+      }
+      bookingId = existing.id as string;
+      guestName = (existing.guest_name as string | null) ?? name;
+    } else {
+      const { data: inserted, error } = await admin
+        .from("event_bookings")
+        .insert({ event_id: eventId, guest_name: name, guest_email: email, status: "pending" })
+        .select("id")
+        .single();
+      if (error || !inserted) return { status: "error", message: "Couldn’t start your booking. Please try again." };
+      bookingId = inserted.id as string;
+      guestName = name;
+    }
+
+    const token = await signBookingToken(bookingId);
+    if (!token) {
+      if (newlyInserted) await admin.from("event_bookings").delete().eq("id", bookingId).eq("status", "pending");
+      return { status: "error", message: "Guest booking isn’t available right now — please sign in to book." };
+    }
+    const confirmUrl = new URL("/api/events/confirm", siteUrl);
+    confirmUrl.searchParams.set("booking", bookingId);
+    confirmUrl.searchParams.set("token", token);
+    const cancelUrl = new URL("/api/events/cancel", siteUrl);
+    cancelUrl.searchParams.set("booking", bookingId);
+    cancelUrl.searchParams.set("token", token);
+
+    const sent = await sendGuestBookingConfirmEmail({
+      toEmail: parsed.data.email,
+      guestName,
+      eventTitle: ev.title as string,
+      eventWhen: formatEventWhen(ev.starts_at as string, ev.ends_at as string | null),
+      confirmUrl: confirmUrl.toString(),
+      cancelUrl: cancelUrl.toString(),
+    });
+    if (!sent.ok) {
+      // Don't leave an orphan pending row if the email never went out.
+      if (newlyInserted) await admin.from("event_bookings").delete().eq("id", bookingId).eq("status", "pending");
+      return { status: "error", message: "We couldn’t send the confirmation email — please sign in to book instead." };
+    }
+  } catch {
+    return { status: "error", message: "Couldn’t start your booking. Please try again." };
+  }
+
+  if (slug) revalidatePath(`/events/${slug}`);
+  return { status: "success", message: "Almost there — check your email to confirm your spot." };
 }
