@@ -10,6 +10,8 @@ import { CalendarWeekSuggest } from "@/components/admin/CalendarWeekSuggest";
 import { CalendarMonthSuggest } from "@/components/admin/CalendarMonthSuggest";
 import { CalendarChannelSelect } from "@/components/admin/CalendarChannelSelect";
 import { ContentStudioForm } from "@/components/admin/ContentStudioForm";
+import { CalendarDraggable } from "@/components/admin/CalendarDraggable";
+import { CalendarDropZone } from "@/components/admin/CalendarDropZone";
 import { isVisibleOnChannel } from "@/lib/content/channelVisibility";
 import type { ContentItem, VideoCategory } from "@/types/database";
 
@@ -218,7 +220,7 @@ function WeekBoard({
       <p className="mt-4 text-sm text-muted">
         {items.length === 0
           ? "Nothing here yet — click a day’s + to add content straight onto that weekday."
-          : `${assignedCount} of ${items.length} item${items.length === 1 ? "" : "s"} assigned to a day. Click a day’s + to add new content there, or pick a weekday on a card to move it — members see it on that weekday through the rotation.`}
+          : `${assignedCount} of ${items.length} item${items.length === 1 ? "" : "s"} assigned to a day. Click a day’s + to add new content, or drag a card to another day (or use its day menu) to move it — members see it on that weekday through the rotation.`}
       </p>
 
       {addDay != null && (
@@ -263,27 +265,37 @@ function WeekBoard({
                   {col.theme}
                 </p>
               </header>
-              {colItems.length === 0 ? (
-                <p className="px-3 py-4 text-xs text-muted">Nothing here yet.</p>
-              ) : (
-                <ul className="flex flex-col gap-2 p-2">
-                  {colItems.map((item) => (
-                    <li key={item.id} className="border border-rule-hairline p-2">
-                      <div className="flex items-start justify-between gap-1.5">
-                        <span className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted">
-                          {TYPE_LABEL[item.type]} · {CATEGORY_LABEL[item.category]}
-                        </span>
-                        <PublishBadge published={item.is_published} />
-                      </div>
-                      <p className="mt-1 line-clamp-2 text-xs font-semibold leading-snug">{item.title}</p>
-                      <div className="mt-2 flex items-center gap-1.5">
-                        <CalendarDayControl itemId={item.id} day={item.day_of_week} />
-                        <EditLink id={item.id} />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <CalendarDropZone
+                target={{ type: "day", day: col.day }}
+                className="flex-1 p-2"
+                activeClassName="bg-brand-accent/10 ring-2 ring-inset ring-brand-accent"
+              >
+                {colItems.length === 0 ? (
+                  <p className="px-1 py-3 text-xs text-muted">Nothing here — drop a card to assign it.</p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {colItems.map((item) => (
+                      <li key={item.id}>
+                        <CalendarDraggable itemId={item.id}>
+                          <div className="border border-rule-hairline p-2">
+                            <div className="flex items-start justify-between gap-1.5">
+                              <span className="text-[9px] font-extrabold uppercase tracking-[0.12em] text-muted">
+                                {TYPE_LABEL[item.type]} · {CATEGORY_LABEL[item.category]}
+                              </span>
+                              <PublishBadge published={item.is_published} />
+                            </div>
+                            <p className="mt-1 line-clamp-2 text-xs font-semibold leading-snug">{item.title}</p>
+                            <div className="mt-2 flex items-center gap-1.5">
+                              <CalendarDayControl itemId={item.id} day={item.day_of_week} />
+                              <EditLink id={item.id} />
+                            </div>
+                          </div>
+                        </CalendarDraggable>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CalendarDropZone>
             </section>
           );
         })}
@@ -348,9 +360,13 @@ function MonthView({
         </div>
       </div>
 
-      {items.length === 0 && (
+      {items.length === 0 ? (
         <p className="mt-3 text-xs text-muted">
           Nothing scheduled yet — click a day’s + to add content and set it live on that date.
+        </p>
+      ) : (
+        <p className="mt-3 text-xs text-muted">
+          Drag a scheduled item to another day to move it, or into “Unscheduled drafts” below to unschedule.
         </p>
       )}
 
@@ -383,8 +399,9 @@ function MonthView({
         {weeks.flat().map((cell) => {
           const cellItems = byDate.get(cell.iso) ?? [];
           return (
-            <div
+            <CalendarDropZone
               key={cell.iso}
+              target={{ type: "date", date: cell.iso }}
               className={`min-h-[6.5rem] border-b border-r border-rule-hairline p-1.5 ${
                 cell.inMonth ? "" : "bg-foreground/[0.02]"
               }`}
@@ -405,54 +422,68 @@ function MonthView({
               </div>
               <ul className="mt-1 flex flex-col gap-1">
                 {cellItems.map((item) => (
-                  <li
-                    key={item.id}
-                    className={`flex items-center gap-1 px-1 py-0.5 text-[10px] leading-tight ${
-                      item.is_published
-                        ? "border border-rule-border text-foreground"
-                        : "bg-brand-accent text-brand-accent-foreground"
-                    }`}
-                  >
-                    <Link href={`/admin/content/${item.id}/edit`} className="min-w-0 flex-1 truncate hover:underline">
-                      {item.title}
-                    </Link>
-                    <ScheduleControl itemId={item.id} scheduledFor={item.scheduled_for} mode="clear" />
+                  <li key={item.id}>
+                    <CalendarDraggable itemId={item.id}>
+                      <div
+                        className={`flex items-center gap-1 px-1 py-0.5 text-[10px] leading-tight ${
+                          item.is_published
+                            ? "border border-rule-border text-foreground"
+                            : "bg-brand-accent text-brand-accent-foreground"
+                        }`}
+                      >
+                        <Link
+                          href={`/admin/content/${item.id}/edit`}
+                          draggable={false}
+                          className="min-w-0 flex-1 truncate hover:underline"
+                        >
+                          {item.title}
+                        </Link>
+                        <ScheduleControl itemId={item.id} scheduledFor={item.scheduled_for} mode="clear" />
+                      </div>
+                    </CalendarDraggable>
                   </li>
                 ))}
               </ul>
-            </div>
+            </CalendarDropZone>
           );
         })}
       </div>
 
-      {/* Unscheduled drafts */}
-      <section className="mt-8">
-        <h3 className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">
-          Unscheduled drafts · {unscheduled.length}
-        </h3>
-        {unscheduled.length === 0 ? (
-          <p className="mt-2 text-sm text-muted">
-            No unscheduled drafts. New drafts appear here — pick a date to schedule them live.
+      {/* Unscheduled drafts — also a drop target: drop a scheduled item here to unschedule it. */}
+      <CalendarDropZone target={{ type: "unschedule" }} className="mt-8" activeClassName="ring-2 ring-inset ring-brand-accent">
+        <section>
+          <h3 className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">
+            Unscheduled drafts · {unscheduled.length}
+          </h3>
+          <p className="mt-0.5 text-xs text-muted">
+            Drag a draft onto a day to schedule it — or drop a scheduled item here to unschedule.
           </p>
-        ) : (
-          <ul className="mt-3 divide-y divide-rule-hairline border-t border-rule-hairline">
-            {unscheduled.map((item) => (
-              <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{item.title}</p>
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
-                    {TYPE_LABEL[item.type]} · {CATEGORY_LABEL[item.category]}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <ScheduleControl itemId={item.id} scheduledFor={item.scheduled_for} />
-                  <EditLink id={item.id} />
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+          {unscheduled.length === 0 ? (
+            <p className="mt-2 text-sm text-muted">No unscheduled drafts right now.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-rule-hairline border-t border-rule-hairline">
+              {unscheduled.map((item) => (
+                <li key={item.id}>
+                  <CalendarDraggable itemId={item.id}>
+                    <div className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">{item.title}</p>
+                        <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
+                          {TYPE_LABEL[item.type]} · {CATEGORY_LABEL[item.category]}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ScheduleControl itemId={item.id} scheduledFor={item.scheduled_for} />
+                        <EditLink id={item.id} />
+                      </div>
+                    </div>
+                  </CalendarDraggable>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </CalendarDropZone>
     </>
   );
 }
