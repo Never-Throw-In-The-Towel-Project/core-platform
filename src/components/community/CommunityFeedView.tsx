@@ -86,7 +86,11 @@ export async function CommunityFeedView({
         podcastAnonymityPreference={profile.podcast_guest_anonymity_preference}
       />
 
-      <div>
+      {/* Feed leads on mobile: the composer + posts are the primary content, so
+          they sit first on a phone (order-first). The two side rails stack below
+          it. On lg the explicit 3-column grid takes over and order resets, so the
+          desktop Spaces | feed | guidelines layout is unchanged. */}
+      <div className="order-first lg:order-none">
         <header>
           <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-deep">
             The feed

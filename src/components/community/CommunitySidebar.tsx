@@ -37,7 +37,12 @@ export function CommunitySidebar({
 
   return (
     <aside className="space-y-6 text-sm">
-      <div>
+      {/* The Spaces links duplicate the CommunityTabs bar, which is always
+          visible above the feed -- so on mobile (where this rail stacks below
+          the feed) they're redundant. Show them only from lg, where the rail is
+          a genuine left column. The podcast card + opt-in below stay on all
+          sizes. */}
+      <div className="hidden lg:block">
         <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">Spaces</p>
         <div className="mt-2.5 space-y-1.5">
           {SPACE_LINKS.map((space) => (
