@@ -6,7 +6,7 @@ import Link from "next/link";
  * AA-safe --brand-accent so its small uppercase label clears 4.5:1 on the
  * red), the big day title, a one-line description, the ink CTA that inverts to
  * red on hover, an optional "N of 6 answered" progress line, and -- on desktop
- * only -- a grayscale photograph.
+ * only -- a photograph.
  *
  * Reused for the morning/night/weekend phases too (different header, CTA and
  * image, no answered-count), so the whole Today screen speaks one visual
@@ -65,7 +65,7 @@ export function CheckinCard({
               alt=""
               fill
               sizes="224px"
-              className="grayscale-photo object-cover"
+              className="site-photo object-cover"
             />
           </div>
         )}

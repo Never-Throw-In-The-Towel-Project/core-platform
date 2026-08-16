@@ -59,7 +59,7 @@ type Offering = { title: string; blurb: string; image: string; href?: string };
 // pattern of a real photo atop every card, not text-only tiles. A couple of
 // images repeat across cards/sections since there are only 5 real photos
 // for 7 slots on this page -- acceptable, real sites do this too. Every photo
-// is rendered grayscale via the shared .grayscale-photo treatment.
+// is graded via the shared .site-photo treatment.
 const OFFERINGS: Offering[] = [
   {
     title: "Pop Up Barbershop",
@@ -148,7 +148,7 @@ function OfferingCard({ offering }: { offering: Offering }) {
           alt=""
           fill
           sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 100vw"
-          className="grayscale-photo object-cover"
+          className="site-photo object-cover"
         />
       </div>
       <div className="flex flex-1 flex-col gap-2 p-5">
@@ -210,7 +210,7 @@ function CheckItem({ label }: { label: string }) {
 //
 // Rebuilt to the Modernist design system introduced with the Today redesign
 // (see docs / globals.css): a light ink-on-paper ground, a single red accent
-// used strictly by role, grayscale photography, flat surfaces with zero corner
+// used strictly by role, full-colour photography, flat surfaces with zero corner
 // radius, 2px ink borders and wide-tracked uppercase eyebrows. Ink bands
 // (bg-brand-background) are reserved for the emphasis moments -- the hero, the
 // testimonials, and the closing podcast call -- with the prose and card
@@ -283,7 +283,7 @@ export default async function MarketingHomePage() {
             </div>
           </div>
 
-          {/* Framed grayscale hero photograph -- the LCP element, so it carries
+          {/* Framed hero photograph -- the LCP element, so it carries
               the `preload` hint (this Next deprecates `priority` in favour of
               `preload`; see node_modules/next/dist/docs .../image.md). */}
           <div className="relative aspect-[4/5] w-full border border-ink-hairline sm:aspect-[3/2] lg:aspect-[4/5]">
@@ -292,7 +292,7 @@ export default async function MarketingHomePage() {
               alt=""
               fill
               sizes="(min-width: 1024px) 42vw, 100vw"
-              className="grayscale-photo object-cover"
+              className="site-photo object-cover"
               preload
             />
           </div>
@@ -360,7 +360,7 @@ export default async function MarketingHomePage() {
               alt="Anthony Hutton speaking on Never Throw In The Towel"
               fill
               sizes="(min-width: 768px) 45vw, 100vw"
-              className="grayscale-photo object-cover"
+              className="site-photo object-cover"
             />
           </div>
         </div>
@@ -435,7 +435,7 @@ export default async function MarketingHomePage() {
               alt=""
               fill
               sizes="(min-width: 768px) 45vw, 100vw"
-              className="grayscale-photo object-cover"
+              className="site-photo object-cover"
             />
           </div>
         </div>
@@ -465,7 +465,7 @@ export default async function MarketingHomePage() {
                 alt="Recording the Never Throw In The Towel podcast"
                 fill
                 sizes="(min-width: 768px) 45vw, 100vw"
-                className="grayscale-photo object-cover"
+                className="site-photo object-cover"
               />
             </div>
           </div>

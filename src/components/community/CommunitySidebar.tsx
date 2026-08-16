@@ -61,7 +61,7 @@ export function CommunitySidebar({
               alt=""
               fill
               sizes="200px"
-              className="grayscale-photo object-cover"
+              className="site-photo object-cover"
             />
           </div>
           <div className="p-3">

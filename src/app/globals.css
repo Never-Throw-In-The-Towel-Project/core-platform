@@ -156,13 +156,13 @@
   }
 }
 
-/* Every photograph in the redesign is rendered grayscale with a touch of
-   added contrast, never tinted -- one utility so the treatment is identical
-   everywhere (Today check-in card, story rail, pillars, library, review
-   heroes). Applied to the <img> itself; over-image text uses a separate
-   ink scrim, not a filter. */
-.grayscale-photo {
-  filter: grayscale(1) contrast(1.1);
+/* Shared photo treatment -- one utility so every photograph is graded
+   identically site-wide (marketing home, Today check-in card, story rail,
+   community, wins). Full colour with a light contrast/saturation lift for a
+   crisp, consistent look. Applied to the <img> itself; over-image text uses a
+   separate ink scrim, not a filter. */
+.site-photo {
+  filter: contrast(1.03) saturate(1.05);
 }
 
 /* Marketing homepage partner-logo strip: a continuous right-to-left scroll.
