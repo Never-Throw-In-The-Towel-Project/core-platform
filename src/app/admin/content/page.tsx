@@ -6,6 +6,7 @@ import { DAY_LABEL } from "@/lib/content/rotation";
 import { ContentStudioForm } from "@/components/admin/ContentStudioForm";
 import { ContentImportForm } from "@/components/admin/ContentImportForm";
 import { ContentItemActions } from "@/components/admin/ContentItemActions";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { ContentItem, VideoCategory } from "@/types/database";
 
 const TYPE_LABEL: Record<ContentItem["type"], string> = {
@@ -65,19 +66,10 @@ export default async function ContentStudioPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
-      {/* Scoped header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-foreground pb-5">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Content Studio</h1>
-          <p className="mt-1.5 max-w-xl text-sm text-muted">
-            Add content, tag it by day and theme, target it to channels, and publish.
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted">Scope</p>
-          <p className="text-sm font-extrabold">Platform-wide</p>
-        </div>
-      </div>
+      <AdminPageHeader
+        title="Content Studio"
+        description="Add content, tag it by day and theme, target it to channels, and publish."
+      />
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         {/* New piece */}

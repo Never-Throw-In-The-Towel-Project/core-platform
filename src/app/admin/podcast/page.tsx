@@ -1,6 +1,7 @@
 import { requireNtittAdmin } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PodcastGuestAnonymityPreference } from "@/types/database";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 const ANONYMITY_LABEL: Record<PodcastGuestAnonymityPreference, string> = {
   full_name: "Full name",
@@ -66,13 +67,11 @@ export default async function PodcastGuestsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-      <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-deep">Admin</p>
-      <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Podcast Guest Interest</h1>
-      <p className="mt-1 text-sm text-muted">
-        Private list -- never shown publicly. Reach out directly to follow up. Each person&apos;s credit
-        choice is what they agreed to when they opted in -- honour it when producing and publishing.
-      </p>
+    <main className="mx-auto max-w-3xl px-6 py-10">
+      <AdminPageHeader
+        title="Podcast Guest Interest"
+        description="Private list — never shown publicly. Reach out directly to follow up. Each person’s credit choice is what they agreed to when they opted in — honour it when producing and publishing."
+      />
 
       {guestsWithEmail.length === 0 ? (
         <p className="mt-6 text-sm text-muted">No one has opted in yet.</p>
