@@ -2,7 +2,7 @@
 // the mobile header and the top-bar breadcrumb. Counts (where a section has a
 // countKey) are fetched in the admin layout and passed in by key.
 
-export type AdminCountKey = "content" | "challenges" | "moderation" | "companies";
+export type AdminCountKey = "content" | "challenges" | "events" | "moderation" | "companies";
 export type AdminCounts = Partial<Record<AdminCountKey, number>>;
 
 export const ADMIN_SECTIONS: { href: string; label: string; countKey?: AdminCountKey }[] = [
@@ -10,6 +10,7 @@ export const ADMIN_SECTIONS: { href: string; label: string; countKey?: AdminCoun
   { href: "/admin/brain", label: "Brain" },
   { href: "/admin/calendar", label: "Calendar" },
   { href: "/admin/challenges", label: "Challenges", countKey: "challenges" },
+  { href: "/admin/events", label: "Events", countKey: "events" },
   { href: "/admin/moderation", label: "Moderation", countKey: "moderation" },
   { href: "/admin/podcast", label: "Podcast Guests" },
   { href: "/admin/companies", label: "Companies", countKey: "companies" },

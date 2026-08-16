@@ -37,15 +37,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   let counts: AdminCounts = {};
   try {
     const supabase = await createClient();
-    const [contentC, challengesC, moderationC, companiesC] = await Promise.all([
+    const [contentC, challengesC, eventsC, moderationC, companiesC] = await Promise.all([
       supabase.from("content_items").select("*", { count: "exact", head: true }),
       supabase.from("challenges").select("*", { count: "exact", head: true }),
+      supabase.from("events").select("*", { count: "exact", head: true }),
       supabase.from("community_reports").select("*", { count: "exact", head: true }).eq("resolved", false),
       supabase.from("companies").select("*", { count: "exact", head: true }),
     ]);
     counts = {
       content: contentC.count ?? undefined,
       challenges: challengesC.count ?? undefined,
+      events: eventsC.count ?? undefined,
       moderation: moderationC.count ?? undefined,
       companies: companiesC.count ?? undefined,
     };
