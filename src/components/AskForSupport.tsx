@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useId, useRef, useState } from "react";
+import { useActionState, useCallback, useEffect, useId, useRef, useState } from "react";
 import { submitSupportRequest, type SupportActionState } from "@/lib/actions/support";
 
 const initialState: SupportActionState = { status: "idle" };
@@ -33,12 +33,31 @@ export function AskForSupport({
   helplineNumber,
   variant = "floating",
   label = "I want someone to check in with me",
+  open: controlledOpen,
+  onOpenChange,
+  hideTrigger = false,
 }: {
   helplineNumber?: string;
   variant?: "floating" | "inline" | "header" | "block";
   label?: string;
+  /** Controlled open state — pass with onOpenChange to drive the dialog from
+   *  elsewhere (e.g. a menu item), alongside hideTrigger to suppress the
+   *  built-in button. Uncontrolled (internal state) when omitted, so every
+   *  existing call is unchanged. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const isOpen = isControlled ? controlledOpen : uncontrolledOpen;
+  const setIsOpen = useCallback(
+    (value: boolean) => {
+      if (!isControlled) setUncontrolledOpen(value);
+      onOpenChange?.(value);
+    },
+    [isControlled, onOpenChange]
+  );
   const [state, formAction, isPending] = useActionState(submitSupportRequest, initialState);
   const [stayAnonymous, setStayAnonymous] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -86,7 +105,7 @@ export function AskForSupport({
       document.body.style.overflow = prevOverflow;
       previouslyFocused?.focus?.();
     };
-  }, [isOpen]);
+  }, [isOpen, setIsOpen]);
 
   // Move focus to the confirmation heading once the request succeeds -- the
   // Send button it was on no longer exists, so without this focus would drop
@@ -99,6 +118,7 @@ export function AskForSupport({
 
   return (
     <>
+      {!hideTrigger && (
       <button
         type="button"
         onClick={() => setIsOpen(true)}
@@ -121,6 +141,7 @@ export function AskForSupport({
       >
         {label}
       </button>
+      )}
 
       {isOpen && (
         <div

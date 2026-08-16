@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth/dal";
-import { AskForSupport } from "@/components/AskForSupport";
 import { BottomNav } from "@/components/BottomNav";
 import { AppHeader } from "@/components/app/AppHeader";
 import { createClient } from "@/lib/supabase/server";
@@ -38,9 +37,9 @@ async function getCompanySkin(companyId: string): Promise<{ name: string; skinCo
 // getProfile()/verifySession() (the hard boundary; proxy.ts's redirect is
 // only the optimistic fast-path, per docs/app/guides/authentication.md).
 //
-// Chrome is the redesign's ink header (primary nav + company chip + desktop
-// support link) plus, on mobile, the support bar + bottom tab bar that every
-// member screen shares.
+// Chrome is the redesign's ink header (primary nav + company chip + support
+// entry -- the desktop button, the mobile account menu) plus, on mobile, the
+// bottom tab bar that every member screen shares.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const profile = await getProfile();
 
@@ -57,13 +56,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-full flex-1 flex-col">
       <AppHeader profile={profile} skinColor={skinColor} helplineNumber={helplineNumber} />
       <div className="flex-1">{children}</div>
-      {/* Mobile only: the support bar sits directly above the bottom tab bar,
-          keeping the "always visible" support entry point reachable on pages
-          taller than the viewport. On desktop the header carries support and
-          the primary tabs, so both of these are lg:hidden (inside their own
-          components / here). */}
+      {/* Mobile only: the bottom tab bar. Support is no longer a bar here -- it's
+          the "Check in with me" item in the account menu (the ☰), still one tap
+          from every screen. On desktop the header carries support + the primary
+          tabs, so this is lg:hidden. */}
       <div className="sticky bottom-0 z-10 bg-background lg:hidden">
-        <AskForSupport helplineNumber={helplineNumber} variant="inline" />
         <BottomNav />
       </div>
     </div>

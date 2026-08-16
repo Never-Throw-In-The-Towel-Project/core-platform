@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signOut } from "@/lib/actions/auth";
+import { AskForSupport } from "@/components/AskForSupport";
 import type { UserRole } from "@/types/database";
 
 /**
@@ -10,9 +11,9 @@ import type { UserRole } from "@/types/database";
  *  - `avatar`  — the desktop account chip (the member's initial), holding the
  *    role links (Workspace / Control Tower) and Sign out. Settings has its own
  *    gear next to it, so it's omitted here (`includeSettings={false}`).
- *  - `hamburger` — the mobile "☰", where the same items plus Settings collapse
- *    (there's no room for a gear + avatar + support on a phone; support is the
- *    inline bar above the bottom tab bar).
+ *  - `hamburger` — the mobile "☰", where the same items plus Settings collapse,
+ *    and (with showCheckIn) the "Check in with me" support entry lives too --
+ *    the mobile home for support now there's no bottom support bar.
  *
  * A small accessible dropdown: toggles on the button, closes on outside-click,
  * Escape, or following a link. Sign out is a server action (there was no
@@ -23,13 +24,20 @@ export function AppHeaderMenu({
   trigger,
   initial,
   includeSettings = true,
+  showCheckIn = false,
+  helplineNumber,
 }: {
   role: UserRole;
   trigger: "avatar" | "hamburger";
   initial?: string;
   includeSettings?: boolean;
+  /** Show the "Check in with me" item (the mobile menu, where there's no
+   *  header support button and no longer a bottom support bar). */
+  showCheckIn?: boolean;
+  helplineNumber?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [checkInOpen, setCheckInOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -79,6 +87,19 @@ export function AppHeaderMenu({
           role="menu"
           className="absolute right-0 top-full z-40 mt-2 w-44 border border-ink-hairline bg-brand-background py-1 shadow-lg"
         >
+          {showCheckIn && (
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                setCheckInOpen(true);
+              }}
+              className={`${itemClass} border-b border-ink-hairline !text-brand-accent-light-2 hover:!text-brand-accent-light`}
+            >
+              Check in with me
+            </button>
+          )}
           {role === "hr_admin" && (
             <Link role="menuitem" href="/workspace" onClick={() => setOpen(false)} className={itemClass}>
               Workspace
@@ -100,6 +121,17 @@ export function AppHeaderMenu({
             </button>
           </form>
         </div>
+      )}
+
+      {/* Mounted OUTSIDE the collapsible panel so the dialog survives the menu
+          closing (the panel unmounts on close). Opened by the menu item above. */}
+      {showCheckIn && (
+        <AskForSupport
+          helplineNumber={helplineNumber}
+          hideTrigger
+          open={checkInOpen}
+          onOpenChange={setCheckInOpen}
+        />
       )}
     </div>
   );
