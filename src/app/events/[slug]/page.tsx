@@ -20,7 +20,7 @@ function guestBanner(flag: string | undefined): { text: string; tone: "good" | "
     case "cancelled":
       return { text: "Your booking’s cancelled. You can book again any time.", tone: "muted" };
     case "error":
-      return { text: "That link didn’t work — it may have expired. Try booking again below.", tone: "error" };
+      return { text: "That link didn’t work. Please book again below.", tone: "error" };
     default:
       return null;
   }
@@ -40,14 +40,17 @@ export default async function EventDetailPage({
   searchParams: Promise<{ guest?: string }>;
 }) {
   const profile = await getOptionalProfile();
+  // A logged-in-but-not-onboarded user is treated as a visitor here, matching the
+  // layout's app-shell gate (see the list page for the full rationale).
+  const member = profile && profile.onboarding_completed ? profile : null;
   const { slug } = await params;
   const banner = guestBanner((await searchParams).guest);
 
   let event: DetailEvent | null = null;
   try {
     const supabase = await createClient();
-    event = profile
-      ? await getEventBySlugForMember(supabase, slug, profile.id)
+    event = member
+      ? await getEventBySlugForMember(supabase, slug, member.id)
       : await getPublicEventBySlug(supabase, slug);
   } catch {
     event = null;
@@ -132,7 +135,7 @@ export default async function EventDetailPage({
           </p>
         ) : isPast ? (
           <p className="text-sm text-muted">This event has already taken place.</p>
-        ) : profile ? (
+        ) : member ? (
           <EventBookButton
             eventId={event.id}
             slug={event.slug}
