@@ -63,17 +63,32 @@ export default async function ContentCalendarPage({
   const placementsByItem = new Map<string, Set<string>>();
   try {
     const supabase = await createClient();
-    const [itemsResult, companiesResult, placementsResult] = await Promise.all([
+    const [itemsResult, companiesResult] = await Promise.all([
       listAllContentForAdmin(supabase),
       supabase.from("companies").select("id, name").order("name"),
-      supabase.from("content_channel_placements").select("content_item_id, company_id"),
     ]);
     items = itemsResult;
     companies = (companiesResult.data as { id: string; name: string }[] | null) ?? [];
-    for (const row of (placementsResult.data as { content_item_id: string; company_id: string }[] | null) ?? []) {
-      const set = placementsByItem.get(row.content_item_id) ?? new Set<string>();
-      set.add(row.company_id);
-      placementsByItem.set(row.content_item_id, set);
+
+    // Placements are only needed to filter to a specific channel — skip the read
+    // entirely for "All channels" (the default). Page through them because
+    // PostgREST caps a single response at 1000 rows; without paging, a large
+    // placement set would be silently truncated and targeted items misread as
+    // NTITT-wide (visible everywhere).
+    if (channel !== "all") {
+      for (let from = 0; ; from += 1000) {
+        const { data } = await supabase
+          .from("content_channel_placements")
+          .select("content_item_id, company_id")
+          .range(from, from + 999);
+        const rows = (data as { content_item_id: string; company_id: string }[] | null) ?? [];
+        for (const row of rows) {
+          const set = placementsByItem.get(row.content_item_id) ?? new Set<string>();
+          set.add(row.company_id);
+          placementsByItem.set(row.content_item_id, set);
+        }
+        if (rows.length < 1000) break;
+      }
     }
   } catch {
     items = [];

@@ -44,6 +44,7 @@ export async function deleteAccount(
     await admin.from("challenges").update({ created_by: null }).eq("created_by", uid);
     await admin.from("company_step_challenges").update({ created_by: null }).eq("created_by", uid);
     await admin.from("content_items").update({ created_by: null }).eq("created_by", uid);
+    await admin.from("content_folders").update({ created_by: null }).eq("created_by", uid);
     await admin.from("community_posts").update({ removed_by: null }).eq("removed_by", uid);
     await admin.from("community_comments").update({ removed_by: null }).eq("removed_by", uid);
     await admin.from("community_reports").update({ resolved_by: null }).eq("resolved_by", uid);

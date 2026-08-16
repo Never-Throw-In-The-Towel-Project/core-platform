@@ -142,6 +142,7 @@ export async function createContentItem(
 
   revalidatePath("/admin/content");
   revalidatePath("/admin/brain");
+  revalidatePath("/admin/calendar");
   revalidatePath("/content");
   return { status: "success" };
 }
@@ -302,6 +303,7 @@ export async function updateContentItem(
 
   revalidatePath("/admin/content");
   revalidatePath("/admin/brain");
+  revalidatePath("/admin/calendar");
   revalidatePath("/content");
   redirect("/admin/content");
 }
@@ -370,6 +372,7 @@ export async function importContentItems(
 
   revalidatePath("/admin/content");
   revalidatePath("/admin/brain");
+  revalidatePath("/admin/calendar");
   revalidatePath("/content");
 
   const published = rows.filter((r) => r.is_published).length;
@@ -414,9 +417,12 @@ export async function setContentItemPublished(
 
   try {
     const supabase = await createClient();
+    const publish = parsed.data.published === "true";
     const { error } = await supabase
       .from("content_items")
-      .update({ is_published: parsed.data.published === "true" })
+      // Unpublishing also clears any pending schedule, so the
+      // publish-scheduled-content cron can't re-publish a deliberately pulled item.
+      .update(publish ? { is_published: true } : { is_published: false, scheduled_for: null })
       .eq("id", parsed.data.id);
     if (error) {
       return { status: "error", message: "Couldn’t update that item. Please try again." };
@@ -427,6 +433,7 @@ export async function setContentItemPublished(
 
   revalidatePath("/admin/content");
   revalidatePath("/admin/brain");
+  revalidatePath("/admin/calendar");
   revalidatePath("/content");
   return { status: "success" };
 }
@@ -467,6 +474,7 @@ export async function deleteContentItem(
 
   revalidatePath("/admin/content");
   revalidatePath("/admin/brain");
+  revalidatePath("/admin/calendar");
   revalidatePath("/content");
   return { status: "success" };
 }
