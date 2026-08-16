@@ -7,6 +7,8 @@ import { ScheduleControl } from "@/components/admin/ScheduleControl";
 import { buildMonthGrid, monthTitle, shiftMonth, parseMonthParam, monthParam } from "@/lib/content/calendarMonth";
 import { isAiConfigured } from "@/lib/ai/client";
 import { CalendarWeekSuggest } from "@/components/admin/CalendarWeekSuggest";
+import { CalendarChannelSelect } from "@/components/admin/CalendarChannelSelect";
+import { isVisibleOnChannel } from "@/lib/content/channelVisibility";
 import type { ContentItem, VideoCategory } from "@/types/database";
 
 const TYPE_LABEL: Record<ContentItem["type"], string> = {
@@ -47,24 +49,51 @@ const WEEKDAY_HEADERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 export default async function ContentCalendarPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; month?: string }>;
+  searchParams: Promise<{ view?: string; month?: string; channel?: string }>;
 }) {
   await requireNtittAdmin();
-  const { view, month } = await searchParams;
+  const { view, month, channel: channelParam } = await searchParams;
   const isMonth = view === "month";
+  const viewName: "week" | "month" = isMonth ? "month" : "week";
+  const channel = channelParam || "all";
 
   let items: ContentItem[] = [];
+  let companies: { id: string; name: string }[] = [];
+  const placementsByItem = new Map<string, Set<string>>();
   try {
     const supabase = await createClient();
-    items = await listAllContentForAdmin(supabase);
+    const [itemsResult, companiesResult, placementsResult] = await Promise.all([
+      listAllContentForAdmin(supabase),
+      supabase.from("companies").select("id, name").order("name"),
+      supabase.from("content_channel_placements").select("content_item_id, company_id"),
+    ]);
+    items = itemsResult;
+    companies = (companiesResult.data as { id: string; name: string }[] | null) ?? [];
+    for (const row of (placementsResult.data as { content_item_id: string; company_id: string }[] | null) ?? []) {
+      const set = placementsByItem.get(row.content_item_id) ?? new Set<string>();
+      set.add(row.company_id);
+      placementsByItem.set(row.content_item_id, set);
+    }
   } catch {
     items = [];
+    companies = [];
   }
+
+  const visibleItems =
+    channel === "all" ? items : items.filter((i) => isVisibleOnChannel(placementsByItem.get(i.id), channel));
 
   const now = new Date();
   const todayIso = now.toISOString().slice(0, 10);
   const sel = parseMonthParam(month) ?? { year: now.getUTCFullYear(), monthIndex: now.getUTCMonth() };
   const aiConfigured = isAiConfigured();
+
+  const monthForLink = isMonth ? monthParam(sel.year, sel.monthIndex) : undefined;
+  const channelOptions = [
+    { value: "all", label: "All channels", href: calendarHref(viewName, "all", monthForLink) },
+    { value: "global", label: "NTITT-wide only", href: calendarHref(viewName, "global", monthForLink) },
+    ...companies.map((c) => ({ value: c.id, label: c.name, href: calendarHref(viewName, c.id, monthForLink) })),
+  ];
+  const channelLabel = channelOptions.find((o) => o.value === channel)?.label ?? "All channels";
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-12">
@@ -76,19 +105,49 @@ export default async function ContentCalendarPage({
         schedules a piece to go live on a specific date.
       </p>
 
-      {/* View toggle */}
-      <div className="mt-6 flex gap-1 border-b border-rule-hairline">
-        <ViewTab href="/admin/calendar?view=week" label="Week" active={!isMonth} />
-        <ViewTab href="/admin/calendar?view=month" label="Month" active={isMonth} />
+      {/* View toggle + channel filter */}
+      <div className="mt-6 flex flex-wrap items-end justify-between gap-3 border-b border-rule-hairline">
+        <div className="flex gap-1">
+          <ViewTab href={calendarHref("week", channel)} label="Week" active={!isMonth} />
+          <ViewTab href={calendarHref("month", channel)} label="Month" active={isMonth} />
+        </div>
+        <div className="pb-2">
+          <CalendarChannelSelect value={channel} options={channelOptions} />
+        </div>
       </div>
 
+      {channel !== "all" && (
+        <p className="mt-3 text-xs text-muted">
+          Showing what <strong className="font-semibold text-foreground">{channelLabel}</strong>{" "}
+          {channel === "global"
+            ? "members see — content targeted to no specific partner."
+            : "members see — NTITT-wide content plus anything targeted to them."}{" "}
+          Day and schedule changes still apply to the content everywhere it runs.
+        </p>
+      )}
+
       {isMonth ? (
-        <MonthView items={items} year={sel.year} monthIndex={sel.monthIndex} todayIso={todayIso} />
+        <MonthView
+          items={visibleItems}
+          year={sel.year}
+          monthIndex={sel.monthIndex}
+          todayIso={todayIso}
+          channel={channel}
+        />
       ) : (
-        <WeekBoard items={items} aiConfigured={aiConfigured} />
+        <WeekBoard items={visibleItems} aiConfigured={aiConfigured} />
       )}
     </main>
   );
+}
+
+/** Build an /admin/calendar URL preserving the view, channel and (month-view) month. */
+function calendarHref(view: "week" | "month", channel: string, month?: string): string {
+  const sp = new URLSearchParams();
+  sp.set("view", view);
+  if (channel && channel !== "all") sp.set("channel", channel);
+  if (month) sp.set("month", month);
+  return `/admin/calendar?${sp.toString()}`;
 }
 
 function ViewTab({ href, label, active }: { href: string; label: string; active: boolean }) {
@@ -180,11 +239,13 @@ function MonthView({
   year,
   monthIndex,
   todayIso,
+  channel,
 }: {
   items: ContentItem[];
   year: number;
   monthIndex: number;
   todayIso: string;
+  channel: string;
 }) {
   const weeks = buildMonthGrid(year, monthIndex, todayIso);
 
@@ -209,10 +270,10 @@ function MonthView({
     <>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <NavLink href={`/admin/calendar?view=month&month=${monthParam(prev.year, prev.monthIndex)}`} label="‹ Prev" />
+          <NavLink href={calendarHref("month", channel, monthParam(prev.year, prev.monthIndex))} label="‹ Prev" />
           <h2 className="text-sm font-extrabold tracking-tight">{monthTitle(year, monthIndex)}</h2>
-          <NavLink href={`/admin/calendar?view=month&month=${monthParam(next.year, next.monthIndex)}`} label="Next ›" />
-          <NavLink href="/admin/calendar?view=month" label="Today" />
+          <NavLink href={calendarHref("month", channel, monthParam(next.year, next.monthIndex))} label="Next ›" />
+          <NavLink href={calendarHref("month", channel)} label="Today" />
         </div>
         <div className="flex items-center gap-3 text-[10px] font-extrabold uppercase tracking-[0.12em]">
           <span className="flex items-center gap-1.5">
