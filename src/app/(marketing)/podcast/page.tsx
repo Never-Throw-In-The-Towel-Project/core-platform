@@ -48,7 +48,7 @@ export default function PodcastPage() {
             alt="Recording the Never Throw In The Towel podcast"
             width={1024}
             height={1536}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover object-[50%_30%]"
           />
         </div>
       </div>

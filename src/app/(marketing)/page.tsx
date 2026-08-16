@@ -300,7 +300,7 @@ export default async function MarketingHomePage() {
           {/* Framed hero photograph -- the LCP element, so it carries
               the `preload` hint (this Next deprecates `priority` in favour of
               `preload`; see node_modules/next/dist/docs .../image.md). */}
-          <div className="relative aspect-[4/5] w-full border border-ink-hairline sm:aspect-[3/2] lg:aspect-[4/5]">
+          <div className="relative aspect-square w-full border border-ink-hairline sm:aspect-[3/2] lg:aspect-square">
             <Image
               src="/site/hero-boxing.jpg"
               alt=""

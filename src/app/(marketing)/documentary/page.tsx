@@ -71,7 +71,7 @@ export default function DocumentaryPage() {
             alt="Anthony Hutton speaking on Never Throw In The Towel"
             width={1200}
             height={1486}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover object-top"
           />
         </div>
         <div className="space-y-4">
