@@ -193,8 +193,15 @@ link — not a company-funded prize, and not really a prize at all. Removing it:
 - Simplifies `createChallengeAction`, `getAdminChallengeView`, and
   `ChallengeAdminTile` (the `pending_confirmation` UI state is gone).
 
-The `pending_confirmation` status value and the `anthony_visit` value remain valid
-in the historical DB `CHECK` constraints (they are a harmless superset now that no
-code writes them); the migration was left untouched rather than edited after the
-fact. The `anthony_visit` label is kept in `rewardTypeLabel`'s map purely so any
-historical row still renders a human name.
+The original table migration (`20260813020000_company_step_challenges.sql`) was
+left untouched — migrations are immutable once applied — so it still lists
+`anthony_visit` and `pending_confirmation` in its `CHECK` constraints as a
+historical record. A follow-up migration
+(`20260822000000_tighten_challenge_reward_status.sql`) then **drops both values**
+from the constraints, so the schema itself now rejects them: the retirement is
+enforced at the database layer, not just by application code. That migration is
+**guarded** — it asserts no existing row still uses either value and raises a
+clear error if one does, rather than failing opaquely — and the tightened
+constraints are covered by a live reject-test in the migration assertions
+(`supabase/tests/assertions.sql`, check `7d*`). The `anthony_visit` label is kept
+in `rewardTypeLabel`'s map purely so any historical row still renders a human name.
