@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { updateCompany } from "@/lib/actions/companyAdmin";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import { BrandColourFields } from "@/components/brand/BrandColourFields";
 
 export type EditableCompany = {
   id: string;
@@ -20,8 +21,16 @@ export type EditableCompany = {
  * Edit an existing company's branding / welcome copy / support contacts. Fields
  * are uncontrolled (defaultValue) prefills; the slug is shown read-only above
  * this form (it's the portal identity and never editable -- see updateCompany).
+ * Brand colours use the shared BrandColourFields (a NULL-preserving tri-state).
  */
-export function EditCompanyForm({ company }: { company: EditableCompany }) {
+export function EditCompanyForm({
+  company,
+  defaultPrimaryColor,
+}: {
+  company: EditableCompany;
+  /** The NTITT default skin colour (DEFAULT_SKIN), forwarded to BrandColourFields. */
+  defaultPrimaryColor: string;
+}) {
   const [state, formAction, isPending] = useActionState(updateCompany, initialRoutineState);
 
   return (
@@ -71,19 +80,11 @@ export function EditCompanyForm({ company }: { company: EditableCompany }) {
         </div>
       </fieldset>
 
-      <fieldset className="space-y-3 border-t border-rule-hairline pt-3">
-        <legend className="text-xs font-semibold text-muted">Brand colours</legend>
-        <div className="flex gap-4">
-          <label className="text-sm">
-            Primary
-            <input name="primaryColor" type="color" defaultValue={company.primary_color ?? "#111111"} className="mt-1 block h-9 w-16 border border-rule-border bg-transparent" />
-          </label>
-          <label className="text-sm">
-            Accent
-            <input name="accentColor" type="color" defaultValue={company.accent_color ?? "#ff563c"} className="mt-1 block h-9 w-16 border border-rule-border bg-transparent" />
-          </label>
-        </div>
-      </fieldset>
+      <BrandColourFields
+        initialPrimary={company.primary_color}
+        initialAccent={company.accent_color}
+        defaultPrimaryColor={defaultPrimaryColor}
+      />
 
       {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
       {state.status === "success" && <p className="text-sm font-medium text-foreground">{state.message}</p>}

@@ -3,6 +3,7 @@ import { requireNtittAdmin } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DIRECT_COMPANY_ID } from "@/lib/tenant/constants";
+import { DEFAULT_SKIN } from "@/lib/app/skin";
 import { InviteStaffForm } from "@/components/admin/InviteStaffForm";
 import { NewCompanyWizard } from "@/components/admin/NewCompanyWizard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -54,7 +55,7 @@ export default async function CompaniesPage() {
       />
 
       <div className="mt-8">
-        <NewCompanyWizard />
+        <NewCompanyWizard defaultPrimaryColor={DEFAULT_SKIN} />
       </div>
 
       <section className="mt-10">

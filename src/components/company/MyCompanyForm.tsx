@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { updateMyCompany } from "@/lib/actions/companyAdmin";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import { BrandColourFields } from "@/components/brand/BrandColourFields";
 
 export type MyCompany = {
   welcome_copy: string | null;
@@ -13,39 +14,22 @@ export type MyCompany = {
   accent_color: string | null;
 };
 
-// The picker's starting accent when a company is switching from defaults to
-// custom (matches the NewCompanyWizard default). Primary's starting value is
-// passed in as the real NTITT skin colour so "custom" begins where "default"
-// left off.
-const ACCENT_START = "#ff563c";
-
 /**
  * HR edits their own company's member-facing settings (updateMyCompany derives
  * the company from the caller's profile, so there's no companyId field here).
- * Name and slug are NOT editable -- they're NTITT-owned portal identity.
- *
- * Brand colours are a TRUE tri-state: a company with NULL colours follows the
- * NTITT defaults (getCompanySkin -> DEFAULT_SKIN; ThemeProvider leaves
- * --brand-accent alone). A plain `<input type="color">` can't represent "unset"
- * -- it always submits a value -- so without the explicit "use defaults"
- * checkbox, saving the form (e.g. after only editing the welcome copy) would
- * silently stamp the placeholder colours over the NULLs and flip the members'
- * skin. The checkbox writes NULLs back when ticked, and only sends the picked
- * colours when the admin has deliberately chosen custom ones.
+ * Name and slug are NOT editable -- they're NTITT-owned portal identity. Brand
+ * colours are handled by the shared BrandColourFields (a NULL-preserving
+ * tri-state).
  */
 export function MyCompanyForm({
   company,
   defaultPrimaryColor,
 }: {
   company: MyCompany;
-  /** The NTITT default skin colour (DEFAULT_SKIN), used as the primary picker's
-   *  starting point when a company switches from defaults to custom. */
+  /** The NTITT default skin colour (DEFAULT_SKIN), forwarded to BrandColourFields. */
   defaultPrimaryColor: string;
 }) {
   const [state, formAction, isPending] = useActionState(updateMyCompany, initialRoutineState);
-  const [useDefaultColours, setUseDefaultColours] = useState(
-    company.primary_color == null && company.accent_color == null
-  );
 
   return (
     <form action={formAction} className="space-y-4 border border-rule-hairline p-5">
@@ -101,41 +85,11 @@ export function MyCompanyForm({
         </div>
       </fieldset>
 
-      <fieldset className="space-y-3 border-t border-rule-hairline pt-3">
-        <legend className="text-xs font-semibold text-muted">Brand colours</legend>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="useDefaultColours"
-            checked={useDefaultColours}
-            onChange={(e) => setUseDefaultColours(e.target.checked)}
-            className="h-4 w-4"
-          />
-          Use the NTITT default colours
-        </label>
-        {!useDefaultColours && (
-          <div className="flex gap-4">
-            <label className="text-sm">
-              Primary
-              <input
-                name="primaryColor"
-                type="color"
-                defaultValue={company.primary_color ?? defaultPrimaryColor}
-                className="mt-1 block h-9 w-16 border border-rule-border bg-transparent"
-              />
-            </label>
-            <label className="text-sm">
-              Accent
-              <input
-                name="accentColor"
-                type="color"
-                defaultValue={company.accent_color ?? ACCENT_START}
-                className="mt-1 block h-9 w-16 border border-rule-border bg-transparent"
-              />
-            </label>
-          </div>
-        )}
-      </fieldset>
+      <BrandColourFields
+        initialPrimary={company.primary_color}
+        initialAccent={company.accent_color}
+        defaultPrimaryColor={defaultPrimaryColor}
+      />
 
       {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
       {state.status === "success" && <p className="text-sm font-medium text-foreground">{state.message}</p>}
