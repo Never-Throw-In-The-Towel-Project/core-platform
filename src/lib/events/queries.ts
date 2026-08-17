@@ -33,6 +33,11 @@ export async function listPublicUpcomingEvents(anon: AnyClient): Promise<EventRo
   const { data } = await anon
     .from("events")
     .select("*")
+    // Explicit `company_id is null`, not RLS alone: this query is also run for a
+    // signed-in-but-not-onboarded user (treated as a visitor), whose authenticated
+    // client would otherwise let RLS return their own company's events onto the
+    // public surface. The public list is GLOBAL events only, on any client.
+    .is("company_id", null)
     .eq("is_published", true)
     .is("cancelled_at", null)
     .gte("starts_at", nowIso())
@@ -40,12 +45,13 @@ export async function listPublicUpcomingEvents(anon: AnyClient): Promise<EventRo
   return (data as EventRow[] | null) ?? [];
 }
 
-/** A single public event by slug (published global only, via RLS). */
+/** A single public event by slug (published GLOBAL only -- see listPublic note). */
 export async function getPublicEventBySlug(anon: AnyClient, slug: string): Promise<EventRow | null> {
   const { data } = await anon
     .from("events")
     .select("*")
     .eq("slug", slug)
+    .is("company_id", null)
     .eq("is_published", true)
     .maybeSingle();
   return (data as EventRow | null) ?? null;
