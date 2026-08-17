@@ -28,6 +28,10 @@ export async function sendGuestBookingConfirmEmail(
   if (!apiKey || !senderEmail) return { ok: false, error: "not configured" };
 
   const greeting = input.guestName?.trim() ? `Hi ${input.guestName.trim()},` : "Hi,";
+  // The HTML greeting must escape the (user-supplied) name, like every other
+  // interpolated field below -- otherwise a name containing markup renders raw
+  // in the email body. (The plaintext greeting above needs no escaping.)
+  const htmlGreeting = input.guestName?.trim() ? `Hi ${escapeHtml(input.guestName.trim())},` : "Hi,";
   const textContent = `${greeting}
 
 You asked to book onto ${input.eventTitle} (${input.eventWhen}) with Never Throw In The Towel.
@@ -44,7 +48,7 @@ Keep on living,
 Never Throw In The Towel`;
 
   const htmlContent = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#1a1a1a">
-  <p>${greeting}</p>
+  <p>${htmlGreeting}</p>
   <p>You asked to book onto <strong>${escapeHtml(input.eventTitle)}</strong> (${escapeHtml(input.eventWhen)}) with Never Throw In The Towel.</p>
   <p><a href="${input.confirmUrl}" style="display:inline-block;background:#ec3013;color:#fff;font-weight:bold;text-decoration:none;padding:12px 22px">Confirm your spot</a></p>
   <p style="color:#555">If the event is already full you'll join the waitlist, and we'll move you up the moment a place frees.</p>

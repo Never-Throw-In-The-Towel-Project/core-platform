@@ -1019,6 +1019,90 @@ select set_config('request.jwt.claim.sub', '', false);
 select set_config('request.jwt.claim.role', '', false);
 
 -- ============================================================================
+-- LIVE test of the PAST-EVENT GUARD (review round 2): book_event() must reject
+-- an event that has already started, even though RLS would let the member read
+-- it. The guest path already guards this in app code; this proves the member
+-- RPC now does too.
+-- ============================================================================
+insert into public.events (id, company_id, title, slug, starts_at, is_published) values
+  ('ea000000-0000-0000-0000-0000000000e9', null, 'Past dip', 'past-dip', now() - interval '1 day', true);
+
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$
+begin
+  begin
+    perform public.book_event('ea000000-0000-0000-0000-0000000000e9');
+    raise exception 'FAIL past-guard: book_event confirmed a seat on an event that already started';
+  exception when others then
+    if sqlerrm not like '%already started%' then raise; end if;
+  end;
+  raise notice 'PASS  8g* live: book_event rejects a past event';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
+
+-- ============================================================================
+-- LIVE test of reconcile_event_capacity (review round 2): raising an event's
+-- capacity must promote the oldest waitlisters into the freed seats. Set up a
+-- capacity-1 event with one confirmed + one waitlisted member (via book_event),
+-- then raise the cap and reconcile as the superuser (the function is
+-- service_role-only). Fresh event id so it doesn't collide with other fixtures.
+-- ============================================================================
+insert into public.events (id, company_id, title, slug, starts_at, capacity, is_published) values
+  ('ea000000-0000-0000-0000-0000000000ea', null, 'Reconcile dip', 'reconcile-dip', now() + interval '5 days', 1, true);
+
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$ declare st text; begin
+  st := public.book_event('ea000000-0000-0000-0000-0000000000ea');
+  if st <> 'confirmed' then raise exception 'FAIL reconcile-setup: usera not confirmed (got %)', st; end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
+
+select set_config('request.jwt.claim.sub', 'b0000000-0000-0000-0000-00000000000b', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$ declare st text; begin
+  st := public.book_event('ea000000-0000-0000-0000-0000000000ea');
+  if st <> 'waitlisted' then raise exception 'FAIL reconcile-setup: userb not waitlisted (got %)', st; end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
+
+do $$
+declare bstatus text; cc int;
+begin
+  -- reconcile is service_role-only: anon/authenticated must NOT hold EXECUTE.
+  if has_function_privilege('anon', 'public.reconcile_event_capacity(uuid)', 'execute') then
+    raise exception 'FAIL lockdown: anon can execute reconcile_event_capacity';
+  end if;
+  if has_function_privilege('authenticated', 'public.reconcile_event_capacity(uuid)', 'execute') then
+    raise exception 'FAIL lockdown: authenticated can execute reconcile_event_capacity';
+  end if;
+
+  update public.events set capacity = 2 where id = 'ea000000-0000-0000-0000-0000000000ea';
+  perform public.reconcile_event_capacity('ea000000-0000-0000-0000-0000000000ea');
+
+  select status into bstatus from public.event_bookings
+    where event_id = 'ea000000-0000-0000-0000-0000000000ea' and user_id = 'b0000000-0000-0000-0000-00000000000b';
+  if bstatus <> 'confirmed' then
+    raise exception 'FAIL reconcile: waitlister not promoted after capacity rise (status %)', bstatus;
+  end if;
+  select confirmed_count into cc from public.events where id = 'ea000000-0000-0000-0000-0000000000ea';
+  if cc <> 2 then raise exception 'FAIL reconcile: confirmed_count wrong after promote (got %)', cc; end if;
+  raise notice 'PASS  8h* live: reconcile_event_capacity promotes waitlisters when the cap rises (service_role-only)';
+end
+$$;
+
+-- ============================================================================
 -- LIVE test of GUEST booking (Phase 2): a 'pending' booking holds no seat;
 -- confirm_guest_booking() claims a seat or waitlists; cancel promotes the next
 -- guest. Run as the bootstrap superuser (which can execute the service_role-only

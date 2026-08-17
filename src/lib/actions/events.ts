@@ -2,10 +2,11 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifySession, getProfile } from "@/lib/auth/dal";
-import { signBookingToken } from "@/lib/events/guestToken";
+import { signBookingToken, verifyBookingToken } from "@/lib/events/guestToken";
 import { sendGuestBookingConfirmEmail } from "@/lib/events/guestEmail";
 import { formatEventWhen } from "@/lib/events/format";
 import { type RoutineActionState } from "./routineState";
@@ -263,6 +264,15 @@ export async function updateEvent(
     // returns 0 rows and no error -- report that rather than a false success.
     if (!data || data.length === 0) {
       return { status: "error", message: "You can’t edit this event, or it no longer exists." };
+    }
+    // The capacity may have risen: promote waitlisters into any freed seats.
+    // Best-effort -- the edit is already saved, so a reconcile hiccup must not
+    // surface as a save failure. reconcile_event_capacity is service_role-only,
+    // hence the admin client (this edit was already RLS-authorised above).
+    try {
+      await createAdminClient().rpc("reconcile_event_capacity", { p_event_id: eventId });
+    } catch {
+      /* non-fatal: the save succeeded */
     }
   } catch {
     return { status: "error", message: "Couldn’t save your changes. Please try again." };
@@ -541,10 +551,15 @@ export async function requestGuestBooking(
       if (newlyInserted) await admin.from("event_bookings").delete().eq("id", bookingId).eq("status", "pending");
       return { status: "error", message: "Guest booking isn’t available right now — please sign in to book." };
     }
-    const confirmUrl = new URL("/api/events/confirm", siteUrl);
+    // Point at the click-to-confirm LANDING PAGES, not a side-effectful GET.
+    // Email link-scanners (SafeLinks etc.) auto-fetch every URL in an inbound
+    // message; a GET that mutates would let a scanner confirm then cancel a
+    // booking before the guest ever clicks. These pages only render on GET; the
+    // mutation happens on the button POST (a server action) a human triggers.
+    const confirmUrl = new URL("/events/confirm", siteUrl);
     confirmUrl.searchParams.set("booking", bookingId);
     confirmUrl.searchParams.set("token", token);
-    const cancelUrl = new URL("/api/events/cancel", siteUrl);
+    const cancelUrl = new URL("/events/cancel", siteUrl);
     cancelUrl.searchParams.set("booking", bookingId);
     cancelUrl.searchParams.set("token", token);
 
@@ -571,4 +586,60 @@ export async function requestGuestBooking(
 
   if (slug) revalidatePath(`/events/${slug}`);
   return { status: "success", message: "Almost there — check your email to confirm your spot." };
+}
+
+// ============================================================================
+// GUEST confirm / cancel -- the actions behind the click-to-confirm landing
+// pages (/events/confirm, /events/cancel). Invoked ONLY by the page's button
+// POST, never by the emailed link: the link opens a page (a safe GET), and only
+// a human clicking the button reaches these, so email link-scanners can't
+// silently confirm-then-cancel a booking. The HMAC token (re-verified here) is
+// the authorisation -- a guest has no session -- and the service-role RPCs are
+// the sole callers of the locked-down confirm_guest_booking/cancel_guest_booking
+// functions. Both redirect back to the event with a banner flag.
+// ============================================================================
+
+/** Resolve the event's public base path for a booking id, for the post-action redirect. */
+async function guestBookingBasePath(admin: ReturnType<typeof createAdminClient>, bookingId: string): Promise<string> {
+  const { data } = await admin
+    .from("event_bookings")
+    .select("event:events(slug)")
+    .eq("id", bookingId)
+    .maybeSingle();
+  const slug = (data as { event?: { slug?: string } } | null)?.event?.slug ?? null;
+  return slug ? `/events/${slug}` : "/events";
+}
+
+export async function confirmGuestBooking(formData: FormData): Promise<void> {
+  const bookingId = String(formData.get("booking") ?? "");
+  const token = String(formData.get("token") ?? "");
+  let target = "/events?guest=error";
+  if (bookingId && token && (await verifyBookingToken(bookingId, token))) {
+    try {
+      const admin = createAdminClient();
+      const base = await guestBookingBasePath(admin, bookingId);
+      const { data, error } = await admin.rpc("confirm_guest_booking", { p_booking_id: bookingId });
+      target = error ? `${base}?guest=error` : `${base}?guest=${String(data)}`; // 'confirmed' | 'waitlisted'
+    } catch {
+      target = "/events?guest=error";
+    }
+  }
+  redirect(target);
+}
+
+export async function cancelGuestBooking(formData: FormData): Promise<void> {
+  const bookingId = String(formData.get("booking") ?? "");
+  const token = String(formData.get("token") ?? "");
+  let target = "/events?guest=error";
+  if (bookingId && token && (await verifyBookingToken(bookingId, token))) {
+    try {
+      const admin = createAdminClient();
+      const base = await guestBookingBasePath(admin, bookingId);
+      const { error } = await admin.rpc("cancel_guest_booking", { p_booking_id: bookingId });
+      target = error ? `${base}?guest=error` : `${base}?guest=cancelled`;
+    } catch {
+      target = "/events?guest=error";
+    }
+  }
+  redirect(target);
 }
