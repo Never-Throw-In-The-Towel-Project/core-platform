@@ -148,8 +148,10 @@ export async function updateDisplayName(
   revalidatePath("/community/wins");
   revalidatePath("/community/company");
   revalidatePath("/settings");
-  // "layout" so the display name shown in each role shell's header/sidebar
-  // (the (company) header, the Admin sidebar) refreshes too, not just the page.
+  // "layout" so the display name shown in each role shell's chrome refreshes
+  // too, not just the page it was edited on: the member (app) header initial,
+  // the (company) header, and the Admin sidebar. /home names the (app) layout.
+  revalidatePath("/home", "layout");
   revalidatePath("/workspace", "layout");
   revalidatePath("/admin", "layout");
   return { status: "success" };
