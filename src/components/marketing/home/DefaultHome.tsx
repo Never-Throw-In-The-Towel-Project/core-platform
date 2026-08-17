@@ -81,16 +81,22 @@ function Hero() {
           </p>
         </div>
 
-        {/* LCP element -> preload hint (this Next deprecates `priority`). The
-            wrapper ratio matches the source (940x788) so the founder cut-out and
-            its baked-in "Founder / Anth Hutton" caption are never cropped. */}
-        <div className="relative aspect-[940/788] w-full overflow-hidden">
+        {/* LCP element -> preload hint (this Next deprecates `priority`).
+            Mobile/tablet (single column): the wrapper keeps the source ratio
+            (940x788) so nothing is cropped. From lg up the row is as tall as the
+            copy beside it, so the image stretches to fill that full height
+            (self-stretch + aspect dropped) and object-cover trims the surplus.
+            The crop is anchored bottom-left (object-left-bottom) so it only ever
+            eats the dark right-hand background -- the founder and the baked-in
+            "Founder / Anth Hutton" caption are always kept, and he faces into
+            the copy. */}
+        <div className="relative aspect-[940/788] w-full overflow-hidden lg:aspect-auto lg:h-full lg:self-stretch">
           <Image
             src="/site/founder-stage.jpg"
             alt="Anth Hutton, founder of Never Throw In The Towel, speaking on stage"
             fill
             sizes="(min-width: 1024px) 42vw, 100vw"
-            className="site-photo object-cover object-center"
+            className="site-photo object-cover object-center lg:object-left-bottom"
             preload
           />
         </div>
