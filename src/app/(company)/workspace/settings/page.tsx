@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { requireHrAdmin, verifySession } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DisplayNameForm } from "@/components/settings/DisplayNameForm";
+import { DEFAULT_SKIN } from "@/lib/app/skin";
+import { AccountSettingsCard } from "@/components/settings/AccountSettingsCard";
 import { MyCompanyForm, type MyCompany } from "@/components/company/MyCompanyForm";
 
 /**
@@ -41,26 +41,9 @@ export default async function WorkspaceSettingsPage() {
       <h1 className="text-2xl font-extrabold tracking-tight">Settings</h1>
       <p className="mt-1 text-sm text-muted">Your account and your company&apos;s member-facing settings.</p>
 
-      <section className="mt-8 space-y-4">
-        <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Your account</h2>
-        <DisplayNameForm currentName={profile.display_name} />
-        {session.email && (
-          <div className="border border-rule-hairline p-4">
-            <p className="text-sm font-medium">Email</p>
-            <p className="mt-1 text-sm text-muted">{session.email}</p>
-            <p className="mt-2 text-xs text-muted">
-              Your sign-in email. To change it, contact NTITT support.
-            </p>
-          </div>
-        )}
-        <p className="text-xs text-muted">
-          Manage your personal Today-screen reminders and timezone in your{" "}
-          <Link href="/settings" className="font-semibold underline underline-offset-2 hover:text-foreground">
-            member settings
-          </Link>
-          .
-        </p>
-      </section>
+      <div className="mt-8">
+        <AccountSettingsCard displayName={profile.display_name} email={session.email} showReminderLink />
+      </div>
 
       <section className="mt-12">
         <h2 className="border-b-2 border-foreground pb-2 text-[11px] font-extrabold uppercase tracking-[0.16em]">
@@ -71,7 +54,7 @@ export default async function WorkspaceSettingsPage() {
         </p>
         <div className="mt-4">
           {company ? (
-            <MyCompanyForm company={company} />
+            <MyCompanyForm company={company} defaultPrimaryColor={DEFAULT_SKIN} />
           ) : (
             <p className="border border-rule-hairline p-4 text-sm text-muted">
               We couldn&apos;t load your company&apos;s settings just now. Please refresh, or contact NTITT

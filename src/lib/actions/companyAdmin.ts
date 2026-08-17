@@ -285,6 +285,12 @@ export async function updateMyCompany(
   }
   const d = parsed.data;
 
+  // Tri-state brand colours (see MyCompanyForm): when "use NTITT defaults" is
+  // ticked the picker inputs aren't rendered, and we write NULL back so the
+  // company follows the defaults rather than stamping the placeholder swatches
+  // over its skin.
+  const useDefaultColours = formData.get("useDefaultColours") != null;
+
   try {
     const admin = createAdminClient();
     const { error } = await admin
@@ -294,8 +300,8 @@ export async function updateMyCompany(
         support_contact_name: d.supportContactName || null,
         support_contact_email: d.supportContactEmail || null,
         support_contact_phone: d.supportContactPhone || null,
-        primary_color: d.primaryColor || null,
-        accent_color: d.accentColor || null,
+        primary_color: useDefaultColours ? null : d.primaryColor || null,
+        accent_color: useDefaultColours ? null : d.accentColor || null,
       })
       .eq("id", profile.company_id);
     if (error) {
