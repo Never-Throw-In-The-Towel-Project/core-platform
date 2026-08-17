@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth/dal";
 import { CommunityFeedView } from "@/components/community/CommunityFeedView";
 import { parseFeedSort } from "@/lib/community/sort";
-import { DIRECT_COMPANY_ID } from "@/lib/tenant/constants";
+import { isCompanyOrgMember } from "@/lib/community/membership";
 
 /**
  * "An optional company-specific space as well... so KP Snacks staff can
@@ -17,10 +17,10 @@ export default async function CompanySpacePage({
 }) {
   const profile = await getProfile();
 
-  // Direct (self-signup) members have no real company space -- the tab is hidden
-  // for them in the layout; guard the route too so a typed/bookmarked URL can't
-  // reach a stranger-pool feed (docs/PLATFORM_STRUCTURE.md decision 6).
-  if (profile.company_id === DIRECT_COMPANY_ID) {
+  // Only real company-org members have a company space -- the tab is hidden for
+  // everyone else in the layout; guard the route too so a typed/bookmarked URL
+  // can't reach it (a Direct stranger-pool feed, or the NTITT-internal admin row).
+  if (!isCompanyOrgMember(profile)) {
     redirect("/community");
   }
 

@@ -1,14 +1,14 @@
 import { CommunityTabs } from "@/components/community/CommunityTabs";
 import { getProfile } from "@/lib/auth/dal";
-import { DIRECT_COMPANY_ID } from "@/lib/tenant/constants";
+import { isCompanyOrgMember } from "@/lib/community/membership";
 
 export default async function CommunityLayout({ children }: { children: React.ReactNode }) {
-  // Direct (self-signup) members share the single NTITT-Direct company row, so a
-  // "My Company" feed would pool unrelated strangers -- hide the tab for them
-  // (docs/PLATFORM_STRUCTURE.md decision 6). getProfile is React-cached, so this
-  // adds no query beyond what the pages already do.
+  // The "My Company" space is only for members of a real company organisation --
+  // not Direct (self-signup) individuals (a shared "company" feed there would
+  // pool strangers) nor platform admins (the synthetic NTITT-internal company).
+  // getProfile is React-cached, so this adds no query beyond what the pages do.
   const profile = await getProfile();
-  const showCompanyTab = profile.company_id !== DIRECT_COMPANY_ID;
+  const showCompanyTab = isCompanyOrgMember(profile);
 
   return (
     <div>
