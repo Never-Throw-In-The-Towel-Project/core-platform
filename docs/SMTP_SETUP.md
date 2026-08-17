@@ -9,7 +9,7 @@ The platform sends email from **two independent places**:
 
 | Sender | What it sends | How it's configured | Status |
 | --- | --- | --- | --- |
-| **The app** (`src/lib/**`, `fetch` to Brevo's v3 REST API) | 90-day impact report, Ask-for-Support alerts, step-challenge notifications, Anthony-visit request | `BREVO_API_KEY` + `BREVO_SENDER_EMAIL` env vars | Works once those two vars are set |
+| **The app** (`src/lib/**`, `fetch` to Brevo's v3 REST API) | 90-day impact report, Ask-for-Support alerts, step-challenge notifications | `BREVO_API_KEY` + `BREVO_SENDER_EMAIL` env vars | Works once those two vars are set |
 | **Supabase Auth** (GoTrue) | Signup **confirmation**, **magic-link** sign-in, admin **invites**, password **recovery**, email-change | Supabase project SMTP settings / `supabase/config.toml` `[auth.email.smtp]` | **This runbook** |
 
 Out of the box Supabase Auth uses Supabase's **built-in shared mailer**, which is

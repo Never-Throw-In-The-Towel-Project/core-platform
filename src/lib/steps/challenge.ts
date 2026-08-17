@@ -110,18 +110,16 @@ export function pickChallengeAwards(
 }
 
 /**
- * Reward types HR can select when setting up a challenge (brief §2/§4). The
- * company funds and administers the reward; NTITT only displays it and confirms
- * when the target is hit. `anthony_visit` is special: picking it does NOT launch
- * immediately -- the challenge is created 'pending_confirmation' and Anthony is
- * emailed a signed link to confirm availability, which flips it live.
+ * Reward types HR can select when setting up a challenge (brief §2). The prize is
+ * always the COMPANY'S to choose, fund and host -- the platform only runs the
+ * challenge, protects member privacy, and tells HR the moment the target is hit.
+ * Every reward launches the challenge straight to 'active'.
  */
 export const CHALLENGE_REWARD_TYPES = [
   { value: "team_experience", label: "Team experience (team lunch, day out)" },
   { value: "extra_day_off", label: "Extra day off" },
   { value: "charity_donation", label: "Charity donation in the company's name" },
   { value: "prize_draw", label: "Prize draw (e.g. vouchers)" },
-  { value: "anthony_visit", label: "Anthony Hutton in-person visit (needs his confirmation)" },
 ] as const;
 
 const REWARD_TYPE_LABELS: Record<string, string> = {
@@ -129,6 +127,8 @@ const REWARD_TYPE_LABELS: Record<string, string> = {
   extra_day_off: "Extra day off",
   charity_donation: "Charity donation",
   prize_draw: "Prize draw",
+  // Retired from selection (company-funded prizes only). Kept so any historical
+  // challenge stored with this reward_type still renders a human label.
   anthony_visit: "Anthony Hutton in-person visit",
 };
 

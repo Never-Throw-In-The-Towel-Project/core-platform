@@ -149,8 +149,9 @@ _Track 2 — the engagement flywheel (independent, parallelisable)_
     read-only dashboard tile** (team total, opt-in rate, target hit); the **staff
     screen** (progress bar, contributors, days left, reward, **private** opt-in
     toggle); a **target-hit email** to HR (aggregate only, once, on transition);
-    the **Anthony-visit reward** via an HMAC-signed confirm link (the challenge
-    stays `pending_confirmation` until he taps it); and, at challenge end,
+    the **reward** itself is company-chosen, funded and hosted (the platform runs
+    the challenge and signals the target hit, but never handles prizes or
+    payment); and, at challenge end,
     **Challenge Complete** to every contributor when the target is hit plus a
     **private Team MVP** award to the single top contributor (own-rows-only, so
     no ranking is ever exposed). Individual step counts and opt-in identities are
