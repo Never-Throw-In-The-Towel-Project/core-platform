@@ -858,6 +858,34 @@ begin
 end
 $$;
 
+-- ---- retired reward_type / status values stay barred (tightened CHECKs) -----
+-- 20260822000000 dropped 'anthony_visit' and 'pending_confirmation'. Prove the
+-- narrowed CHECKs reject them. Inserted as the table owner so RLS is out of the
+-- way and a CHECK is the only thing that can bounce an otherwise well-formed row
+-- (Company A exists, passes the pool guard, and neither status is 'active' so the
+-- one-active-per-company index is not in play). Both inserts must roll back.
+do $$
+begin
+  begin
+    insert into public.company_step_challenges
+      (company_id, title, target_steps, reward_type, reward_name, starts_on, ends_on, status)
+    values ('aaaaaaaa-0000-0000-0000-000000000001','retired reward',1000,'anthony_visit','x','2027-03-01','2027-03-31','draft');
+    raise exception 'FAIL retired-reward: reward_type=anthony_visit was accepted after tightening';
+  exception when check_violation then null;
+  end;
+
+  begin
+    insert into public.company_step_challenges
+      (company_id, title, target_steps, reward_type, reward_name, starts_on, ends_on, status)
+    values ('aaaaaaaa-0000-0000-0000-000000000001','retired status',1000,'prize_draw','x','2027-03-01','2027-03-31','pending_confirmation');
+    raise exception 'FAIL retired-status: status=pending_confirmation was accepted after tightening';
+  exception when check_violation then null;
+  end;
+
+  raise notice 'PASS  7d* retired reward_type/status (anthony_visit / pending_confirmation) are rejected by the tightened CHECKs';
+end
+$$;
+
 -- ============================================================================
 -- LIVE RLS test of EVENTS: published-global reads reach anon; company + draft
 -- events never do; ntitt_admin-only authoring; direct booking inserts blocked;
