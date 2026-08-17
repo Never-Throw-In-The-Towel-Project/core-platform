@@ -7,6 +7,7 @@ import { PostComposer } from "./PostComposer";
 import { CommunityGuidelines } from "./CommunityGuidelines";
 import { CommunitySidebar } from "./CommunitySidebar";
 import { CommunityRightRail } from "./CommunityRightRail";
+import { isCompanyOrgMember } from "@/lib/community/membership";
 import type { CommunityScope, Profile } from "@/types/database";
 
 const SORT_TABS: { key: FeedSort; label: string }[] = [
@@ -76,11 +77,17 @@ export async function CommunityFeedView({
     commentsByPost = [];
   }
 
+  // One server-computed "now" for every card's relative timestamp, so SSR and
+  // client hydration render the same string.
+  const nowIso = new Date().toISOString();
+
   return (
     <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 px-6 py-10 lg:grid-cols-[200px_1fr_240px]">
       <CommunitySidebar
         active={scope === "company" ? "company" : "feed"}
-        companyName={company?.name ?? null}
+        // Only real company-org members get the company space link (matches the
+        // My Company tab gating); Direct/admin users see just the global spaces.
+        companyName={isCompanyOrgMember(profile) ? company?.name ?? null : null}
         podcastEpisode={podcastEpisode}
         podcastOptedIn={profile.podcast_guest_opt_in}
         podcastAnonymityPreference={profile.podcast_guest_anonymity_preference}
@@ -98,7 +105,12 @@ export async function CommunityFeedView({
           <h1 className="mt-1 text-2xl font-extrabold leading-none tracking-tight">{heading}</h1>
         </header>
         <div className="mt-4">
-          <PostComposer scope={scope} board="feed" placeholder={composerPlaceholder} />
+          <PostComposer
+            scope={scope}
+            board="feed"
+            placeholder={composerPlaceholder}
+            authorName={profile.display_name}
+          />
         </div>
 
         {/* Sort the feed: New (default), Top (most-liked), Hot (recency-weighted
@@ -124,10 +136,10 @@ export async function CommunityFeedView({
           })}
         </nav>
 
-        <div className="mt-2">
+        <div className="mt-4 space-y-4">
           {posts.length === 0 && <p className="py-8 text-sm text-muted">{emptyMessage}</p>}
           {posts.map((post, i) => (
-            <PostCard key={post.id} post={post} comments={commentsByPost[i]} />
+            <PostCard key={post.id} post={post} comments={commentsByPost[i]} now={nowIso} />
           ))}
         </div>
       </div>
