@@ -122,8 +122,7 @@ Silently degrade but disable a launch-critical feature: `CRON_SECRET` (all jobs
 `BREVO_SENDER_EMAIL` (all email), Twilio trio (support SMS),
 `NTITT_FALLBACK_CONTACT_PHONE` / `_EMAIL` (the "nobody responded" safety net).
 Feature-optional: `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` (AI Studio assist),
-`ANTHONY_VISIT_NOTIFY_EMAIL` (visit reward), `HELPLINE_NUMBER` (defaults to
-Samaritans), `NEXT_PUBLIC_APP_ROOT_DOMAIN`.
+`HELPLINE_NUMBER` (defaults to Samaritans), `NEXT_PUBLIC_APP_ROOT_DOMAIN`.
 
 ### SEO / discoverability (🛠️)
 - ✅ **DONE — Open Graph / Twitter tags + `metadataBase` + a title template** (lane 1).
@@ -158,7 +157,7 @@ Samaritans), `NEXT_PUBLIC_APP_ROOT_DOMAIN`.
 - 🛠️ Dashboard shows no headcount until the first cron aggregation runs.
 - ⚙️ Stagger `aggregate-step-challenges` off the shared 02:00 slot; tighten the
   support monitor toward the 15-min SLA. Fix `.env.example` drift (add
-  `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL`/`ANTHONY_VISIT_NOTIFY_EMAIL`, drop the
+  `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL`, drop the
   unused `VIMEO_ACCESS_TOKEN`). Add an error check to the silent `pending` query
   in `monitor-support-response-time`.
 - 🛠️ Cosmetic content: duration/thumbnails never captured; challenge day-picker

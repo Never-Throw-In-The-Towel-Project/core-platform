@@ -25,33 +25,6 @@ async function sendBrevoEmail(to: string, subject: string, textContent: string):
   }
 }
 
-export interface AnthonyVisitEmailInput {
-  companyName: string;
-  title: string;
-  startsOn: string;
-  endsOn: string;
-  confirmUrl: string | null;
-}
-
-/**
- * Email Anthony to confirm availability for a pop-up visit reward (brief §4).
- * Recipient is ANTHONY_VISIT_NOTIFY_EMAIL; no-op if that isn't set. The
- * confirm link is the HMAC-signed one from challengeConfirm.ts -- tapping it
- * flips the pending challenge to active.
- */
-export async function sendAnthonyVisitEmail(input: AnthonyVisitEmailInput): Promise<boolean> {
-  const to = process.env.ANTHONY_VISIT_NOTIFY_EMAIL;
-  if (!to) return false;
-  const confirmLine = input.confirmUrl
-    ? `Confirm your availability and make the challenge live:\n${input.confirmUrl}`
-    : "(Confirmation link unavailable — SUPPORT_ACK_TOKEN_SECRET / NEXT_PUBLIC_SITE_URL is not set.)";
-  const text =
-    `${input.companyName} would like a pop-up barber session from you as the reward for their step ` +
-    `challenge "${input.title}" (${input.startsOn} to ${input.endsOn}). Standard day rate applies, ` +
-    `subject to your availability and the commercial agreement.\n\n${confirmLine}`;
-  return sendBrevoEmail(to, `Step challenge reward request — ${input.companyName}`, text);
-}
-
 export interface TargetHitEmailInput {
   to: string;
   companyName: string;

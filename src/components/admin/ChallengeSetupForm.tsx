@@ -67,6 +67,10 @@ export function ChallengeSetupForm() {
             placeholder="e.g. Team lunch on us"
             className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
           />
+          <span className="mt-1 block text-xs text-muted">
+            The prize is yours to choose, fund and host — we run the challenge and let you know the moment your
+            team hits the target.
+          </span>
         </label>
 
         <label className="block text-sm">
@@ -89,8 +93,8 @@ export function ChallengeSetupForm() {
         )}
 
         <p className="text-xs text-muted sm:col-span-2">
-          Choosing the Anthony Hutton visit emails him to confirm availability first; the challenge goes live
-          once he confirms. Every other reward launches straight away.
+          The challenge launches straight away and runs to your end date. Rewards are funded and administered by
+          your company — the platform never handles prizes or payment.
         </p>
 
         <div className="sm:col-span-2">

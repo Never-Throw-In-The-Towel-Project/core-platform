@@ -5,8 +5,6 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireHrAdmin } from "@/lib/auth/dal";
 import { DIRECT_COMPANY_ID } from "@/lib/tenant/constants";
-import { buildChallengeConfirmUrl } from "@/lib/steps/challengeConfirm";
-import { sendAnthonyVisitEmail } from "@/lib/steps/challengeNotify";
 import { type RoutineActionState } from "./routineState";
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter valid start and end dates.");
@@ -20,7 +18,6 @@ const CreateChallengeSchema = z
       "extra_day_off",
       "charity_donation",
       "prize_draw",
-      "anthony_visit",
     ]),
     rewardName: z.string().trim().min(1).max(200),
     startsOn: isoDate,
@@ -68,35 +65,26 @@ export async function createChallengeAction(
     return { status: "error", message: "The end date can't be in the past." };
   }
 
-  // The Anthony-visit reward doesn't launch immediately: the challenge is
-  // created 'pending_confirmation' and Anthony is emailed a signed link to
-  // confirm his availability, which flips it to 'active' (brief §4). Every other
-  // reward launches straight to 'active'.
-  const isAnthonyVisit = parsed.data.rewardType === "anthony_visit";
-  const status = isAnthonyVisit ? "pending_confirmation" : "active";
-
-  let newChallengeId: string | null = null;
   try {
     const supabase = await createClient();
 
-    // At most one challenge active OR awaiting confirmation at a time. The
-    // partial unique index only guards 'active', so this closes the gap where a
-    // pending Anthony-visit challenge could be duplicated. RLS scopes the read
-    // to the caller's own company.
+    // At most one active challenge per company at a time, surfaced here as a
+    // clear message rather than a raw unique-violation from the partial index.
+    // RLS scopes the read to the caller's own company.
     const { data: existing } = await supabase
       .from("company_step_challenges")
       .select("id")
       .eq("company_id", profile.company_id)
-      .in("status", ["active", "pending_confirmation"])
+      .eq("status", "active")
       .limit(1);
     if (existing && existing.length > 0) {
       return {
         status: "error",
-        message: "You already have a challenge running or awaiting confirmation. It must finish first.",
+        message: "You already have an active challenge. It must finish before you start another.",
       };
     }
 
-    const { data: inserted, error } = await supabase
+    const { error } = await supabase
       .from("company_step_challenges")
       .insert({
         company_id: profile.company_id,
@@ -106,11 +94,9 @@ export async function createChallengeAction(
         reward_name: parsed.data.rewardName,
         starts_on: parsed.data.startsOn,
         ends_on: parsed.data.endsOn,
-        status,
+        status: "active",
         created_by: profile.id,
-      })
-      .select("id")
-      .single();
+      });
     if (error) {
       if (error.code === "23505") {
         return {
@@ -119,23 +105,6 @@ export async function createChallengeAction(
         };
       }
       return { status: "error", message: "Something went wrong creating the challenge. Please try again." };
-    }
-    newChallengeId = inserted?.id ?? null;
-
-    if (isAnthonyVisit && newChallengeId) {
-      // Best-effort: email Anthony a signed confirm link. A send failure never
-      // fails the create -- the challenge simply waits in 'pending_confirmation'.
-      const [{ data: company }, confirmUrl] = await Promise.all([
-        supabase.from("companies").select("name").eq("id", profile.company_id).maybeSingle(),
-        buildChallengeConfirmUrl(newChallengeId),
-      ]);
-      await sendAnthonyVisitEmail({
-        companyName: (company?.name as string) ?? "Your company",
-        title: parsed.data.title,
-        startsOn: parsed.data.startsOn,
-        endsOn: parsed.data.endsOn,
-        confirmUrl,
-      });
     }
   } catch {
     return { status: "error", message: "Something went wrong creating the challenge. Please try again." };
@@ -146,11 +115,5 @@ export async function createChallengeAction(
   // /workspace overview shows participation KPIs, not the challenge).
   revalidatePath("/workspace/challenges");
   revalidatePath("/workspace");
-  return isAnthonyVisit
-    ? {
-        status: "success",
-        message:
-          "Anthony has been emailed to confirm availability — the challenge goes live once he confirms.",
-      }
-    : { status: "success" };
+  return { status: "success" };
 }
