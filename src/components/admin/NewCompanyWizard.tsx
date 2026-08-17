@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { createCompanyWithHr } from "@/lib/actions/companyAdmin";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import { BrandColourFields } from "@/components/brand/BrandColourFields";
 
 // NEXT_PUBLIC_* is inlined at build, so the live URL preview needs no round-trip.
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "neverthrowinthetowel.uk";
@@ -23,7 +24,7 @@ function slugify(input: string): string {
  * idiomatic reset (no setState-in-effect). Name drives the slug + live URL
  * preview until the admin edits the slug directly.
  */
-function WizardFields() {
+function WizardFields({ defaultPrimaryColor }: { defaultPrimaryColor: string }) {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
@@ -92,20 +93,7 @@ function WizardFields() {
         <p className="text-xs text-muted">They&apos;ll get an email invite to set a password and land in their Workspace.</p>
       </fieldset>
 
-      <fieldset className="space-y-3 border-t border-rule-hairline pt-3">
-        <legend className="text-xs font-semibold text-muted">Brand colours (optional)</legend>
-        <div className="flex gap-4">
-          <label className="text-sm">
-            Primary
-            <input name="primaryColor" type="color" defaultValue="#111111" className="mt-1 block h-9 w-16 border border-rule-border bg-transparent" />
-          </label>
-          <label className="text-sm">
-            Accent
-            <input name="accentColor" type="color" defaultValue="#ff563c" className="mt-1 block h-9 w-16 border border-rule-border bg-transparent" />
-          </label>
-        </div>
-        <p className="text-xs text-muted">Leave as-is to use the default NTITT theme.</p>
-      </fieldset>
+      <BrandColourFields initialPrimary={null} initialAccent={null} defaultPrimaryColor={defaultPrimaryColor} />
 
       <details className="text-sm">
         <summary className="cursor-pointer text-xs font-semibold text-muted">Support contact (optional)</summary>
@@ -137,7 +125,7 @@ function WizardFields() {
  * DNS, no engineering -- the wildcard subdomain resolves the moment the row
  * exists.
  */
-export function NewCompanyWizard() {
+export function NewCompanyWizard({ defaultPrimaryColor }: { defaultPrimaryColor: string }) {
   const [state, formAction, isPending] = useActionState(createCompanyWithHr, initialRoutineState);
   // On success the message is unique per company (name + URL); using it as the
   // fields' key remounts them cleared, without a setState-in-effect reset.
@@ -152,7 +140,7 @@ export function NewCompanyWizard() {
         </p>
       </div>
 
-      <WizardFields key={fieldsKey} />
+      <WizardFields key={fieldsKey} defaultPrimaryColor={defaultPrimaryColor} />
 
       {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
       {state.status === "success" && <p className="text-sm font-medium text-foreground">{state.message}</p>}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireNtittAdmin } from "@/lib/auth/dal";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { DEFAULT_SKIN } from "@/lib/app/skin";
 import { EditCompanyForm, type EditableCompany } from "@/components/admin/EditCompanyForm";
 
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || "neverthrowinthetowel.uk";
@@ -53,7 +54,7 @@ export default async function EditCompanyPage({ params }: { params: Promise<{ id
       </p>
 
       <div className="mt-8">
-        <EditCompanyForm company={company} />
+        <EditCompanyForm company={company} defaultPrimaryColor={DEFAULT_SKIN} />
       </div>
     </main>
   );

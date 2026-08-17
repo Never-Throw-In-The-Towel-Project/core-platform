@@ -62,6 +62,7 @@ export async function createCompany(
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
   }
   const d = parsed.data;
+  const useDefaultColours = formData.get("useDefaultColours") != null;
 
   try {
     const admin = createAdminClient();
@@ -71,8 +72,8 @@ export async function createCompany(
       support_contact_name: d.supportContactName || null,
       support_contact_email: d.supportContactEmail || null,
       support_contact_phone: d.supportContactPhone || null,
-      primary_color: d.primaryColor || null,
-      accent_color: d.accentColor || null,
+      primary_color: useDefaultColours ? null : d.primaryColor || null,
+      accent_color: useDefaultColours ? null : d.accentColor || null,
     });
     if (error) {
       // 23505 = unique violation (slug or custom_domain already taken).
@@ -128,6 +129,7 @@ export async function createCompanyWithHr(
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
   }
   const d = parsed.data;
+  const useDefaultColours = formData.get("useDefaultColours") != null;
 
   let companyId: string;
   try {
@@ -140,8 +142,8 @@ export async function createCompanyWithHr(
         support_contact_name: d.supportContactName || null,
         support_contact_email: d.supportContactEmail || null,
         support_contact_phone: d.supportContactPhone || null,
-        primary_color: d.primaryColor || null,
-        accent_color: d.accentColor || null,
+        primary_color: useDefaultColours ? null : d.primaryColor || null,
+        accent_color: useDefaultColours ? null : d.accentColor || null,
       })
       .select("id")
       .single();
@@ -217,6 +219,7 @@ export async function updateCompany(
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check the form and try again." };
   }
   const d = parsed.data;
+  const useDefaultColours = formData.get("useDefaultColours") != null;
 
   try {
     const admin = createAdminClient();
@@ -228,8 +231,8 @@ export async function updateCompany(
         support_contact_name: d.supportContactName || null,
         support_contact_email: d.supportContactEmail || null,
         support_contact_phone: d.supportContactPhone || null,
-        primary_color: d.primaryColor || null,
-        accent_color: d.accentColor || null,
+        primary_color: useDefaultColours ? null : d.primaryColor || null,
+        accent_color: useDefaultColours ? null : d.accentColor || null,
       })
       .eq("id", d.companyId);
     if (error) {
@@ -241,6 +244,9 @@ export async function updateCompany(
 
   revalidatePath("/admin/companies");
   revalidatePath(`/admin/companies/${d.companyId}`);
+  // "layout" so the company skin strip (member header) re-reads new colours --
+  // parity with updateMyCompany.
+  revalidatePath("/home", "layout");
   return { status: "success", message: "Changes saved." };
 }
 
