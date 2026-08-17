@@ -5,6 +5,7 @@ import { getOptionalProfile } from "@/lib/auth/dal";
 import { getEventBySlugForMember, getPublicEventBySlug } from "@/lib/events/queries";
 import { EventBookButton } from "@/components/events/EventBookButton";
 import { GuestBookingForm } from "@/components/events/GuestBookingForm";
+import { CapacityMeter } from "@/components/events/CapacityMeter";
 import { formatEventWhen } from "@/lib/events/format";
 import type { EventRow, EventBookingStatus } from "@/types/database";
 
@@ -116,10 +117,14 @@ export default async function EventDetailPage({
       )}
 
       {event.capacity != null && (
-        <p className="mt-1 text-sm text-muted">
-          {event.confirmed_count} / {event.capacity} booked
-          {isFull && !isCancelled ? " — join the waitlist" : ""}
-        </p>
+        <div className="mt-3 max-w-xs">
+          <CapacityMeter confirmed={event.confirmed_count} capacity={event.capacity} />
+          {isFull && !isCancelled && (
+            <p className="mt-1 text-xs font-semibold text-brand-accent-deep">
+              This event is full — book to join the waitlist.
+            </p>
+          )}
+        </div>
       )}
 
       {event.description && (

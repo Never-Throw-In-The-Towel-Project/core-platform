@@ -5,9 +5,12 @@ import { createClient } from "@/lib/supabase/server";
 import { getEventForAdmin, listBookingsForEvent } from "@/lib/events/queries";
 import { EventStudioForm } from "@/components/admin/EventStudioForm";
 import { EventAdminControls } from "@/components/admin/EventAdminControls";
-import { EventRosterList } from "@/components/events/EventRoster";
+import { EventRosterPanel } from "@/components/events/EventRosterPanel";
+import { eventStatus, EventStatusBadge } from "@/components/events/EventStatusBadge";
 import { formatEventWhen } from "@/lib/events/format";
 import type { EventRow, EventBookingWithIdentity } from "@/types/database";
+
+const SECTION_HEADING = "border-b-2 border-foreground pb-2 text-[11px] font-extrabold uppercase tracking-[0.16em]";
 
 /** One event's editor: publish/cancel/delete controls, the booking roster, and an edit form. ntitt_admin only. */
 export default async function AdminEventEditorPage({ params }: { params: Promise<{ id: string }> }) {
@@ -27,10 +30,9 @@ export default async function AdminEventEditorPage({ params }: { params: Promise
 
   const confirmed = bookings.filter((b) => b.status === "confirmed");
   const waitlisted = bookings.filter((b) => b.status === "waitlisted");
-  const cap = event.capacity;
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
+    <main className="mx-auto max-w-4xl px-6 py-12">
       <Link
         href="/admin/events"
         className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-brand-accent-deep hover:underline"
@@ -46,18 +48,7 @@ export default async function AdminEventEditorPage({ params }: { params: Promise
             {event.location_name ? ` · ${event.location_name}` : ""}
           </p>
         </div>
-        <span
-          className={
-            "shrink-0 border px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] " +
-            (event.cancelled_at
-              ? "border-brand-accent-deep text-brand-accent-deep"
-              : event.is_published
-                ? "border-rule-border text-muted"
-                : "border-brand-accent bg-brand-accent text-brand-accent-foreground")
-          }
-        >
-          {event.cancelled_at ? "Cancelled" : event.is_published ? "Live" : "Draft"}
-        </span>
+        <EventStatusBadge status={eventStatus(event, new Date().getTime())} />
       </div>
       <p className="mt-2">
         <Link
@@ -73,36 +64,25 @@ export default async function AdminEventEditorPage({ params }: { params: Promise
           eventId={event.id}
           isPublished={event.is_published}
           isCancelled={Boolean(event.cancelled_at)}
+          bookingCount={bookings.length}
         />
       </div>
 
       <section className="mt-10">
-        <h2 className="border-b-2 border-foreground pb-2 text-[11px] font-extrabold uppercase tracking-[0.16em]">
-          Bookings
-        </h2>
-        <p className="mt-3 text-sm font-semibold">
-          {confirmed.length}
-          {cap != null ? ` / ${cap}` : ""} confirmed
-          {waitlisted.length > 0 ? ` · ${waitlisted.length} on the waitlist` : ""}
-        </p>
-
+        <h2 className={SECTION_HEADING}>Bookings</h2>
         <div className="mt-4">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">Confirmed</p>
-          <EventRosterList rows={confirmed} />
+          <EventRosterPanel
+            eventTitle={event.title}
+            confirmed={confirmed}
+            waitlisted={waitlisted}
+            capacity={event.capacity}
+          />
         </div>
-        {waitlisted.length > 0 && (
-          <div className="mt-6">
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">Waitlist</p>
-            <EventRosterList rows={waitlisted} />
-          </div>
-        )}
       </section>
 
       <section className="mt-12">
-        <h2 className="border-b-2 border-foreground pb-2 text-[11px] font-extrabold uppercase tracking-[0.16em]">
-          Edit event
-        </h2>
-        <div className="mt-4">
+        <h2 className={SECTION_HEADING}>Edit event</h2>
+        <div className="mt-5">
           <EventStudioForm event={event} />
         </div>
       </section>

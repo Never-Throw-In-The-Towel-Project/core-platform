@@ -10,8 +10,21 @@ import { signBookingToken, verifyBookingToken } from "@/lib/events/guestToken";
 import { sendGuestBookingConfirmEmail } from "@/lib/events/guestEmail";
 import { formatEventWhen } from "@/lib/events/format";
 import { type RoutineActionState } from "./routineState";
+import { type EventFormState } from "./eventFormState";
+import { type EventFieldErrors } from "@/lib/events/validation";
 
 const uuid = z.string().uuid();
+
+/** Flatten a zod parse error into our per-field { field: firstMessage } map. */
+function zodToFieldErrors(error: z.ZodError): EventFieldErrors {
+  const flat = error.flatten().fieldErrors as Record<string, string[] | undefined>;
+  const out: EventFieldErrors = {};
+  for (const [key, messages] of Object.entries(flat)) {
+    const first = messages?.[0];
+    if (first) (out as Record<string, string>)[key] = first;
+  }
+  return out;
+}
 
 // ============================================================================
 // MEMBER booking actions. Every write goes through the SECURITY DEFINER
@@ -173,20 +186,28 @@ function readEventForm(formData: FormData) {
 }
 
 export async function createEvent(
-  _prev: RoutineActionState,
+  _prev: EventFormState,
   formData: FormData
-): Promise<RoutineActionState> {
+): Promise<EventFormState> {
   const session = await verifySession();
   const denied = await ensureNtittAdmin();
   if (denied) return denied;
 
   const parsed = readEventForm(formData);
   if (!parsed.success) {
-    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check the fields and try again." };
+    return {
+      status: "error",
+      message: "Please fix the highlighted fields and try again.",
+      fieldErrors: zodToFieldErrors(parsed.error),
+    };
   }
   const d = parsed.data;
   if (d.endsAt && d.endsAt < d.startsAt) {
-    return { status: "error", message: "The end time can’t be before the start time." };
+    return {
+      status: "error",
+      message: "The end time can’t be before the start time.",
+      fieldErrors: { endsAt: "The end time can’t be before the start time." },
+    };
   }
 
   try {
@@ -218,9 +239,9 @@ export async function createEvent(
 }
 
 export async function updateEvent(
-  _prev: RoutineActionState,
+  _prev: EventFormState,
   formData: FormData
-): Promise<RoutineActionState> {
+): Promise<EventFormState> {
   await verifySession();
   const denied = await ensureEventEditor();
   if (denied) return denied;
@@ -231,11 +252,19 @@ export async function updateEvent(
 
   const parsed = readEventForm(formData);
   if (!parsed.success) {
-    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check the fields and try again." };
+    return {
+      status: "error",
+      message: "Please fix the highlighted fields and try again.",
+      fieldErrors: zodToFieldErrors(parsed.error),
+    };
   }
   const d = parsed.data;
   if (d.endsAt && d.endsAt < d.startsAt) {
-    return { status: "error", message: "The end time can’t be before the start time." };
+    return {
+      status: "error",
+      message: "The end time can’t be before the start time.",
+      fieldErrors: { endsAt: "The end time can’t be before the start time." },
+    };
   }
 
   try {
@@ -396,9 +425,9 @@ export async function deleteEvent(
 // ============================================================================
 
 export async function createCompanyEvent(
-  _prev: RoutineActionState,
+  _prev: EventFormState,
   formData: FormData
-): Promise<RoutineActionState> {
+): Promise<EventFormState> {
   const session = await verifySession();
   const profile = await getProfile();
   if (profile.role !== "hr_admin") {
@@ -407,11 +436,19 @@ export async function createCompanyEvent(
 
   const parsed = readEventForm(formData);
   if (!parsed.success) {
-    return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check the fields and try again." };
+    return {
+      status: "error",
+      message: "Please fix the highlighted fields and try again.",
+      fieldErrors: zodToFieldErrors(parsed.error),
+    };
   }
   const d = parsed.data;
   if (d.endsAt && d.endsAt < d.startsAt) {
-    return { status: "error", message: "The end time can’t be before the start time." };
+    return {
+      status: "error",
+      message: "The end time can’t be before the start time.",
+      fieldErrors: { endsAt: "The end time can’t be before the start time." },
+    };
   }
 
   try {
