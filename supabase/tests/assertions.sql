@@ -1333,5 +1333,33 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select set_config('request.jwt.claim.role', '', false);
 
+-- ---- 11. event-images storage bucket: public read + author-gated writes -----
+-- The bucket that backs the event authoring form's image upload. Public read
+-- (same rationale as community-images/content-assets); the boundary is that a
+-- write is admitted only for an event author — ntitt_admin OR hr_admin — unlike
+-- content-assets, which is ntitt_admin only.
+do $$
+declare is_public boolean; wc text; found boolean := false;
+begin
+  select public into is_public from storage.buckets where id = 'event-images';
+  if is_public is distinct from true then
+    raise exception 'event-images bucket missing or not public';
+  end if;
+  for wc in
+    select pg_get_expr(polwithcheck, polrelid)
+      from pg_policy where polrelid = 'storage.objects'::regclass and polcmd = 'a'
+  loop
+    if wc is not null and position('event-images' in wc) > 0 then
+      found := true;
+      if position('hr_admin' in wc) = 0 or position('ntitt_admin' in wc) = 0 then
+        raise exception 'event-images INSERT policy is not gated to both event-author roles: %', wc;
+      end if;
+    end if;
+  end loop;
+  if not found then raise exception 'no INSERT policy on storage.objects for event-images'; end if;
+  raise notice 'PASS  11  event-images bucket public + writes gated to ntitt_admin/hr_admin';
+end
+$$;
+
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'
