@@ -432,42 +432,62 @@ function EventPreviewCard({
   const cap = values.capacity.trim();
 
   return (
-    <aside className="lg:sticky lg:top-6 lg:self-start">
-      <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted">Live preview</p>
-      <div className="mt-2 border border-rule-border">
-        {previewUrl ? (
-          <div className="aspect-[16/9] w-full overflow-hidden border-b border-rule-border">
-            {/* eslint-disable-next-line @next/next/no-img-element -- local object URL / admin image preview */}
-            <img src={previewUrl} alt="" className="h-full w-full object-cover" />
-          </div>
-        ) : (
-          <div className="flex aspect-[16/9] w-full items-center justify-center border-b border-rule-hairline bg-background text-[11px] font-semibold uppercase tracking-wide text-muted">
-            No image
-          </div>
-        )}
-        <div className="p-4">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-brand-accent-deep">
-            {when ?? "Add a start time"}
-          </p>
-          <h3 className="mt-1.5 font-extrabold leading-tight tracking-tight">
-            {values.title.trim() || "Untitled event"}
-          </h3>
-          {values.locationName.trim() && (
-            <p className="mt-1 text-sm text-muted">{values.locationName.trim()}</p>
+    // On mobile the preview leads (order-first) so it's visible while filling
+    // the top fields, and it's collapsible (<details>) so it can be tucked away
+    // when it's in the way. On desktop it drops back beside the form (order-none)
+    // as a sticky side card, and the summary is inert (pointer-events-none) +
+    // always-open, so it reads exactly as the fixed panel it was before.
+    <aside className="order-first lg:order-none lg:sticky lg:top-6 lg:self-start">
+      <details open className="group">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-1 lg:cursor-default lg:py-0 lg:pointer-events-none [&::-webkit-details-marker]:hidden">
+          <span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted">Live preview</span>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            className="h-4 w-4 shrink-0 text-muted transition-transform group-open:rotate-180 lg:hidden"
+          >
+            <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </summary>
+
+        <div className="mt-2 border border-rule-border">
+          {previewUrl ? (
+            <div className="aspect-[16/9] w-full overflow-hidden border-b border-rule-border">
+              {/* eslint-disable-next-line @next/next/no-img-element -- local object URL / admin image preview */}
+              <img src={previewUrl} alt="" className="h-full w-full object-cover" />
+            </div>
+          ) : (
+            <div className="flex aspect-[16/9] w-full items-center justify-center border-b border-rule-hairline bg-background text-[11px] font-semibold uppercase tracking-wide text-muted">
+              No image
+            </div>
           )}
-          {values.summary.trim() && (
-            <p className="mt-2 line-clamp-3 text-sm text-muted">{values.summary.trim()}</p>
-          )}
-          <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted">
-            {cap ? `Capacity ${cap}` : "Unlimited spots"}
-          </p>
+          <div className="p-4">
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-brand-accent-deep">
+              {when ?? "Add a start time"}
+            </p>
+            <h3 className="mt-1.5 font-extrabold leading-tight tracking-tight">
+              {values.title.trim() || "Untitled event"}
+            </h3>
+            {values.locationName.trim() && (
+              <p className="mt-1 text-sm text-muted">{values.locationName.trim()}</p>
+            )}
+            {values.summary.trim() && (
+              <p className="mt-2 line-clamp-3 text-sm text-muted">{values.summary.trim()}</p>
+            )}
+            <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-muted">
+              {cap ? `Capacity ${cap}` : "Unlimited spots"}
+            </p>
+          </div>
         </div>
-      </div>
-      <p className="mt-2 text-xs text-muted">
-        {isEdit
-          ? "Reflects your unsaved edits. Save to apply."
-          : "Updates as you type. Members see this card on the events list."}
-      </p>
+        <p className="mt-2 text-xs text-muted">
+          {isEdit
+            ? "Reflects your unsaved edits. Save to apply."
+            : "Updates as you type. Members see this card on the events list."}
+        </p>
+      </details>
     </aside>
   );
 }
