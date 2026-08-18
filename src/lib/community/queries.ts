@@ -85,6 +85,30 @@ async function getDisplayNames(supabase: AnySupabaseClient, userIds: string[]): 
 }
 
 /**
+ * A precise count of GLOBAL wins-board posts, optionally within a time window
+ * (`[sinceIso, untilIso)`). Uses a head-only exact count so it's correct beyond
+ * the FEED_CANDIDATE_LIMIT window `getPosts` pages over -- the Wins Board
+ * scoreboard needs the true tally, not a count derived from the fetched page.
+ * Filters mirror `getPosts` (scope=global, board=wins, not is_removed); RLS on
+ * the caller's client is the real visibility boundary, same as everywhere here.
+ */
+export async function countWinsPosts(
+  supabase: AnySupabaseClient,
+  range?: { sinceIso?: string; untilIso?: string }
+): Promise<number> {
+  let query = supabase
+    .from("community_posts")
+    .select("*", { count: "exact", head: true })
+    .eq("scope", "global")
+    .eq("board", "wins")
+    .eq("is_removed", false);
+  if (range?.sinceIso) query = query.gte("created_at", range.sinceIso);
+  if (range?.untilIso) query = query.lt("created_at", range.untilIso);
+  const { count } = await query;
+  return count ?? 0;
+}
+
+/**
  * Deliberately two-query-plus-merge (posts, then likes/comments for just
  * the fetched post ids, joined in application code) rather than a single
  * PostgREST-embedded query -- likes/comments still need separate aggregate
