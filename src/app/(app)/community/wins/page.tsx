@@ -1,10 +1,10 @@
-import Image from "next/image";
 import { getProfile } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
-import { getPosts } from "@/lib/community/queries";
+import { getPosts, countWinsPosts } from "@/lib/community/queries";
 import { CommunityGuidelines } from "@/components/community/CommunityGuidelines";
 import { WinTile } from "@/components/community/WinTile";
 import { WinsComposerTile } from "@/components/community/WinsComposerTile";
+import { WinsScoreboard } from "@/components/community/WinsScoreboard";
 import { getMondayOfWeek, getNextMonday } from "@/lib/routines/dates";
 
 /**
@@ -32,22 +32,31 @@ export default async function WinsBoardPage() {
     return <CommunityGuidelines showAccept />;
   }
 
+  const now = new Date();
+  const weekStart = getMondayOfWeek(now, "UTC");
+  const weekEnd = getNextMonday(now, "UTC");
+
   // Wrapped in try/catch: createClient() throws synchronously if the
   // URL/key are missing or malformed -- same gap already closed elsewhere.
   // Degrading to an empty board is the same "Be the first to share a win"
   // state this page already renders for a genuinely empty week.
+  //
+  // The scoreboard counts are precise head-only counts (countWinsPosts), not
+  // derived from `posts` -- which getPosts caps at its candidate window, so a
+  // busy week or a large all-time total would otherwise undercount.
   let posts: Awaited<ReturnType<typeof getPosts>> = [];
+  let winsThisWeek = 0;
+  let winsAllTime = 0;
   try {
     const supabase = await createClient();
-    posts = await getPosts(supabase, { scope: "global", board: "wins", viewerUserId: profile.id });
+    [posts, winsThisWeek, winsAllTime] = await Promise.all([
+      getPosts(supabase, { scope: "global", board: "wins", viewerUserId: profile.id }),
+      countWinsPosts(supabase, { sinceIso: weekStart, untilIso: weekEnd }),
+      countWinsPosts(supabase),
+    ]);
   } catch {
     posts = [];
   }
-
-  const now = new Date();
-  const weekStart = getMondayOfWeek(now, "UTC");
-  const weekEnd = getNextMonday(now, "UTC");
-  const winsThisWeek = posts.filter((post) => post.created_at >= weekStart && post.created_at < weekEnd).length;
 
   return (
     <div>
@@ -66,14 +75,8 @@ export default async function WinsBoardPage() {
                 : `${winsThisWeek} win${winsThisWeek === 1 ? "" : "s"} shared this week.`}
             </p>
           </div>
-          <div className="relative hidden h-32 w-56 shrink-0 self-stretch sm:block">
-            <Image
-              src="/site/community-group.jpg"
-              alt=""
-              fill
-              sizes="224px"
-              className="site-photo object-cover"
-            />
+          <div className="shrink-0 sm:min-w-[14rem]">
+            <WinsScoreboard thisWeek={winsThisWeek} allTime={winsAllTime} />
           </div>
         </div>
       </section>
