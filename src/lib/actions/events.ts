@@ -12,6 +12,7 @@ import { formatEventWhen } from "@/lib/events/format";
 import { type RoutineActionState } from "./routineState";
 import { type EventFormState } from "./eventFormState";
 import { type EventFieldErrors } from "@/lib/events/validation";
+import { uploadEventImage, deleteEventImageByUrl } from "@/lib/events/imageUpload";
 
 const uuid = z.string().uuid();
 
@@ -163,7 +164,6 @@ const EventFields = z.object({
   endsAt: z.coerce.date().optional(),
   locationName: z.string().trim().max(200).optional(),
   locationUrl: z.string().trim().url("The location link needs to be a valid URL.").max(500).optional(),
-  imageUrl: z.string().trim().url("The image link needs to be a valid URL.").max(500).optional(),
   capacity: z.number().int().min(1).max(100000).optional(),
   publish: z.enum(["true", "false"]).optional(),
 });
@@ -179,10 +179,29 @@ function readEventForm(formData: FormData) {
     endsAt: rawEnds && rawEnds !== "" ? rawEnds : undefined,
     locationName: formData.get("locationName") || undefined,
     locationUrl: formData.get("locationUrl") || undefined,
-    imageUrl: formData.get("imageUrl") || undefined,
     capacity: rawCapacity && rawCapacity !== "" ? Number(rawCapacity) : undefined,
     publish: formData.get("publish") || undefined,
   });
+}
+
+/**
+ * If the form carries a new image File, upload it and return its public URL.
+ * `{ upload: false }` means no file was sent (keep/none). A validation/upload
+ * failure comes back as a ready-to-return error state highlighting the image
+ * field. The image column is populated from uploads now, not a pasted URL.
+ */
+async function uploadEventImageFromForm(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  formData: FormData
+): Promise<{ upload: true; url: string } | { upload: false } | { error: EventFormState }> {
+  const file = formData.get("imageFile");
+  if (!(file instanceof File) || file.size === 0) return { upload: false };
+  const result = await uploadEventImage(supabase, userId, file);
+  if ("error" in result) {
+    return { error: { status: "error", message: result.error, fieldErrors: { imageUrl: result.error } } };
+  }
+  return { upload: true, url: result.url };
 }
 
 export async function createEvent(
@@ -212,6 +231,10 @@ export async function createEvent(
 
   try {
     const supabase = await createClient();
+    const img = await uploadEventImageFromForm(supabase, session.userId, formData);
+    if ("error" in img) return img.error;
+    const imageUrl = img.upload ? img.url : null;
+
     const slug = await uniqueEventSlug(d.title);
     const { error } = await supabase.from("events").insert({
       company_id: null,
@@ -223,7 +246,7 @@ export async function createEvent(
       ends_at: d.endsAt ? d.endsAt.toISOString() : null,
       location_name: d.locationName ?? null,
       location_url: d.locationUrl ?? null,
-      image_url: d.imageUrl ?? null,
+      image_url: imageUrl,
       capacity: d.capacity ?? null,
       is_published: d.publish === "true",
       created_by: session.userId,
@@ -242,7 +265,7 @@ export async function updateEvent(
   _prev: EventFormState,
   formData: FormData
 ): Promise<EventFormState> {
-  await verifySession();
+  const session = await verifySession();
   const denied = await ensureEventEditor();
   if (denied) return denied;
 
@@ -269,6 +292,24 @@ export async function updateEvent(
 
   try {
     const supabase = await createClient();
+
+    // Resolve the image: a new upload replaces it, `removeImage` clears it,
+    // otherwise it's left exactly as-is. The existing URL is read first (RLS
+    // authorises this same-row read) so a replaced/removed asset can be cleaned
+    // up afterwards.
+    const { data: existing } = await supabase
+      .from("events")
+      .select("image_url")
+      .eq("id", eventId)
+      .maybeSingle();
+    const oldImageUrl = (existing as { image_url: string | null } | null)?.image_url ?? null;
+
+    let nextImageUrl: string | null = oldImageUrl;
+    const img = await uploadEventImageFromForm(supabase, session.userId, formData);
+    if ("error" in img) return img.error;
+    if (img.upload) nextImageUrl = img.url;
+    else if (formData.get("removeImage") === "true") nextImageUrl = null;
+
     // The slug is deliberately NOT regenerated on edit: it's the public
     // /events/<slug> URL (shared, marketed, bookmarked), so a title tweak must
     // not silently 404 those links. It's set once at create.
@@ -282,7 +323,7 @@ export async function updateEvent(
         ends_at: d.endsAt ? d.endsAt.toISOString() : null,
         location_name: d.locationName ?? null,
         location_url: d.locationUrl ?? null,
-        image_url: d.imageUrl ?? null,
+        image_url: nextImageUrl,
         capacity: d.capacity ?? null,
         updated_at: new Date().toISOString(),
       })
@@ -293,6 +334,12 @@ export async function updateEvent(
     // returns 0 rows and no error -- report that rather than a false success.
     if (!data || data.length === 0) {
       return { status: "error", message: "You can’t edit this event, or it no longer exists." };
+    }
+
+    // The image changed: bin the old uploaded asset (best-effort, service-role
+    // so it works whoever uploaded it; a no-op for an external/pasted URL).
+    if (nextImageUrl !== oldImageUrl) {
+      await deleteEventImageByUrl(createAdminClient(), oldImageUrl);
     }
     // The capacity may have risen: promote waitlisters into any freed seats.
     // Best-effort -- the edit is already saved, so a reconcile hiccup must not
@@ -402,11 +449,13 @@ export async function deleteEvent(
 
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase.from("events").delete().eq("id", parsed.data).select("id");
+    const { data, error } = await supabase.from("events").delete().eq("id", parsed.data).select("id, image_url");
     if (error) return { status: "error", message: "Couldn’t delete that event. Please try again." };
     if (!data || data.length === 0) {
       return { status: "error", message: "You can’t delete this event, or it no longer exists." };
     }
+    // Bin the uploaded image too (best-effort; a no-op for an external URL).
+    await deleteEventImageByUrl(createAdminClient(), (data[0] as { image_url: string | null }).image_url);
   } catch {
     return { status: "error", message: "Couldn’t delete that event. Please try again." };
   }
@@ -453,6 +502,10 @@ export async function createCompanyEvent(
 
   try {
     const supabase = await createClient();
+    const img = await uploadEventImageFromForm(supabase, session.userId, formData);
+    if ("error" in img) return img.error;
+    const imageUrl = img.upload ? img.url : null;
+
     const slug = await uniqueEventSlug(d.title);
     const { error } = await supabase.from("events").insert({
       company_id: profile.company_id,
@@ -464,7 +517,7 @@ export async function createCompanyEvent(
       ends_at: d.endsAt ? d.endsAt.toISOString() : null,
       location_name: d.locationName ?? null,
       location_url: d.locationUrl ?? null,
-      image_url: d.imageUrl ?? null,
+      image_url: imageUrl,
       capacity: d.capacity ?? null,
       is_published: d.publish === "true",
       created_by: session.userId,

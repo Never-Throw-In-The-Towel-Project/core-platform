@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { createEvent, updateEvent } from "@/lib/actions/events";
 import { initialEventFormState, type EventFormState } from "@/lib/actions/eventFormState";
 import {
@@ -14,28 +14,36 @@ import {
   EVENT_LIMITS,
   firstErrorField,
   validateEventFields,
+  validateImageFile,
   type EventFieldErrors,
+  type EventFieldKey,
   type EventFieldValues,
 } from "@/lib/events/validation";
 import { FormSection, Switch, TextAreaField, TextField } from "@/components/ui/form";
+import { ImageUploadField } from "@/components/ui/ImageUploadField";
 import type { EventRow } from "@/types/database";
 
 type EventFormAction = (prev: EventFormState, formData: FormData) => Promise<EventFormState>;
 
-/** DOM ids per field, so "focus the first error" can jump to it. */
-const FIELD_IDS: Record<keyof EventFieldValues | "startsAt" | "endsAt", string> = {
+/** DOM ids keyed by the (server-shaped) error keys, so "focus the first error"
+ *  can jump straight to the offending control. */
+const FIELD_IDS: Record<EventFieldKey, string> = {
   title: "event-title",
   summary: "event-summary",
   description: "event-description",
-  startsLocal: "event-starts",
-  endsLocal: "event-ends",
   startsAt: "event-starts",
   endsAt: "event-ends",
   locationName: "event-location",
   locationUrl: "event-location-url",
-  imageUrl: "event-image-url",
+  imageUrl: "event-image",
   capacity: "event-capacity",
 };
+
+function prettyBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 function blankValues(): EventFieldValues {
   return {
@@ -46,7 +54,6 @@ function blankValues(): EventFieldValues {
     endsLocal: "",
     locationName: "",
     locationUrl: "",
-    imageUrl: "",
     capacity: "",
   };
 }
@@ -63,7 +70,6 @@ function valuesFromEvent(event: EventRow): EventFieldValues {
     endsLocal: "",
     locationName: event.location_name ?? "",
     locationUrl: event.location_url ?? "",
-    imageUrl: event.image_url ?? "",
     capacity: event.capacity != null ? String(event.capacity) : "",
   };
 }
@@ -124,6 +130,51 @@ export function EventStudioForm({
   // auto-filling it from the start so we never fight a deliberate choice.
   const [endTouched, setEndTouched] = useState<boolean>(() => Boolean(event?.ends_at));
 
+  // Image state: a freshly-picked File, and whether the existing (edit-mode)
+  // image has been removed. The object URL for the picked File is created once
+  // here (client-only -- `imageFile` is only ever set by a user action) and
+  // shared by the uploader thumbnail AND the live preview card, revoked on
+  // change/unmount.
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [removeImage, setRemoveImage] = useState(false);
+  const existingImageUrl = event?.image_url ?? null;
+  const imageObjectUrl = useMemo(() => (imageFile ? URL.createObjectURL(imageFile) : null), [imageFile]);
+  useEffect(() => {
+    return () => {
+      if (imageObjectUrl) URL.revokeObjectURL(imageObjectUrl);
+    };
+  }, [imageObjectUrl]);
+  const imagePreviewUrl = imageObjectUrl ?? (removeImage ? null : existingImageUrl);
+  const imageFileLabel = imageFile
+    ? `${imageFile.name} · ${prettyBytes(imageFile.size)}`
+    : imagePreviewUrl
+      ? "Current image"
+      : null;
+
+  function clearImageError() {
+    setErrors((prev) => {
+      if (!prev.imageUrl) return prev;
+      const next = { ...prev };
+      delete next.imageUrl;
+      return next;
+    });
+  }
+  function onImageSelect(file: File) {
+    const err = validateImageFile(file);
+    if (err) {
+      setErrors((prev) => ({ ...prev, imageUrl: err }));
+      return; // reject the bad file; keep whatever was there
+    }
+    setImageFile(file);
+    setRemoveImage(false);
+    clearImageError();
+  }
+  function onImageRemove() {
+    setImageFile(null);
+    setRemoveImage(true);
+    clearImageError();
+  }
+
   // Clear the form on a fresh CREATE success. Done by adjusting state DURING
   // render (React's documented pattern, matching ContentStudioForm) rather than
   // in an effect, which would trip the cascading-render lint rule. Edit mode
@@ -138,6 +189,8 @@ export function EventStudioForm({
       setSubmitAttempted(false);
       setPublish(false);
       setEndTouched(false);
+      setImageFile(null);
+      setRemoveImage(false);
     } else if (state.status === "error" && state.fieldErrors) {
       // Defence in depth: if the server ever rejects a field the client passed,
       // highlight it too (so the "fix the highlighted fields" line is truthful).
@@ -188,10 +241,11 @@ export function EventStudioForm({
     fd.set("description", values.description.trim());
     fd.set("locationName", values.locationName.trim());
     fd.set("locationUrl", values.locationUrl.trim());
-    fd.set("imageUrl", values.imageUrl.trim());
     fd.set("capacity", values.capacity.trim());
     fd.set("startsAt", localInputToIso(values.startsLocal) ?? "");
     fd.set("endsAt", localInputToIso(values.endsLocal) ?? "");
+    if (imageFile) fd.set("imageFile", imageFile);
+    if (removeImage) fd.set("removeImage", "true");
     if (isEdit && event) fd.set("eventId", event.id);
     if (!isEdit && publish) fd.set("publish", "true");
     formAction(fd);
@@ -231,7 +285,7 @@ export function EventStudioForm({
           <FormSection title="When">
             <div className="grid gap-4 sm:grid-cols-2">
               <TextField
-                id={FIELD_IDS.startsLocal}
+                id={FIELD_IDS.startsAt}
                 label="Starts"
                 type="datetime-local"
                 value={values.startsLocal}
@@ -240,7 +294,7 @@ export function EventStudioForm({
                 suppressHydrationWarning
               />
               <TextField
-                id={FIELD_IDS.endsLocal}
+                id={FIELD_IDS.endsAt}
                 label="Ends"
                 optional
                 type="datetime-local"
@@ -279,7 +333,7 @@ export function EventStudioForm({
           </FormSection>
 
           <FormSection title="Details">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:max-w-xs">
               <TextField
                 id={FIELD_IDS.capacity}
                 label="Capacity"
@@ -294,18 +348,18 @@ export function EventStudioForm({
                 placeholder="Unlimited"
                 hint="Leave blank for unlimited. Extra bookings join a waitlist."
               />
-              <TextField
-                id={FIELD_IDS.imageUrl}
-                label="Image link"
-                optional
-                type="url"
-                value={values.imageUrl}
-                onChange={(e) => patch({ imageUrl: e.target.value })}
-                error={errors.imageUrl}
-                maxLength={EVENT_LIMITS.imageUrl}
-                placeholder="https://…/photo.jpg"
-              />
             </div>
+            <ImageUploadField
+              id={FIELD_IDS.imageUrl}
+              label="Image"
+              optional
+              previewUrl={imagePreviewUrl}
+              fileLabel={imageFileLabel}
+              error={errors.imageUrl}
+              hint="A hero image shown on the event card and detail page."
+              onSelect={onImageSelect}
+              onRemove={onImageRemove}
+            />
             <TextAreaField
               id={FIELD_IDS.description}
               label="Description"
@@ -357,36 +411,34 @@ export function EventStudioForm({
         </div>
       </form>
 
-      <EventPreviewCard values={values} isEdit={isEdit} />
+      <EventPreviewCard values={values} previewUrl={imagePreviewUrl} isEdit={isEdit} />
     </div>
   );
 }
 
 /** Live "this is how it'll look" card, mirroring the member event card. */
-function EventPreviewCard({ values, isEdit }: { values: EventFieldValues; isEdit: boolean }) {
+function EventPreviewCard({
+  values,
+  previewUrl,
+  isEdit,
+}: {
+  values: EventFieldValues;
+  previewUrl: string | null;
+  isEdit: boolean;
+}) {
   const startIso = localInputToIso(values.startsLocal);
   const endIso = localInputToIso(values.endsLocal);
   const when = useMemo(() => (startIso ? formatEventWhen(startIso, endIso) : null), [startIso, endIso]);
   const cap = values.capacity.trim();
-  const imageOk = useMemo(() => {
-    const u = values.imageUrl.trim();
-    if (!u) return false;
-    try {
-      new URL(u);
-      return true;
-    } catch {
-      return false;
-    }
-  }, [values.imageUrl]);
 
   return (
     <aside className="lg:sticky lg:top-6 lg:self-start">
       <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-muted">Live preview</p>
       <div className="mt-2 border border-rule-border">
-        {imageOk ? (
+        {previewUrl ? (
           <div className="aspect-[16/9] w-full overflow-hidden border-b border-rule-border">
-            {/* eslint-disable-next-line @next/next/no-img-element -- admin-pasted URL preview */}
-            <img src={values.imageUrl.trim()} alt="" className="h-full w-full object-cover" />
+            {/* eslint-disable-next-line @next/next/no-img-element -- local object URL / admin image preview */}
+            <img src={previewUrl} alt="" className="h-full w-full object-cover" />
           </div>
         ) : (
           <div className="flex aspect-[16/9] w-full items-center justify-center border-b border-rule-hairline bg-background text-[11px] font-semibold uppercase tracking-wide text-muted">

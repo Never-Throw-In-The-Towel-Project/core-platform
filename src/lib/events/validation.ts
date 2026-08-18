@@ -19,7 +19,8 @@ export const EVENT_LIMITS = {
   capacityMax: 100000,
 } as const;
 
-/** The raw values the form holds (datetimes are the admin's local wall-clock). */
+/** The raw text values the form holds (datetimes are the admin's local
+ *  wall-clock). The image is a File, handled separately (see validateImageFile). */
 export type EventFieldValues = {
   title: string;
   summary: string;
@@ -28,7 +29,6 @@ export type EventFieldValues = {
   endsLocal: string;
   locationName: string;
   locationUrl: string;
-  imageUrl: string;
   capacity: string;
 };
 
@@ -95,10 +95,6 @@ export function validateEventFields(v: EventFieldValues): EventFieldErrors {
   if (locationUrl && !isValidUrl(locationUrl))
     errors.locationUrl = "The location link needs to be a valid URL (including https://).";
 
-  const imageUrl = v.imageUrl.trim();
-  if (imageUrl && !isValidUrl(imageUrl))
-    errors.imageUrl = "The image link needs to be a valid URL (including https://).";
-
   const capacity = v.capacity.trim();
   if (capacity) {
     const n = Number(capacity);
@@ -108,6 +104,17 @@ export function validateEventFields(v: EventFieldValues): EventFieldErrors {
   }
 
   return errors;
+}
+
+/** Client-side image pre-check, mirroring the server (uploadEventImage) so a bad
+ *  pick is rejected instantly with the same message instead of round-tripping. */
+export const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
+export function validateImageFile(file: File): string | null {
+  if (!IMAGE_TYPES.has(file.type)) return "Images must be JPEG, PNG, WebP, or GIF.";
+  if (file.size > IMAGE_MAX_BYTES) return "Images must be under 5MB.";
+  return null;
 }
 
 /** The first invalid field in visual order -- used to move focus on submit. */
