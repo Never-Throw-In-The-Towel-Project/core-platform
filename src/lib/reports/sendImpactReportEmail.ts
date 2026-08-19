@@ -1,4 +1,6 @@
 import "server-only";
+import { renderBrandedEmail } from "@/lib/email/layout";
+import { sendBrandedEmail } from "@/lib/email/brevo";
 
 export interface SendImpactReportEmailInput {
   toEmails: string[];
@@ -7,40 +9,32 @@ export interface SendImpactReportEmailInput {
   filename: string;
 }
 
+/**
+ * Emails a company's 90-day wellbeing impact report (branded body + PDF
+ * attachment) to its HR admins, through the shared layout + Brevo sender.
+ * Returns { ok:false } when Brevo isn't configured or there are no recipients.
+ */
 export async function sendImpactReportEmail(
   input: SendImpactReportEmailInput
 ): Promise<{ ok: boolean; error?: string }> {
-  const apiKey = process.env.BREVO_API_KEY;
-  const senderEmail = process.env.BREVO_SENDER_EMAIL;
+  if (input.toEmails.length === 0) return { ok: false, error: "no recipients" };
 
-  if (!apiKey || !senderEmail || input.toEmails.length === 0) {
-    return { ok: false, error: "not configured" };
-  }
+  const { html, text } = renderBrandedEmail({
+    preheader: `${input.companyName}’s 90-day wellbeing impact report is attached.`,
+    heading: "Your 90-day impact report",
+    paragraphs: [
+      `Attached is ${input.companyName}’s 90-day wellbeing programme impact report.`,
+      "It’s aggregate, anonymised data only — no individual answers, names, or scores.",
+    ],
+    signoff: null,
+  });
 
-  try {
-    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "api-key": apiKey,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        sender: { email: senderEmail, name: "NTITT Platform" },
-        to: input.toEmails.map((email) => ({ email })),
-        subject: `Your 90-day NTITT wellbeing impact report — ${input.companyName}`,
-        textContent: `Attached is ${input.companyName}'s 90-day wellbeing programme impact report. Aggregate, anonymised data only -- no individual answers, names, or scores.`,
-        attachment: [{ content: input.pdfBuffer.toString("base64"), name: input.filename }],
-      }),
-    });
-
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      return { ok: false, error: data?.message ?? `HTTP ${res.status}` };
-    }
-
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+  const res = await sendBrandedEmail({
+    to: input.toEmails.map((email) => ({ email })),
+    subject: `Your 90-day NTITT wellbeing impact report — ${input.companyName}`,
+    html,
+    text,
+    attachments: [{ name: input.filename, contentBase64: input.pdfBuffer.toString("base64") }],
+  });
+  return { ok: res.ok, error: res.error };
 }
