@@ -1,5 +1,7 @@
 import "server-only";
 import type { Company, SupportUrgency } from "@/types/database";
+import { renderBrandedEmail } from "@/lib/email/layout";
+import { sendBrandedEmail } from "@/lib/email/brevo";
 
 /**
  * The one flow in the platform the brief calls a failure condition if it's
@@ -122,7 +124,7 @@ async function escalateSupportRequest(
 
   const [sms, email] = await Promise.all([
     sendSms(escalationInput, ackUrl, escalationBody),
-    sendEmail(escalationInput, ackUrl, escalationBody),
+    sendEmail(escalationInput, ackUrl, { bodyOverride: escalationBody, escalationLabel: reasonLabel[reason] }),
   ]);
 
   return { reason, escalatedAt: new Date().toISOString(), sms, email };
@@ -183,43 +185,59 @@ async function sendSms(
 async function sendEmail(
   input: SupportAlertInput,
   ackUrl: string,
-  bodyOverride?: string
+  opts?: { bodyOverride?: string; escalationLabel?: string }
 ): Promise<ChannelResult> {
   const now = new Date().toISOString();
   const { support_contact_email, support_contact_name } = input.company;
-  const apiKey = process.env.BREVO_API_KEY;
-  const senderEmail = process.env.BREVO_SENDER_EMAIL;
 
-  if (!support_contact_email || !apiKey || !senderEmail) {
+  if (!support_contact_email || !process.env.BREVO_API_KEY || !process.env.BREVO_SENDER_EMAIL) {
     return { attempted: false, ok: false, error: "not configured", at: now };
   }
 
-  try {
-    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "api-key": apiKey,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        sender: { email: senderEmail, name: "NTITT Platform" },
-        to: [{ email: support_contact_email, name: support_contact_name ?? undefined }],
-        subject: `Ask for Support: ${input.company.name} — ${URGENCY_LABEL[input.urgency]}`,
-        textContent: bodyOverride ?? buildMessageBody(input, ackUrl),
-      }),
-    });
+  // Plaintext stays identical to the SMS body (parity + reliable fallback); the
+  // HTML is the branded version built from the same structured fields.
+  const text = opts?.bodyOverride ?? buildMessageBody(input, ackUrl);
+  const { html } = buildSupportAlertEmail(input, ackUrl, opts?.escalationLabel);
 
-    const data = await res.json();
+  const res = await sendBrandedEmail({
+    to: [{ email: support_contact_email, name: support_contact_name ?? undefined }],
+    subject: `${opts?.escalationLabel ? "ESCALATION — " : ""}Ask for Support: ${input.company.name} — ${URGENCY_LABEL[input.urgency]}`,
+    html,
+    text,
+  });
 
-    if (!res.ok) {
-      return { attempted: true, ok: false, error: data?.message ?? `HTTP ${res.status}`, at: now };
-    }
-
-    return { attempted: true, ok: true, providerId: data.messageId, at: now };
-  } catch (err) {
-    return { attempted: true, ok: false, error: String(err), at: now };
+  if (!res.ok) {
+    return { attempted: res.error !== "not configured", ok: false, error: res.error, at: now };
   }
+  return { attempted: true, ok: true, providerId: res.messageId, at: now };
+}
+
+/** The branded HTML for a support alert — an urgent, scannable card: who, how
+ *  urgent, best way to reach them, and a one-tap "mark handled" action. */
+function buildSupportAlertEmail(
+  input: SupportAlertInput,
+  ackUrl: string,
+  escalationLabel?: string
+): { html: string } {
+  const who = input.contactDisplayName?.trim() || "Someone (chose to stay anonymous)";
+  const details: { label: string; value: string }[] = [
+    { label: "Who", value: who },
+    { label: "Urgency", value: URGENCY_LABEL[input.urgency] },
+    { label: "Company", value: input.company.name },
+  ];
+  if (input.contactMethod?.trim()) details.push({ label: "Reach them", value: input.contactMethod.trim() });
+
+  const { html } = renderBrandedEmail({
+    preheader: `${input.company.name} — ${URGENCY_LABEL[input.urgency]}`,
+    heading: escalationLabel ? "Escalation — someone needs support" : "Someone’s asked for support",
+    paragraphs: escalationLabel
+      ? [`${escalationLabel}. Please reach out now.`]
+      : ["Someone has asked for support. Please reach out as soon as you can."],
+    details,
+    ...(ackUrl ? { button: { label: "I’ve got this — mark handled", url: ackUrl } } : {}),
+    signoff: null,
+  });
+  return { html };
 }
 
 function buildMessageBody(input: SupportAlertInput, ackUrl: string): string {
