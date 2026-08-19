@@ -34,6 +34,9 @@ export type NoticeFieldValues = {
   mediaKind: NoticeMediaKind;
   vimeoId: string;
   hasImage: boolean;
+  /** A video is present for this notice (a freshly-uploaded one, or one already
+   *  saved and kept). Set only when mediaKind is 'video'. */
+  hasVideo: boolean;
   weekday: string; // "" (any) or "1".."7"
   startsOn: string; // "" or yyyy-mm-dd
   endsOn: string;
@@ -46,6 +49,7 @@ export type NoticeFieldKey =
   | "body"
   | "vimeoId"
   | "image"
+  | "video"
   | "weekday"
   | "startsOn"
   | "endsOn"
@@ -88,6 +92,8 @@ export function validateNoticeFields(v: NoticeFieldValues): NoticeFieldErrors {
     else if (!VIMEO_ID_RE.test(id)) errors.vimeoId = VIMEO_ID_RULE;
   } else if (v.mediaKind === "image") {
     if (!v.hasImage) errors.image = "Add an image, or choose a different media type.";
+  } else if (v.mediaKind === "video") {
+    if (!v.hasVideo) errors.video = "Upload a video, or choose a different media type.";
   }
 
   if (v.weekday) {
@@ -135,6 +141,17 @@ export function validateNoticeImageFile(file: File): string | null {
   return null;
 }
 
+/** Client-side video pre-check, mirroring the notice-videos bucket limits so a
+ *  bad pick is rejected before the (large) upload even starts. */
+export const NOTICE_VIDEO_MAX_BYTES = 200 * 1024 * 1024;
+const VIDEO_TYPES = new Set(["video/mp4", "video/webm", "video/quicktime", "video/ogg"]);
+
+export function validateNoticeVideoFile(file: File): string | null {
+  if (!VIDEO_TYPES.has(file.type)) return "Videos must be MP4, WebM, MOV, or OGG.";
+  if (file.size > NOTICE_VIDEO_MAX_BYTES) return "Videos must be under 200MB.";
+  return null;
+}
+
 /** The first invalid field in visual order -- used to move focus on submit. */
 export function firstNoticeErrorField(errors: NoticeFieldErrors): NoticeFieldKey | null {
   const order: NoticeFieldKey[] = [
@@ -142,6 +159,7 @@ export function firstNoticeErrorField(errors: NoticeFieldErrors): NoticeFieldKey
     "body",
     "vimeoId",
     "image",
+    "video",
     "weekday",
     "startsOn",
     "endsOn",

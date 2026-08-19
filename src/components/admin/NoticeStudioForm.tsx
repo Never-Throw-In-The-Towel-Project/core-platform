@@ -1,22 +1,27 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { createNotice, updateNotice } from "@/lib/actions/notices";
+import { createNotice, updateNotice, createNoticeVideoUpload } from "@/lib/actions/notices";
 import { initialNoticeFormState } from "@/lib/notices/noticeFormState";
 import {
   NOTICE_LIMITS,
   firstNoticeErrorField,
   validateNoticeFields,
   validateNoticeImageFile,
+  validateNoticeVideoFile,
   type NoticeFieldErrors,
   type NoticeFieldKey,
   type NoticeFieldValues,
 } from "@/lib/notices/validation";
+import { getBrowserSupabase } from "@/lib/supabase/browserUpload";
 import { FormSection, Switch, TextAreaField, TextField } from "@/components/ui/form";
 import { ImageUploadField } from "@/components/ui/ImageUploadField";
+import { VideoUploadField } from "@/components/ui/VideoUploadField";
 import { NoticeCard } from "@/components/notices/NoticeCard";
 import type { NoticeMediaKind } from "@/types/database";
 import type { NoticeView } from "@/lib/notices/queries";
+
+const NOTICE_VIDEO_BUCKET = "notice-videos";
 
 /** DOM ids keyed by the (server-shaped) error keys, for "focus the first error". */
 const FIELD_IDS: Record<NoticeFieldKey, string> = {
@@ -24,6 +29,7 @@ const FIELD_IDS: Record<NoticeFieldKey, string> = {
   body: "notice-body",
   vimeoId: "notice-vimeo",
   image: "notice-image",
+  video: "notice-video",
   weekday: "notice-weekday",
   startsOn: "notice-starts",
   endsOn: "notice-ends",
@@ -34,7 +40,8 @@ const FIELD_IDS: Record<NoticeFieldKey, string> = {
 const MEDIA_OPTIONS: { value: NoticeMediaKind; label: string; hint: string }[] = [
   { value: "none", label: "Text only", hint: "A headline and a message." },
   { value: "vimeo", label: "Vimeo video", hint: "Embed a Vimeo clip." },
-  { value: "image", label: "Image", hint: "Upload a picture or a quote card." },
+  { value: "image", label: "Image", hint: "A picture or a quote card." },
+  { value: "video", label: "Video file", hint: "Upload a video from your device." },
 ];
 
 const WEEKDAYS: { value: string; label: string }[] = [
@@ -65,6 +72,7 @@ function blankValues(): NoticeFieldValues {
     mediaKind: "none",
     vimeoId: "",
     hasImage: false,
+    hasVideo: false,
     weekday: "",
     startsOn: "",
     endsOn: "",
@@ -74,15 +82,13 @@ function blankValues(): NoticeFieldValues {
 }
 
 function valuesFromNotice(n: NoticeView): NoticeFieldValues {
-  // 'video' notices aren't authorable yet (PR2); fall back to text-only so the
-  // form stays editable rather than presenting a kind it can't save.
-  const mediaKind: NoticeMediaKind = n.media_kind === "video" ? "none" : n.media_kind;
   return {
     title: n.title ?? "",
     body: n.body ?? "",
-    mediaKind,
+    mediaKind: n.media_kind,
     vimeoId: n.vimeo_id ?? "",
-    hasImage: mediaKind === "image" && Boolean(n.image_url),
+    hasImage: n.media_kind === "image" && Boolean(n.image_url),
+    hasVideo: n.media_kind === "video" && Boolean(n.video_url),
     weekday: n.weekday != null ? String(n.weekday) : "",
     startsOn: n.starts_on ?? "",
     endsOn: n.ends_on ?? "",
@@ -135,10 +141,42 @@ export function NoticeStudioForm({ notice }: { notice?: NoticeView }) {
       ? "Current image"
       : null;
 
-  const hasImage = values.mediaKind === "image" && Boolean(imageFile || (!removeImage && existingImageUrl));
+  // Video state: unlike images (streamed through the action), a video file is
+  // uploaded DIRECT to Storage from here — `videoPath` is the resulting object
+  // path submitted to the action, `videoFile` drives the local preview, and
+  // `videoUploading` gates submit while the (large) PUT is in flight.
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPath, setVideoPath] = useState<string | null>(null);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [removeVideo, setRemoveVideo] = useState(false);
+  const existingVideoUrl = notice?.video_url ?? null;
+  const existingVideoPath = notice?.video_path ?? null;
+  const videoObjectUrl = useMemo(() => (videoFile ? URL.createObjectURL(videoFile) : null), [videoFile]);
+  useEffect(() => {
+    return () => {
+      if (videoObjectUrl) URL.revokeObjectURL(videoObjectUrl);
+    };
+  }, [videoObjectUrl]);
+  const videoPreviewUrl = videoObjectUrl ?? (removeVideo ? null : existingVideoUrl);
+  const videoFileLabel = videoFile
+    ? `${videoFile.name} · ${prettyBytes(videoFile.size)}`
+    : videoPreviewUrl
+      ? "Current video"
+      : null;
+  // The path that will be submitted: a fresh upload, or the kept existing one.
+  const effectiveVideoPath = videoPath ?? (removeVideo ? null : existingVideoPath);
+
+  /** The two media-presence flags the validator needs, for a given value set
+   *  (media kind may be changing); they depend on the file/upload state above. */
+  function mediaFlags(v: NoticeFieldValues): { hasImage: boolean; hasVideo: boolean } {
+    return {
+      hasImage: v.mediaKind === "image" && Boolean(imageFile || (!removeImage && existingImageUrl)),
+      hasVideo: v.mediaKind === "video" && Boolean(effectiveVideoPath),
+    };
+  }
 
   function currentValues(): NoticeFieldValues {
-    return { ...values, hasImage };
+    return { ...values, ...mediaFlags(values) };
   }
 
   function clearImageError() {
@@ -165,6 +203,59 @@ export function NoticeStudioForm({ notice }: { notice?: NoticeView }) {
     clearImageError();
   }
 
+  function setVideoError(msg: string | null) {
+    setErrors((prev) => {
+      if (msg) return { ...prev, video: msg };
+      if (!prev.video) return prev;
+      const next = { ...prev };
+      delete next.video;
+      return next;
+    });
+  }
+
+  // Direct-to-Storage upload: mint a signed URL server-side (ntitt_admin only),
+  // then PUT the file straight to the notice-videos bucket so it never crosses
+  // the Server Action body limit. setState after each await is fine in an event
+  // handler (the lint rule only forbids it inside effects).
+  async function onVideoSelect(file: File) {
+    const bad = validateNoticeVideoFile(file);
+    if (bad) {
+      setVideoError(bad);
+      return;
+    }
+    setVideoFile(file); // show the local preview immediately
+    setRemoveVideo(false);
+    setVideoPath(null);
+    setVideoError(null);
+    setVideoUploading(true);
+    try {
+      const target = await createNoticeVideoUpload({ contentType: file.type });
+      if ("error" in target) {
+        setVideoError(target.error);
+        return;
+      }
+      const { error } = await getBrowserSupabase()
+        .storage.from(NOTICE_VIDEO_BUCKET)
+        .uploadToSignedUrl(target.path, target.token, file);
+      if (error) {
+        setVideoError("Something went wrong uploading that video. Please try again.");
+        return;
+      }
+      setVideoPath(target.path);
+    } catch {
+      setVideoError("Something went wrong uploading that video. Please try again.");
+    } finally {
+      setVideoUploading(false);
+    }
+  }
+
+  function onVideoRemove() {
+    setVideoFile(null);
+    setVideoPath(null);
+    setRemoveVideo(true);
+    setVideoError(null);
+  }
+
   // Clear the form on a fresh CREATE success — adjust state DURING render (React's
   // documented pattern, matching ContentStudioForm/EventStudioForm) rather than
   // in an effect, which would trip the cascading-render lint rule.
@@ -179,6 +270,10 @@ export function NoticeStudioForm({ notice }: { notice?: NoticeView }) {
       setPriority("0");
       setImageFile(null);
       setRemoveImage(false);
+      setVideoFile(null);
+      setVideoPath(null);
+      setRemoveVideo(false);
+      setVideoUploading(false);
     } else if (state.status === "error" && state.fieldErrors) {
       setErrors(state.fieldErrors);
       setSubmitAttempted(true);
@@ -187,11 +282,7 @@ export function NoticeStudioForm({ notice }: { notice?: NoticeView }) {
 
   function applyValues(next: NoticeFieldValues) {
     setValues(next);
-    if (submitAttempted) setErrors(validateNoticeFields({ ...next, hasImage: nextHasImage(next) }));
-  }
-  // hasImage for a prospective value set (media kind may be changing).
-  function nextHasImage(next: NoticeFieldValues): boolean {
-    return next.mediaKind === "image" && Boolean(imageFile || (!removeImage && existingImageUrl));
+    if (submitAttempted) setErrors(validateNoticeFields({ ...next, ...mediaFlags(next) }));
   }
 
   function patch(next: Partial<NoticeFieldValues>) {
@@ -200,6 +291,12 @@ export function NoticeStudioForm({ notice }: { notice?: NoticeView }) {
 
   function handleSubmit() {
     setSubmitAttempted(true);
+    // Don't submit mid-upload — the video_path isn't known yet.
+    if (values.mediaKind === "video" && videoUploading) {
+      setVideoError("Hang on — the video is still uploading.");
+      document.getElementById(FIELD_IDS.video)?.focus();
+      return;
+    }
     const found = validateNoticeFields(currentValues());
     setErrors(found);
     const firstKey = firstNoticeErrorField(found);
@@ -220,6 +317,7 @@ export function NoticeStudioForm({ notice }: { notice?: NoticeView }) {
     fd.set("ctaUrl", values.ctaUrl.trim());
     fd.set("priority", priority.trim() || "0");
     if (values.mediaKind === "image" && imageFile) fd.set("image", imageFile);
+    if (values.mediaKind === "video" && effectiveVideoPath) fd.set("videoPath", effectiveVideoPath);
     if (isEdit && notice) fd.set("id", notice.id);
     if (!isEdit && publish) fd.set("publish", "true");
     formAction(fd);
@@ -259,7 +357,7 @@ export function NoticeStudioForm({ notice }: { notice?: NoticeView }) {
           <FormSection title="Media" description="Add a video or an image, or keep it text-only.">
             <fieldset>
               <legend className={SUBLABEL}>Type</legend>
-              <div className="mt-2 grid gap-2 sm:grid-cols-3">
+              <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {MEDIA_OPTIONS.map((opt) => {
                   const active = values.mediaKind === opt.value;
                   return (
@@ -311,6 +409,20 @@ export function NoticeStudioForm({ notice }: { notice?: NoticeView }) {
                 hint="A photo or a quote card. JPEG, PNG, WebP or GIF, up to 5MB."
                 onSelect={onImageSelect}
                 onRemove={onImageRemove}
+              />
+            ) : null}
+
+            {values.mediaKind === "video" ? (
+              <VideoUploadField
+                id={FIELD_IDS.video}
+                label="Video"
+                previewUrl={videoPreviewUrl}
+                fileLabel={videoFileLabel}
+                uploading={videoUploading}
+                error={errors.video}
+                hint="Uploads straight from your device. MP4, WebM, MOV or OGG, up to 200MB."
+                onSelect={onVideoSelect}
+                onRemove={onVideoRemove}
               />
             ) : null}
           </FormSection>
@@ -421,10 +533,18 @@ export function NoticeStudioForm({ notice }: { notice?: NoticeView }) {
         <div className="flex flex-wrap items-center gap-3 border-t border-rule-hairline bg-background/60 px-5 py-4 sm:px-6">
           <button
             type="submit"
-            disabled={isPending}
+            disabled={isPending || videoUploading}
             className="bg-brand-accent px-5 py-2.5 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            {isPending ? "Saving…" : isEdit ? "Save changes" : publish ? "Publish notice" : "Create draft"}
+            {isPending
+              ? "Saving…"
+              : videoUploading
+                ? "Uploading video…"
+                : isEdit
+                  ? "Save changes"
+                  : publish
+                    ? "Publish notice"
+                    : "Create draft"}
           </button>
           {serverMessage && (
             <p role="alert" className="text-sm font-semibold text-brand-accent-deep">
@@ -439,7 +559,7 @@ export function NoticeStudioForm({ notice }: { notice?: NoticeView }) {
         </div>
       </form>
 
-      <NoticePreview values={values} imageUrl={imagePreviewUrl} isEdit={isEdit} />
+      <NoticePreview values={values} imageUrl={imagePreviewUrl} videoUrl={videoPreviewUrl} isEdit={isEdit} />
     </div>
   );
 }
@@ -448,10 +568,12 @@ export function NoticeStudioForm({ notice }: { notice?: NoticeView }) {
 function NoticePreview({
   values,
   imageUrl,
+  videoUrl,
   isEdit,
 }: {
   values: NoticeFieldValues;
   imageUrl: string | null;
+  videoUrl: string | null;
   isEdit: boolean;
 }) {
   return (
@@ -479,6 +601,7 @@ function NoticePreview({
               mediaKind: values.mediaKind,
               vimeoId: values.vimeoId.trim() || null,
               imageUrl,
+              videoUrl,
               ctaLabel: values.ctaLabel.trim() || null,
               ctaUrl: values.ctaUrl.trim() || null,
             }}
