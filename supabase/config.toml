@@ -66,32 +66,34 @@ enable_confirmations = true
 max_frequency = "60s"
 
 [auth.email.smtp]
-# This block is the PRODUCTION intent (applied by `supabase config push`). CI
-# never reads it -- the migrations gate runs against plain Postgres via
-# supabase/tests/validate_migrations.sh -- so it cannot affect CI. If you run the
-# full local stack (`supabase start`) and don't want to send real mail, set
-# `enabled = false` here to use the bundled Inbucket test inbox
-# (http://localhost:54324); otherwise set SUPABASE_AUTH_SMTP_PASS to route local
-# mail through Brevo too.
-enabled = true
+# SUPERSEDED by the Send Email hook below. Auth mail now renders from the app's
+# ONE branded layout and sends via Brevo's REST API (src/app/api/auth/send-email),
+# so GoTrue's own SMTP path is disabled. Left here (disabled) as documentation +
+# a fallback: if the hook is ever turned off, flip this back on and provision the
+# Brevo SMTP key. See docs/SMTP_SETUP.md.
+enabled = false
 host = "smtp-relay.brevo.com"
 port = 587
-# Brevo SMTP *login* (shown under Brevo -> SMTP & API -> SMTP; typically an
-# 8-digit id or the account email). Not a secret -- replace before pushing.
 user = "SET_BREVO_SMTP_LOGIN"
-# The Brevo SMTP *key* -- a DIFFERENT credential from the v3 REST api-key held in
-# BREVO_API_KEY. Kept out of source; set it in the Supabase project + local
-# shell. See docs/SMTP_SETUP.md.
 pass = "env(SUPABASE_AUTH_SMTP_PASS)"
-# Envelope "from". Must be a verified sender on the Brevo account. We keep the
-# @ntitt.co.uk email domain (product decision) even though the web app moved to
-# neverthrowinthetowel.uk -- so ntitt.co.uk is the domain to verify in Brevo.
-admin_email = "no-reply@ntitt.co.uk"
-sender_name = "NTITT"
+# Fallback envelope "from" (matches the hook sender): the Brevo-authenticated
+# neverthrowinthetowel.uk domain.
+admin_email = "no-reply@neverthrowinthetowel.uk"
+sender_name = "Never Throw In The Towel"
 
-# Branded HTML for each auth mail. {{ .ConfirmationURL }} is the action link
-# GoTrue substitutes; for invites/confirmation it already carries the
-# /auth/callback redirect set by provisionInvite() / signUp().
+# The Send Email hook: when enabled on the project, GoTrue POSTs every auth mail
+# to our endpoint (signed, verified against SUPABASE_AUTH_HOOK_SECRET) instead of
+# sending it itself -- so the sign-in / invite / confirm / recovery / email-change
+# mails render from the SAME branded layout as the rest of the app and come from
+# the same Brevo sender. Enable it on the live project (Auth -> Hooks -> Send
+# Email) with this URI + secret; see docs/SMTP_SETUP.md.
+[auth.hook.send_email]
+enabled = true
+uri = "https://neverthrowinthetowel.uk/api/auth/send-email"
+secrets = "env(SUPABASE_AUTH_HOOK_SECRET)"
+
+# The 5 templates below are now the SMTP FALLBACK only (used only if the hook is
+# disabled). The live branded copy is code: src/lib/auth/authEmailContent.ts.
 [auth.email.template.confirmation]
 subject = "Confirm your NTITT account"
 content_path = "./supabase/templates/confirmation.html"
