@@ -29,6 +29,8 @@ import { DayCarousel } from "@/components/content/DayCarousel";
 import { getDayContent } from "@/lib/content/queries";
 import { rotateForWeek, isoWeekdayFromName, DAY_LABEL } from "@/lib/content/rotation";
 import { listChallengesWithProgress } from "@/lib/challenges/queries";
+import { NoticeBoard } from "@/components/notices/NoticeBoard";
+import { listActiveNotices, type NoticeView } from "@/lib/notices/queries";
 import type { ContentItem, ChallengeWithProgress } from "@/types/database";
 
 const THEMED_TITLES: Record<Weekday, { title: string; subtitle: string }> = {
@@ -117,6 +119,7 @@ export default async function HomePage() {
   let companySkin = "#ec3013";
   let dayItems: ContentItem[] = [];
   let myChallenges: ChallengeWithProgress[] = [];
+  let notices: NoticeView[] = [];
 
   try {
     const privateClient = await createClient("private");
@@ -174,9 +177,12 @@ export default async function HomePage() {
     // spine by channel and participation to the caller), folded into this same
     // guarded block so /home still degrades to "nothing yet" if Supabase is
     // unreachable rather than crashing the universal landing page.
-    [dayItems, myChallenges] = await Promise.all([
+    [dayItems, myChallenges, notices] = await Promise.all([
       getDayContent(publicClient, isoWeekday),
       listChallengesWithProgress(publicClient, privateClient, profile.id),
+      // The Notice Board: ad-hoc promo cards Anthony schedules for today (RLS
+      // gates them to published; the query filters by the date window + weekday).
+      listActiveNotices(publicClient, { isoWeekday, todayIso: todayISO }),
     ]);
   } catch {
     // safe defaults above
@@ -303,6 +309,12 @@ export default async function HomePage() {
                 {hero.extraLink.label}
               </Link>
             )}
+
+            {/* Notice Board: an ad-hoc promo card (a Monday video, an image
+                quote, a Christmas-Day message) Anthony schedules for today.
+                Renders nothing when there's no active notice, so it never leaves
+                a hole under the hero. */}
+            <NoticeBoard notices={notices} />
 
             {rows.length > 0 && (
               <div>
