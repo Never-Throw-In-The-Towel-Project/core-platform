@@ -278,6 +278,38 @@ export interface EventBookingWithIdentity extends EventBooking {
   member: { display_name: string } | null;
 }
 
+// Notice Board -- an ad-hoc "promo card" an ntitt_admin surfaces on the members'
+// Today page (a Monday motivational video, an event shout-out, a quick
+// Christmas-Day message). GLOBAL + Super-Admin-only; scheduled by weekday and/or
+// an inclusive date window, carrying at most one piece of media + an optional CTA.
+// See supabase/migrations/20260824000000_notices.sql.
+export type NoticeMediaKind = "none" | "vimeo" | "image" | "video";
+
+export interface Notice {
+  id: string;
+  title: string;                                  // headline on the card
+  body: string | null;                            // optional supporting copy
+  media_kind: NoticeMediaKind;
+  vimeo_id: string | null;                        // media_kind = 'vimeo'
+  /** Object path within the `notice-media` Storage bucket (media_kind = 'image'). */
+  image_path: string | null;
+  /** Object path in the PR2 video bucket (media_kind = 'video'); unused until then. */
+  video_path: string | null;
+  cta_label: string | null;
+  cta_url: string | null;
+  /** ISO weekday, 1 = Monday … 7 = Sunday. null = shows any weekday. */
+  weekday: number | null;
+  /** Inclusive date window (ISO yyyy-mm-dd); null = unbounded on that side. */
+  starts_on: string | null;
+  ends_on: string | null;
+  is_published: boolean;
+  /** Higher = surfaced first when several notices qualify for the same day. */
+  priority: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Self-reported daily steps (Track 2 · D2). A PRIVATE, never-reportable health
 // metric -- own-rows-only, exactly like sleep_score / day_rating. See the
 // step_entries migration.

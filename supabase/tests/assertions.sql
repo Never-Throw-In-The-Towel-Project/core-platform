@@ -21,8 +21,8 @@ begin
     raise exception 'RLS disabled on % public/private table(s)', missing;
   end if;
   select count(*) into total from pg_tables where schemaname in ('public','private');
-  if total <> 37 then
-    raise exception 'expected 37 public+private tables (25+12), found %', total;
+  if total <> 38 then
+    raise exception 'expected 38 public+private tables (26+12), found %', total;
   end if;
   raise notice 'PASS  1  RLS enabled on all % public/private tables', total;
 end
@@ -1360,6 +1360,100 @@ begin
   raise notice 'PASS  11  event-images bucket public + writes gated to ntitt_admin/hr_admin';
 end
 $$;
+
+-- ---- 12. Notice Board: ntitt_admin-only writes; notice-media bucket public ---
+do $$
+declare wc text; is_public boolean;
+begin
+  select pg_get_expr(polwithcheck, polrelid) into wc
+    from pg_policy where polrelid = 'public.notices'::regclass and polcmd = 'a';
+  if wc is null then raise exception 'no INSERT policy on notices'; end if;
+  if position('ntitt_admin' in wc) = 0 then
+    raise exception 'notices INSERT policy is not ntitt_admin gated: %', wc;
+  end if;
+  -- notices are a members'-app surface: anon must have NO SELECT grant (unlike
+  -- events, which anon reads for the marketing site).
+  if has_table_privilege('anon', 'public.notices', 'select') then
+    raise exception 'anon can read notices (must be members-only)';
+  end if;
+  select public into is_public from storage.buckets where id = 'notice-media';
+  if is_public is distinct from true then
+    raise exception 'notice-media bucket missing or not public';
+  end if;
+  raise notice 'PASS  12  notices writes ntitt_admin-gated; anon has no read; notice-media bucket public';
+end
+$$;
+
+-- ============================================================================
+-- LIVE RLS test of NOTICES: ntitt_admin-only authoring; a member reads a
+-- PUBLISHED notice but never a draft. Reuses usera (Company A, non-admin) and the
+-- ntitt_admin (ee…ad) created in the content-spine fixtures above.
+-- ============================================================================
+insert into public.notices (id, title, media_kind, is_published) values
+  ('7a000000-0000-0000-0000-0000000000f1', 'Published notice', 'none', true),
+  ('7a000000-0000-0000-0000-0000000000f2', 'Draft notice', 'none', false);
+
+-- Replicate Supabase's default public-schema grants so RLS -- not a missing
+-- grant -- is the gate (same pattern as the content/challenge blocks above).
+grant select, insert on public.notices to authenticated;
+
+-- ---- as usera (Company A, NOT an admin) ----
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$
+declare visible int;
+begin
+  -- BLOCKED: a non-admin cannot author a notice
+  begin
+    insert into public.notices (title, media_kind, is_published)
+    values ('sneaky', 'none', true);
+    raise exception 'FAIL notice-write: a non-admin was allowed to author a notice';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- VISIBLE: a published notice
+  select count(*) into visible from public.notices where id = '7a000000-0000-0000-0000-0000000000f1';
+  if visible <> 1 then raise exception 'FAIL notice-read: published notice not visible to a member'; end if;
+
+  -- HIDDEN: a draft notice
+  select count(*) into visible from public.notices where id = '7a000000-0000-0000-0000-0000000000f2';
+  if visible <> 0 then raise exception 'FAIL notice-read: a draft notice leaked to a member'; end if;
+
+  raise notice 'PASS  12a* live: non-admin notice write blocked; published visible, draft hidden';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
+
+-- ---- as the ntitt_admin: authoring must succeed; media CHECK holds ----
+select set_config('request.jwt.claim.sub', 'ee000000-0000-0000-0000-0000000000ad', false);
+select set_config('request.jwt.claim.role', 'authenticated', false);
+set role authenticated;
+do $$
+begin
+  begin
+    insert into public.notices (title, media_kind, vimeo_id, is_published, created_by)
+    values ('admin vimeo notice', 'vimeo', '123456789', true, 'ee000000-0000-0000-0000-0000000000ad');
+  exception when insufficient_privilege then
+    raise exception 'FAIL notice-write: an ntitt_admin was blocked from authoring a notice';
+  end;
+
+  -- media CHECK: kind='vimeo' with no vimeo_id must be rejected
+  begin
+    insert into public.notices (title, media_kind, is_published, created_by)
+    values ('bad vimeo', 'vimeo', true, 'ee000000-0000-0000-0000-0000000000ad');
+    raise exception 'FAIL notice-check: media_kind=vimeo with no vimeo_id was accepted';
+  exception when check_violation then null;
+  end;
+
+  raise notice 'PASS  12b* live: ntitt_admin authoring allowed; media_kind CHECK enforced';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+select set_config('request.jwt.claim.role', '', false);
 
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'
