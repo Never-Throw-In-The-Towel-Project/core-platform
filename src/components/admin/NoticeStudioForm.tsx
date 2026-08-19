@@ -1,7 +1,12 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { createNotice, updateNotice, createNoticeVideoUpload } from "@/lib/actions/notices";
+import {
+  createNotice,
+  updateNotice,
+  createNoticeVideoUpload,
+  discardNoticeVideoUpload,
+} from "@/lib/actions/notices";
 import { initialNoticeFormState } from "@/lib/notices/noticeFormState";
 import {
   NOTICE_LIMITS,
@@ -223,6 +228,11 @@ export function NoticeStudioForm({ notice }: { notice?: NoticeView }) {
       setVideoError(bad);
       return;
     }
+    // Replacing an earlier pick? Bin the object it already uploaded so it doesn't
+    // orphan in the bucket. Only ever the fresh-upload path — never the saved one
+    // (updateNotice cleans that on save). Fire-and-forget; best-effort.
+    const superseded = videoPath;
+    if (superseded) void discardNoticeVideoUpload({ path: superseded }).catch(() => {});
     setVideoFile(file); // show the local preview immediately
     setRemoveVideo(false);
     setVideoPath(null);
@@ -250,6 +260,9 @@ export function NoticeStudioForm({ notice }: { notice?: NoticeView }) {
   }
 
   function onVideoRemove() {
+    // Bin a fresh (unsaved) upload so it doesn't orphan; leave a saved existing
+    // video for updateNotice to clean on save.
+    if (videoPath) void discardNoticeVideoUpload({ path: videoPath }).catch(() => {});
     setVideoFile(null);
     setVideoPath(null);
     setRemoveVideo(true);

@@ -18,10 +18,6 @@ export const NOTICE_LIMITS = {
   ctaUrl: 2000,
 } as const;
 
-/** The media kinds the PR1 authoring form offers. 'video' (uploaded file) is the
- *  PR2 fast-follow -- present in the DB/type but not yet an authorable option. */
-export const AUTHORABLE_MEDIA_KINDS: NoticeMediaKind[] = ["none", "vimeo", "image"];
-
 /** The Vimeo numeric-only rule, identical to the content importer's (csvImport). */
 export const VIMEO_ID_RULE = "Enter the numeric Vimeo ID only (e.g. 123456789), not a URL.";
 const VIMEO_ID_RE = /^\d+$/;

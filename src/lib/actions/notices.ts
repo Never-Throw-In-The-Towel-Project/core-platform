@@ -8,6 +8,7 @@ import { verifySession, getProfile } from "@/lib/auth/dal";
 import { uploadNoticeImage } from "@/lib/notices/imageUpload";
 import {
   createNoticeVideoUploadTarget,
+  deleteNoticeVideoByPath,
   isNoticeVideoPath,
   NOTICE_VIDEO_BUCKET,
 } from "@/lib/notices/videoUpload";
@@ -108,6 +109,26 @@ export async function createNoticeVideoUpload(input: {
     return await createNoticeVideoUploadTarget(supabase, input.contentType);
   } catch {
     return { error: "Couldn’t start the video upload. Please try again." };
+  }
+}
+
+/**
+ * Best-effort delete of a just-uploaded video that never got attached to a saved
+ * notice — the Studio calls this when the admin replaces or removes a video they
+ * picked (video files upload direct to Storage the moment they're chosen, before
+ * the row is saved, so a discarded pick would otherwise orphan a large object).
+ * ntitt_admin only; only ever deletes within the notice-videos path shape.
+ */
+export async function discardNoticeVideoUpload(input: { path: string }): Promise<void> {
+  await verifySession();
+  const profile = await getProfile();
+  if (profile.role !== "ntitt_admin") return;
+  if (!isNoticeVideoPath(input.path)) return;
+  try {
+    const supabase = await createClient();
+    await deleteNoticeVideoByPath(supabase, input.path);
+  } catch {
+    /* non-fatal: an orphan is harmless */
   }
 }
 
