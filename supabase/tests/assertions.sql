@@ -1455,5 +1455,33 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select set_config('request.jwt.claim.role', '', false);
 
+-- ---- 13. Notice video files (PR2): notice-videos bucket public + admin writes -
+-- The bucket that backs media_kind='video' (uploaded video files). Public read
+-- (same rationale as notice-media); the boundary is the WRITE policy, gated to
+-- ntitt_admin exactly like notice-media. It's a separate bucket from notice-media
+-- because video files need their own (larger) size + video MIME limits.
+do $$
+declare is_public boolean; wc text; found boolean := false;
+begin
+  select public into is_public from storage.buckets where id = 'notice-videos';
+  if is_public is distinct from true then
+    raise exception 'notice-videos bucket missing or not public';
+  end if;
+  for wc in
+    select pg_get_expr(polwithcheck, polrelid)
+      from pg_policy where polrelid = 'storage.objects'::regclass and polcmd = 'a'
+  loop
+    if wc is not null and position('notice-videos' in wc) > 0 then
+      found := true;
+      if position('ntitt_admin' in wc) = 0 then
+        raise exception 'notice-videos INSERT policy is not ntitt_admin gated: %', wc;
+      end if;
+    end if;
+  end loop;
+  if not found then raise exception 'no INSERT policy on storage.objects for notice-videos'; end if;
+  raise notice 'PASS  13  notice-videos bucket public + writes gated to ntitt_admin';
+end
+$$;
+
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'

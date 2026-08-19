@@ -13,6 +13,7 @@ const base: NoticeFieldValues = {
   mediaKind: "none",
   vimeoId: "",
   hasImage: false,
+  hasVideo: false,
   weekday: "",
   startsOn: "",
   endsOn: "",
@@ -45,6 +46,11 @@ describe("validateNoticeFields", () => {
   it("image kind needs an image present", () => {
     expect(validateNoticeFields({ ...base, mediaKind: "image", hasImage: false })).toHaveProperty("image");
     expect(validateNoticeFields({ ...base, mediaKind: "image", hasImage: true })).toEqual({});
+  });
+
+  it("video kind needs a video present", () => {
+    expect(validateNoticeFields({ ...base, mediaKind: "video", hasVideo: false })).toHaveProperty("video");
+    expect(validateNoticeFields({ ...base, mediaKind: "video", hasVideo: true })).toEqual({});
   });
 
   it("rejects an end date before the start date", () => {

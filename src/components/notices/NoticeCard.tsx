@@ -10,6 +10,8 @@ export type NoticeCardData = {
   vimeoId: string | null;
   /** Resolved image URL: a stored public URL, or a local object URL in preview. */
   imageUrl: string | null;
+  /** Resolved video URL: a stored public URL, or a local object URL in preview. */
+  videoUrl: string | null;
   ctaLabel: string | null;
   ctaUrl: string | null;
 };
@@ -29,7 +31,7 @@ function isHttp(url: string): boolean {
  * keystroke.
  */
 export function NoticeCard({ data, embed = true }: { data: NoticeCardData; embed?: boolean }) {
-  const { title, body, mediaKind, vimeoId, imageUrl, ctaLabel, ctaUrl } = data;
+  const { title, body, mediaKind, vimeoId, imageUrl, videoUrl, ctaLabel, ctaUrl } = data;
 
   return (
     <article className="border border-rule-border bg-background">
@@ -58,6 +60,14 @@ export function NoticeCard({ data, embed = true }: { data: NoticeCardData; embed
         <div className="flex max-h-[28rem] w-full items-center justify-center overflow-hidden border-b border-rule-border bg-brand-background">
           {/* eslint-disable-next-line @next/next/no-img-element -- remote Storage asset / local object URL preview */}
           <img src={imageUrl} alt={title} className="max-h-[28rem] w-full object-contain" />
+        </div>
+      ) : mediaKind === "video" && videoUrl ? (
+        <div className="aspect-video w-full overflow-hidden border-b border-rule-border bg-brand-background">
+          {/* An uploaded video file plays natively; controls, no autoplay. Works
+              from a stored public URL (Today) or a local object URL (preview). */}
+          <video src={videoUrl} controls preload="metadata" className="h-full w-full bg-brand-background">
+            <track kind="captions" />
+          </video>
         </div>
       ) : null}
 

@@ -21,6 +21,7 @@ export function NoticeBoard({ notices }: { notices: NoticeView[] }) {
           mediaKind: notice.media_kind,
           vimeoId: notice.vimeo_id,
           imageUrl: notice.image_url,
+          videoUrl: notice.video_url,
           ctaLabel: notice.cta_label,
           ctaUrl: notice.cta_url,
         }}

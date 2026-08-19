@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Notice } from "@/types/database";
 import { noticeImageUrl } from "@/lib/notices/imageUpload";
+import { noticeVideoUrl } from "@/lib/notices/videoUpload";
 
 // createClient() is typed with a schema union; notices live in `public`, but
 // callers pass whichever client instance they already have -- same pattern as
@@ -9,16 +10,19 @@ import { noticeImageUrl } from "@/lib/notices/imageUpload";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = SupabaseClient<any, any>;
 
-/** A notice decorated with its resolved image URL (null unless media_kind is
- *  'image'), so a rendering surface never needs the storage client itself. */
+/** A notice decorated with its resolved media URLs (each null unless the
+ *  matching media_kind), so a rendering surface never needs the storage client
+ *  itself. */
 export interface NoticeView extends Notice {
   image_url: string | null;
+  video_url: string | null;
 }
 
 function decorate(supabase: AnyClient, rows: Notice[] | null): NoticeView[] {
   return (rows ?? []).map((n) => ({
     ...n,
     image_url: n.media_kind === "image" ? noticeImageUrl(supabase, n.image_path) : null,
+    video_url: n.media_kind === "video" ? noticeVideoUrl(supabase, n.video_path) : null,
   }));
 }
 
