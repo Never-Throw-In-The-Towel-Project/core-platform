@@ -46,12 +46,23 @@ export function longestCleanStreak(dates: string[]): number {
  * member isn't shown a broken streak just because they haven't checked in yet.
  * A genuine slip (or an unmarked gap in the past) does end the run. Mirrors the
  * home-screen computeStreak.
+ *
+ * The grace is only for an UNMARKED today. If the member explicitly logged a slip
+ * TODAY (todaySlipped), the run has genuinely ended today, so we do not fall back
+ * to yesterday -- the current streak is 0. (A slip on a past day already breaks
+ * the run naturally, since that day isn't in the clean set.)
  */
-export function currentCleanStreak(dates: string[], todayIso: string): number {
+export function currentCleanStreak(dates: string[], todayIso: string, todaySlipped = false): number {
   const set = new Set(dates);
   const today = dayUtc(todayIso);
-  // Anchor at today if marked, else yesterday (grace for "not checked in yet").
-  let cursor = set.has(todayIso) ? today : today - DAY_MS;
+  let cursor: number;
+  if (set.has(todayIso)) {
+    cursor = today; // today is clean -> count it and back
+  } else if (todaySlipped) {
+    return 0; // explicit slip today ends the run -- no grace
+  } else {
+    cursor = today - DAY_MS; // unmarked today -> grace, count from yesterday
+  }
   let streak = 0;
   while (set.has(isoOf(cursor))) {
     streak += 1;
@@ -87,14 +98,18 @@ export function computeHabitProgress(
   const cleanDays = clean.length;
   const slipDays = checkIns.length - cleanDays;
   const target = Math.max(1, targetDays);
+  // A slip logged for today ends the current run today (see currentCleanStreak).
+  const todaySlipped = checkIns.some((c) => c.check_in_date === todayIso && c.outcome === "slip");
   return {
     cleanDays,
     slipDays,
     targetDays,
     remaining: Math.max(0, target - cleanDays),
-    percent: Math.min(100, Math.round((cleanDays / target) * 100)),
+    // floor, not round: the bar must not read a full 100% until the goal is
+    // actually reached (round would show 100% at target-1 for large targets).
+    percent: Math.min(100, Math.floor((cleanDays / target) * 100)),
     isComplete: cleanDays >= target,
     longestStreak: longestCleanStreak(clean),
-    currentStreak: currentCleanStreak(clean, todayIso),
+    currentStreak: currentCleanStreak(clean, todayIso, todaySlipped),
   };
 }

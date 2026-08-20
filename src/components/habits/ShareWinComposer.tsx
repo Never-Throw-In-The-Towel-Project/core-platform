@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useState } from "react";
 import { submitCommunityPost } from "@/lib/actions/community";
 import { initialRoutineState } from "@/lib/actions/routineState";
 
@@ -25,11 +25,6 @@ export function ShareWinComposer({ canShare, authorName }: { canShare: boolean; 
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState(submitCommunityPost, initialRoutineState);
   const [fileName, setFileName] = useState<string | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (state.status === "success") formRef.current?.reset();
-  }, [state]);
 
   if (!canShare) {
     return (
@@ -84,7 +79,7 @@ export function ShareWinComposer({ canShare, authorName }: { canShare: boolean; 
   }
 
   return (
-    <form ref={formRef} action={action} className="border-2 border-foreground p-6">
+    <form action={action} className="border-2 border-foreground p-6">
       <input type="hidden" name="scope" value="global" />
       <input type="hidden" name="board" value="wins" />
 

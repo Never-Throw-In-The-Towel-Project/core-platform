@@ -95,7 +95,9 @@ export default async function CleanStreakPage() {
               <Stat value={progress.currentStreak} label="Day streak" />
               <Stat value={progress.longestStreak} label="Best run" />
               <Stat
-                value={progress.remaining}
+                // Once complete, "remaining" is always 0 -- show days BEYOND the
+                // goal instead (clean days minus target); otherwise days to go.
+                value={progress.isComplete ? progress.cleanDays - current.target_days : progress.remaining}
                 label={progress.isComplete ? "Days over goal" : "Days to go"}
                 over={progress.isComplete}
               />
