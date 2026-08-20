@@ -25,9 +25,11 @@ import { checkSchemaReadiness, type SchemaSentinel } from "@/lib/health/schema";
  */
 export const dynamic = "force-dynamic";
 
-/** Does a sentinel's table exist? A `head` count round-trips to Postgres without
- *  returning any rows; a missing relation comes back as an error, so `!error` ==
- *  the table exists.
+/** Does a sentinel's table exist? A `head` request round-trips to Postgres
+ *  without returning any rows; a missing relation comes back as an error, so
+ *  `!error` == the table exists. No row count -- existence only needs the
+ *  round-trip, and `count: "exact"` would force a full COUNT(*) over every
+ *  user's rows on each probe (service-role bypasses RLS), which we don't want.
  *
  *  Uses the SERVICE-ROLE admin client, not the request client: /api/health
  *  authenticates via the CRON_SECRET bearer, so there's no Supabase session and
@@ -35,11 +37,11 @@ export const dynamic = "force-dynamic";
  *  to `authenticated`, so an anon probe would hit "permission denied" and report
  *  every private table as MISSING even on a correctly-migrated database. The
  *  admin client sees the schema regardless of grants; this is a pure existence
- *  check (head count, no row data), so it reads nothing sensitive. */
+ *  check (head, no row data), so it reads nothing sensitive. */
 async function sentinelExists(sentinel: SchemaSentinel): Promise<boolean> {
   try {
     const client = createAdminClient(sentinel.schema);
-    const { error } = await client.from(sentinel.table).select("*", { head: true, count: "exact" });
+    const { error } = await client.from(sentinel.table).select("*", { head: true });
     return !error;
   } catch {
     return false;

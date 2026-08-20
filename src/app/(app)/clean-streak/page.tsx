@@ -83,7 +83,10 @@ export default async function CleanStreakPage() {
             <div
               className="mt-5 h-2.5 w-full bg-foreground/10"
               role="progressbar"
-              aria-valuenow={progress.cleanDays}
+              // Clamp to the max: clean days can exceed the goal once complete
+              // (you can keep marking), but aria-valuenow > aria-valuemax is
+              // invalid ARIA. The label still reports the true count.
+              aria-valuenow={Math.min(progress.cleanDays, current.target_days)}
               aria-valuemin={0}
               aria-valuemax={current.target_days}
               aria-label={`${progress.cleanDays} of ${current.target_days} clean days`}
