@@ -48,7 +48,11 @@ import { extractTenantSlug, cookieDomainForHost } from "@/lib/tenant/resolve";
 // member and the marketing shell for a logged-out visitor, so it must be public
 // here for the visitor case to be reachable. The prefix match below also covers
 // /events/<slug>.
-export const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth/callback", "/documentary", "/podcast", "/what-i-do", "/events", "/privacy", "/terms"];
+// /auth/callback (PKCE code exchange) and /auth/confirm (token-hash verifyOtp,
+// where the branded auth emails' links land) MUST be public: the user clicking a
+// sign-in / confirmation / recovery link is logged OUT, so a session gate here
+// would bounce them to /login and drop the token before it's ever verified.
+export const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth/callback", "/auth/confirm", "/documentary", "/podcast", "/what-i-do", "/events", "/privacy", "/terms"];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

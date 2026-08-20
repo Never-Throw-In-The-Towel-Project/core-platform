@@ -50,17 +50,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: { http_code: 400, message: "invalid payload" } }, { status: 400 });
   }
 
+  // Recipient is the account's own address. NOTE: the app does not currently
+  // trigger an email-change flow (no updateUser({email}) anywhere). If one is
+  // ever added, verify which address GoTrue expects the "confirm new email" mail
+  // to reach for `email_action_type === "email_change"` -- it may be the NEW
+  // address, carried separately in the payload, rather than user.email here.
   const to = payload.user?.email;
   const data = payload.email_data;
   if (!to || !data?.email_action_type) {
     return NextResponse.json({ error: { http_code: 400, message: "missing fields" } }, { status: 400 });
   }
 
-  const { subject, html, text } = buildAuthEmail({
-    actionType: String(data.email_action_type),
-    actionUrl: buildActionUrl(data),
-    token: data.token ? String(data.token) : undefined,
-  });
+  let subject: string, html: string, text: string;
+  try {
+    // buildActionUrl does `new URL(...)`, which throws if the site-URL base is
+    // empty (a misconfigured deployment) -- fail cleanly with the error shape
+    // rather than an uncaught 500.
+    ({ subject, html, text } = buildAuthEmail({
+      actionType: String(data.email_action_type),
+      actionUrl: buildActionUrl(data),
+      token: data.token ? String(data.token) : undefined,
+    }));
+  } catch {
+    return NextResponse.json({ error: { http_code: 500, message: "could not build email" } }, { status: 500 });
+  }
 
   const res = await sendBrandedEmail({ to, subject, html, text });
   if (!res.ok) {
