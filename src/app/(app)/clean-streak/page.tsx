@@ -9,6 +9,7 @@ import { computeHabitProgress } from "@/lib/habits/progress";
 import { StartChallengeForm } from "@/components/habits/StartChallengeForm";
 import { HabitCalendar } from "@/components/habits/HabitCalendar";
 import { ChallengeControls } from "@/components/habits/ChallengeControls";
+import { ShareWinComposer } from "@/components/habits/ShareWinComposer";
 import type { HabitChallenge, HabitCheckIn } from "@/types/database";
 
 export const metadata = { title: "Clean streak" };
@@ -102,18 +103,25 @@ export default async function CleanStreakPage() {
           </section>
 
           {progress.isComplete && (
-            <section className="bg-success p-6 text-success-foreground">
-              <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-success-foreground/80">
-                Goal reached
-              </p>
-              <p className="mt-2 text-2xl font-extrabold leading-tight tracking-tight">
-                {current.target_days} clean days. That&rsquo;s a win.
-              </p>
-              <p className="mt-2 text-sm text-success-foreground/90">
-                Keep the run going by extending your goal below — or take the win to the Wins Board when you&rsquo;re
-                ready. Sharing is always your choice, and never mentions what you were quitting.
-              </p>
-            </section>
+            <>
+              <section className="bg-success p-6 text-success-foreground">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-success-foreground/80">
+                  Goal reached
+                </p>
+                <p className="mt-2 text-2xl font-extrabold leading-tight tracking-tight">
+                  {current.target_days} clean days. That&rsquo;s a win.
+                </p>
+                <p className="mt-2 text-sm text-success-foreground/90">
+                  Keep the run going by extending your goal below — or take the win to the Wins Board when you&rsquo;re
+                  ready. Sharing is always your choice, and never mentions what you were quitting.
+                </p>
+                <p className="mt-3 text-sm font-semibold text-success-foreground/90">
+                  You&rsquo;ve earned the Clean Streak badge — find it on your Journey.
+                </p>
+              </section>
+
+              <ShareWinComposer canShare={profile.community_opt_in} authorName={profile.display_name} />
+            </>
           )}
 
           {/* Calendar */}

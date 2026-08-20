@@ -104,6 +104,10 @@ export const BADGE_DEFS: BadgeDef[] = CATALOGUE.map((c) => c.def);
 const CHALLENGE_BADGE_LABELS: Record<string, string> = {
   team_mvp: "Team MVP",
   challenge_complete: "Challenge Complete",
+  // Clean Streak (private): earned the first time a member reaches their own
+  // habit-quit goal. Written straight into earned_badges from markHabitDayAction
+  // (own-rows only, idempotent); like the others it just needs a label here.
+  habit_complete: "Clean Streak",
 };
 
 /** Human label for a persisted badge_key (falls back to the key itself). */
