@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyCronRequest } from "@/lib/auth/cron";
 import { summarizeConfig } from "@/lib/health/config";
 import { checkSchemaReadiness, type SchemaSentinel } from "@/lib/health/schema";
@@ -24,15 +25,20 @@ import { checkSchemaReadiness, type SchemaSentinel } from "@/lib/health/schema";
  */
 export const dynamic = "force-dynamic";
 
-/** Does a sentinel's table exist and answer a query? A `head` count round-trips
- *  to Postgres without returning rows; a missing relation comes back as an error
- *  (RLS returning zero rows is NOT an error), so `!error` == the table exists.
- *  Private-schema tables need the `private` client (they 404 through the public
- *  one). Backs the schema-readiness probe; injected so lib/health/schema stays
- *  pure + testable. */
+/** Does a sentinel's table exist? A `head` count round-trips to Postgres without
+ *  returning any rows; a missing relation comes back as an error, so `!error` ==
+ *  the table exists.
+ *
+ *  Uses the SERVICE-ROLE admin client, not the request client: /api/health
+ *  authenticates via the CRON_SECRET bearer, so there's no Supabase session and
+ *  the request client would run as `anon`. The private tables grant SELECT only
+ *  to `authenticated`, so an anon probe would hit "permission denied" and report
+ *  every private table as MISSING even on a correctly-migrated database. The
+ *  admin client sees the schema regardless of grants; this is a pure existence
+ *  check (head count, no row data), so it reads nothing sensitive. */
 async function sentinelExists(sentinel: SchemaSentinel): Promise<boolean> {
   try {
-    const client = sentinel.schema === "private" ? await createClient("private") : await createClient();
+    const client = createAdminClient(sentinel.schema);
     const { error } = await client.from(sentinel.table).select("*", { head: true, count: "exact" });
     return !error;
   } catch {
