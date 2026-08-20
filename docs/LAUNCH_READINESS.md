@@ -119,7 +119,10 @@ Hard-fail if unset: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
 (`NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`).
 Silently degrade but disable a launch-critical feature: `CRON_SECRET` (all jobs
 401), `SUPPORT_ACK_TOKEN_SECRET` (support ack→monitor loop), `BREVO_API_KEY` /
-`BREVO_SENDER_EMAIL` (all email), Twilio trio (support SMS),
+`BREVO_SENDER_EMAIL` (all email), `SUPABASE_AUTH_HOOK_SECRET` (branded auth mail —
+unset means auth emails fall back to Supabase's default "powered by Supabase"
+sender; the hook must ALSO be enabled on the Supabase project, see
+`docs/POST_MERGE_PROD_CHECKLIST.md`), Twilio trio (support SMS),
 `NTITT_FALLBACK_CONTACT_PHONE` / `_EMAIL` (the "nobody responded" safety net).
 Feature-optional: `ANTHROPIC_API_KEY` / `ANTHROPIC_MODEL` (AI Studio assist),
 `HELPLINE_NUMBER` (defaults to Samaritans), `NEXT_PUBLIC_APP_ROOT_DOMAIN`.

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { verifyCronRequest } from "@/lib/auth/cron";
 import { summarizeConfig } from "@/lib/health/config";
+import { checkSchemaReadiness, type SchemaSentinel } from "@/lib/health/schema";
 
 /**
  * Readiness probe for uptime monitoring and operator go-live checks.
@@ -22,6 +23,22 @@ import { summarizeConfig } from "@/lib/health/config";
  * Supabase client and node:crypto in the cron-auth helper work.
  */
 export const dynamic = "force-dynamic";
+
+/** Does a sentinel's table exist and answer a query? A `head` count round-trips
+ *  to Postgres without returning rows; a missing relation comes back as an error
+ *  (RLS returning zero rows is NOT an error), so `!error` == the table exists.
+ *  Private-schema tables need the `private` client (they 404 through the public
+ *  one). Backs the schema-readiness probe; injected so lib/health/schema stays
+ *  pure + testable. */
+async function sentinelExists(sentinel: SchemaSentinel): Promise<boolean> {
+  try {
+    const client = sentinel.schema === "private" ? await createClient("private") : await createClient();
+    const { error } = await client.from(sentinel.table).select("*", { head: true, count: "exact" });
+    return !error;
+  } catch {
+    return false;
+  }
+}
 
 async function isDatabaseReachable(): Promise<boolean> {
   try {
@@ -52,7 +69,14 @@ export async function GET(request: NextRequest) {
     if (!(await verifyCronRequest(request))) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
-    return NextResponse.json({ ...base, config: summarizeConfig(process.env) }, { status: httpStatus });
+    // Schema readiness catches a migration that's merged but not `db push`-ed to
+    // this database. Best-effort: it never changes the liveness status/httpStatus
+    // (a behind schema isn't downtime) -- it's an operator signal in the report.
+    const schema = await checkSchemaReadiness(sentinelExists);
+    return NextResponse.json(
+      { ...base, config: summarizeConfig(process.env), schema },
+      { status: httpStatus }
+    );
   }
 
   return NextResponse.json(base, { status: httpStatus });
