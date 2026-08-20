@@ -87,6 +87,17 @@
   --muted-on-ink-2: #bab6b6;
   --inactive: #d7d3d3;
   --inactive-ink: #221f1f;
+
+  /* Success green -- the ONE non-red accent, introduced for the Clean Streak
+     "clean day" tick (a recovery win reads as green, not the brand red). Split by
+     role like the accent reds: --success (#15803d) is AA on the paper ground
+     (4.5:1), so it works as green text on paper AND as paper text on a green fill;
+     --success-vivid is a brighter decorative fill for the filled tick cell (a
+     graphical mark, no small text on it). Like the decorative reds, these are a
+     FIXED role colour -- NOT part of the company co-branding override set. */
+  --success: #15803d;
+  --success-foreground: #f3f2f2;
+  --success-vivid: #16a34a;
 }
 
 @theme inline {
@@ -109,6 +120,9 @@
   --color-muted-on-ink-2: var(--muted-on-ink-2);
   --color-inactive: var(--inactive);
   --color-inactive-ink: var(--inactive-ink);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-vivid: var(--success-vivid);
   --font-sans: var(--font-archivo);
   --font-mono: var(--font-geist-mono);
 

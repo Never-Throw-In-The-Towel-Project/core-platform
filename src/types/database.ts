@@ -322,6 +322,37 @@ export interface StepEntry {
   updated_at: string;
 }
 
+// Clean Streak (the "Bad Habit Board"): a member's OWN habit-quit challenge and
+// their daily clean/slip check-ins. PRIVATE + own-rows-only, exactly like
+// step_entries -- sensitive recovery data, never reportable, never visible to
+// HR/admin. USER-authored (the member types the habit + chooses the length),
+// non-punitive (progress = count of clean days). See the habit_clean_streak
+// migration. Query with createClient("private").
+export type HabitChallengeStatus = "active" | "completed" | "abandoned";
+export type HabitCheckInOutcome = "success" | "slip";
+
+export interface HabitChallenge {
+  id: string;
+  user_id: string;
+  /** Free text the member types (e.g. "no smoking"). SENSITIVE -- never shared. */
+  habit_label: string;
+  target_days: number;
+  started_on: string;
+  status: HabitChallengeStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface HabitCheckIn {
+  id: string;
+  user_id: string;
+  habit_challenge_id: string;
+  check_in_date: string;
+  outcome: HabitCheckInOutcome;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface WorkoutWeek {
   id: string;
   bank_position: number;
