@@ -131,13 +131,14 @@ export async function markHabitDayAction(
     const supabase = await createClient("private");
     const { data: challenge } = await supabase
       .from("habit_challenges")
-      .select("started_on")
+      .select("started_on, target_days")
       .eq("id", challengeId)
       .maybeSingle();
     if (!challenge) return { status: "error", message: "Couldn’t find that challenge." };
 
     const today = todayISODate(new Date(), profile.timezone);
-    const startedOn = (challenge as { started_on: string }).started_on;
+    const startedOn = (challenge as { started_on: string; target_days: number }).started_on;
+    const targetDays = (challenge as { started_on: string; target_days: number }).target_days;
     // yyyy-mm-dd strings compare chronologically.
     if (date > today) return { status: "error", message: "You can’t mark a day in the future." };
     if (date < startedOn) return { status: "error", message: "That’s before this challenge started." };
@@ -161,6 +162,13 @@ export async function markHabitDayAction(
         { onConflict: "user_id,habit_challenge_id,check_in_date" }
       );
       if (error) return { status: "error", message: "Couldn’t update that day. Please try again." };
+
+      // Completion: the first time a member's clean days reach their own goal,
+      // award the private Clean Streak badge (own-rows, idempotent via the
+      // unique (user, badge_key)). Only ever fires when marking a day clean.
+      if (outcome === "success") {
+        await awardHabitCompleteIfReached(supabase, session.userId, challengeId, targetDays);
+      }
     }
   } catch {
     return { status: "error", message: "Couldn’t update that day. Please try again." };
@@ -168,6 +176,35 @@ export async function markHabitDayAction(
 
   revalidateHabitSurfaces();
   return { status: "success" };
+}
+
+type PrivateClient = Awaited<ReturnType<typeof createClient>>;
+
+/** Award the private "Clean Streak" badge once the member's clean-day count for
+ *  a challenge reaches its goal. Idempotent (unique user+badge_key, insert-only)
+ *  and best-effort: a badge hiccup must never fail the day's check-in. The count
+ *  runs under the caller's own private client, so RLS scopes it to their rows. */
+async function awardHabitCompleteIfReached(
+  supabase: PrivateClient,
+  userId: string,
+  challengeId: string,
+  targetDays: number
+): Promise<void> {
+  try {
+    const { count } = await supabase
+      .from("habit_check_ins")
+      .select("*", { count: "exact", head: true })
+      .eq("habit_challenge_id", challengeId)
+      .eq("outcome", "success");
+    if ((count ?? 0) >= targetDays) {
+      await supabase.from("earned_badges").upsert(
+        { user_id: userId, badge_key: "habit_complete", earned_at: new Date().toISOString() },
+        { onConflict: "user_id,badge_key", ignoreDuplicates: true }
+      );
+    }
+  } catch {
+    // best-effort
+  }
 }
 
 const StatusSchema = z.object({
