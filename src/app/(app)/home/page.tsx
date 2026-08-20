@@ -31,6 +31,8 @@ import { rotateForWeek, isoWeekdayFromName, DAY_LABEL } from "@/lib/content/rota
 import { listChallengesWithProgress } from "@/lib/challenges/queries";
 import { NoticeBoard } from "@/components/notices/NoticeBoard";
 import { listActiveNotices, type NoticeView } from "@/lib/notices/queries";
+import { CleanStreakEntryCard } from "@/components/habits/CleanStreakEntryCard";
+import { getMyHabitEntrySummary, type HabitEntrySummary } from "@/lib/habits/queries";
 import type { ContentItem, ChallengeWithProgress } from "@/types/database";
 
 const THEMED_TITLES: Record<Weekday, { title: string; subtitle: string }> = {
@@ -120,6 +122,7 @@ export default async function HomePage() {
   let dayItems: ContentItem[] = [];
   let myChallenges: ChallengeWithProgress[] = [];
   let notices: NoticeView[] = [];
+  let habitSummary: HabitEntrySummary = { hasAny: false, active: null };
 
   try {
     const privateClient = await createClient("private");
@@ -177,12 +180,14 @@ export default async function HomePage() {
     // spine by channel and participation to the caller), folded into this same
     // guarded block so /home still degrades to "nothing yet" if Supabase is
     // unreachable rather than crashing the universal landing page.
-    [dayItems, myChallenges, notices] = await Promise.all([
+    [dayItems, myChallenges, notices, habitSummary] = await Promise.all([
       getDayContent(publicClient, isoWeekday),
       listChallengesWithProgress(publicClient, privateClient, profile.id),
       // The Notice Board: ad-hoc promo cards Anthony schedules for today (RLS
       // gates them to published; the query filters by the date window + weekday).
       listActiveNotices(publicClient, { isoWeekday, todayIso: todayISO }),
+      // The member's own Clean Streak (private, own-rows only) for the rail card.
+      getMyHabitEntrySummary(privateClient, profile.id, todayISO),
     ]);
   } catch {
     // safe defaults above
@@ -435,6 +440,12 @@ export default async function HomePage() {
                 </Link>
               </section>
             ) : null}
+
+            {/* Clean Streak: the member's own habit-quit challenge (private,
+                own-rows only). Renders whether or not one is running -- the rail
+                card is the discoverable entry point to /clean-streak, since it
+                deliberately isn't a top-level nav tab. */}
+            <CleanStreakEntryCard summary={habitSummary} />
 
             {/* Support: the person-led "check in with me" flow, always present
                 and never triggered by anything the member logs. A second entry

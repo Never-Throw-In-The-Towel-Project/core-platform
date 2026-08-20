@@ -12,6 +12,8 @@ import { JourneyBadges } from "@/components/journey/JourneyBadges";
 import { getEarnedBadges, type EarnedBadge } from "@/lib/gamification/earnedBadges";
 import { gatherEngagement, badgeStatsFrom } from "@/lib/gamification/todayStats";
 import { evaluateBadges } from "@/lib/gamification/badges";
+import { CleanStreakEntryCard } from "@/components/habits/CleanStreakEntryCard";
+import { getMyHabitEntrySummary, type HabitEntrySummary } from "@/lib/habits/queries";
 import type { PeriodicReview, ReviewType, StepEntry, WeeklyReview } from "@/types/database";
 
 const REVIEW_FIELDS: { key: keyof WeeklyReview; label: string }[] = [
@@ -82,6 +84,9 @@ export default async function JourneyPage() {
   // Private to them (their own page); never a gamification input, never reported.
   let dailySleep = new Map<string, number>();
   let dailyRating = new Map<string, number>();
+  // The member's own Clean Streak summary for the rail entry card (private,
+  // own-rows only). Defaults to "none" so any read failure just hides progress.
+  let habitSummary: HabitEntrySummary = { hasAny: false, active: null };
   try {
     const supabase = await createClient("private");
     const [weeklyResult, periodicResult] = await Promise.all([
@@ -101,6 +106,11 @@ export default async function JourneyPage() {
     periodicReviews = periodicResult.data as PeriodicReview[] | null;
     stepEntries = await getRecentSteps(supabase, profile.id, stepDates[0]);
     earnedBadges = await getEarnedBadges(supabase, profile.id);
+    habitSummary = await getMyHabitEntrySummary(
+      supabase,
+      profile.id,
+      todayISODate(new Date(), profile.timezone)
+    );
 
     // Daily sleep + day-rating over the same 7-day window as steps.
     const [{ data: sleepRows }, { data: ratingRows }] = await Promise.all([
@@ -280,6 +290,10 @@ export default async function JourneyPage() {
               <p className="mt-1 text-sm font-semibold text-brand-accent-deep">See the team&apos;s progress →</p>
             </Link>
           )}
+
+          {/* Clean Streak: the member's own habit-quit progress (private,
+              own-rows only) with the entry point to /clean-streak. */}
+          <CleanStreakEntryCard summary={habitSummary} />
 
           <JourneyBadges
             badges={allBadges}
