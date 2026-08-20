@@ -10,6 +10,7 @@ const FULL_ENV: Record<string, string> = {
   CRON_SECRET: "cron",
   BREVO_API_KEY: "brevo",
   BREVO_SENDER_EMAIL: "hello@ntitt.co.uk",
+  SUPABASE_AUTH_HOOK_SECRET: "v1,whsec_x",
   NEXT_PUBLIC_VAPID_PUBLIC_KEY: "vapub",
   VAPID_PRIVATE_KEY: "vapriv",
   VAPID_SUBJECT: "mailto:ops@ntitt.co.uk",
@@ -40,6 +41,16 @@ describe("summarizeConfig", () => {
     const cron = group(summary, "cron");
     expect(cron.configured).toBe(false);
     expect(cron.missing).toEqual(["CRON_SECRET"]);
+  });
+
+  it("flags a missing auth-email-hook secret as a critical gap", () => {
+    const { SUPABASE_AUTH_HOOK_SECRET, ...env } = FULL_ENV;
+    void SUPABASE_AUTH_HOOK_SECRET;
+    const summary = summarizeConfig(env);
+    expect(summary.criticalOk).toBe(false);
+    const hook = group(summary, "authEmailHook");
+    expect(hook.configured).toBe(false);
+    expect(hook.missing).toEqual(["SUPABASE_AUTH_HOOK_SECRET"]);
   });
 
   it("treats a blank/whitespace value as unset", () => {

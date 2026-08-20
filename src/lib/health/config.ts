@@ -33,6 +33,11 @@ export type ConfigSummary = {
  * and `docs/LAUNCH_READINESS.md` "Required prod env vars". Note: the Supabase
  * Auth SMTP secret (`SUPABASE_AUTH_SMTP_PASS`) is deliberately absent -- it's set
  * on the Supabase project, not this app's env, so the app can't observe it.
+ *
+ * The `authEmailHook` group checks only the app-side secret. The hook must ALSO
+ * be *enabled* on the Supabase project (Auth -> Hooks -> Send Email) for branded
+ * auth mail to fire -- that toggle lives on the project, not in this env, so it
+ * can't be observed here (see docs/POST_MERGE_PROD_CHECKLIST.md).
  */
 const GROUP_DEFS: { key: string; label: string; critical: boolean; vars: string[] }[] = [
   {
@@ -44,6 +49,12 @@ const GROUP_DEFS: { key: string; label: string; critical: boolean; vars: string[
   { key: "site", label: "Site URL", critical: true, vars: ["NEXT_PUBLIC_SITE_URL"] },
   { key: "cron", label: "Cron authentication", critical: true, vars: ["CRON_SECRET"] },
   { key: "email", label: "Email (Brevo)", critical: true, vars: ["BREVO_API_KEY", "BREVO_SENDER_EMAIL"] },
+  {
+    key: "authEmailHook",
+    label: "Auth email hook secret (branded auth mail)",
+    critical: true,
+    vars: ["SUPABASE_AUTH_HOOK_SECRET"],
+  },
   {
     key: "push",
     label: "Web push (VAPID)",
