@@ -41,6 +41,14 @@ describe("currentCleanStreak (non-punitive today grace)", () => {
   it("is 0 when neither today nor yesterday is clean (a real gap ended it)", () => {
     expect(currentCleanStreak(["2026-08-10", "2026-08-11"], "2026-08-20")).toBe(0);
   });
+  it("an explicit slip TODAY ends the run (no yesterday grace)", () => {
+    // clean 18 + 19, but today (20) was logged as a slip -> streak is 0, not 2.
+    expect(currentCleanStreak(["2026-08-18", "2026-08-19"], "2026-08-20", true)).toBe(0);
+  });
+  it("today clean still counts even if todaySlipped is (contradictorily) passed", () => {
+    // today is in the clean set, so it's counted regardless of the slip flag.
+    expect(currentCleanStreak(["2026-08-19", "2026-08-20"], "2026-08-20", true)).toBe(2);
+  });
 });
 
 describe("computeHabitProgress", () => {
@@ -50,9 +58,29 @@ describe("computeHabitProgress", () => {
     expect(p.cleanDays).toBe(3);
     expect(p.slipDays).toBe(1);
     expect(p.remaining).toBe(4);
-    expect(p.percent).toBe(43);
+    expect(p.percent).toBe(42); // floor(3/7*100), not round
     expect(p.isComplete).toBe(false);
     expect(p.longestStreak).toBe(2); // 12 + 13 (11 was a slip)
+  });
+
+  it("never shows 100% until the goal is actually reached (floor, not round)", () => {
+    // 199/200 = 99.5 -> round would read 100% while still incomplete; floor = 99.
+    const marks = Array.from({ length: 199 }, (_, i) => {
+      const d = new Date(Date.UTC(2026, 0, 1) + i * 86_400_000).toISOString().slice(0, 10);
+      return mark(d);
+    });
+    const p = computeHabitProgress(200, marks, "2026-08-20");
+    expect(p.cleanDays).toBe(199);
+    expect(p.percent).toBe(99);
+    expect(p.isComplete).toBe(false);
+  });
+
+  it("a slip logged for today breaks the current streak", () => {
+    const marks = [mark("2026-08-18"), mark("2026-08-19"), mark("2026-08-20", "slip")];
+    const p = computeHabitProgress(30, marks, "2026-08-20");
+    expect(p.cleanDays).toBe(2); // the count of clean days is untouched
+    expect(p.currentStreak).toBe(0); // but the run ended today
+    expect(p.longestStreak).toBe(2); // best-ever run is preserved
   });
 
   it("completes at target clean days and caps percent at 100", () => {

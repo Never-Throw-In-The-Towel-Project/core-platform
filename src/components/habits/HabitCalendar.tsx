@@ -161,13 +161,14 @@ export function HabitCalendar({
 
       {/* View toggle + range nav */}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex border-2 border-foreground" role="tablist" aria-label="Calendar view">
+        {/* A two-state view switch -- plain toggle buttons with aria-pressed, not
+            an ARIA tablist (there's no tabpanel/arrow-key contract to fulfil). */}
+        <div className="flex border-2 border-foreground" role="group" aria-label="Calendar view">
           {(["week", "month"] as const).map((v) => (
             <button
               key={v}
               type="button"
-              role="tab"
-              aria-selected={view === v}
+              aria-pressed={view === v}
               onClick={() => setView(v)}
               className={
                 "px-4 py-1.5 text-xs font-extrabold uppercase tracking-wide " +
@@ -318,9 +319,14 @@ function DayCell({
     );
 
   if (!markable) {
+    // Non-actionable day (future, or before the challenge started, or an
+    // adjacent-month pad). role="img" so the aria-label is a valid accessible
+    // name on this otherwise-generic element; dimmed so it reads as inactive in
+    // both the week strip and the month grid.
     return (
       <div
-        className={box + (outcome === "success" ? " bg-success/10" : "") + (inMonth ? "" : " opacity-40")}
+        role="img"
+        className={box + (outcome === "success" ? " bg-success/10" : "") + " opacity-50"}
         aria-label={`${longDate(iso)}: ${stateLabel}`}
       >
         {content}
