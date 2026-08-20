@@ -1,10 +1,12 @@
 /**
  * The ONE branded email layout. Every app email (and, via the auth send-email
  * hook, the Supabase Auth mails) renders through renderBrandedEmail so they all
- * share one look: the Modernist system, email-safe (table layout, inline styles,
- * no external CSS/images, a text wordmark rather than a hosted logo so nothing
- * depends on image loading). Returns BOTH an HTML and a plaintext body so every
- * send is multipart -- better deliverability and a clean fallback.
+ * share one look: the Modernist system, email-safe (table layout, inline styles).
+ * The header carries the hosted fist logomark next to the text wordmark; the
+ * wordmark stays as the always-visible fallback, so if a client blocks the image
+ * the brand name still shows (nothing depends on image loading). Returns BOTH an
+ * HTML and a plaintext body so every send is multipart -- better deliverability
+ * and a clean fallback.
  *
  * All text fields are treated as PLAIN TEXT and escaped here, so callers pass
  * raw strings (incl. user-supplied names/titles) without their own escaping and
@@ -25,6 +27,11 @@ const FINE = "#8a8481"; // footer fine print
 const CARD = "#ffffff";
 
 const WORDMARK = "Never Throw In The Towel";
+// The fist logomark, hosted on the canonical apex domain (an email-sized 120px
+// copy of public/logo-mark.png -- the two-tone mark reads on the ink header, the
+// black outline disappearing into the band). Absolute URL: email clients can't
+// resolve relative paths, and the brand mark is NTITT's regardless of tenant.
+const LOGO_URL = "https://neverthrowinthetowel.uk/email/logo-mark-email.png";
 const DEFAULT_SIGNOFF = "Keep on living,\nNever Throw In The Towel";
 const FOOTER_TAGLINE =
   "Never Throw In The Towel — a members’ community and daily tools to help you keep going.";
@@ -143,8 +150,15 @@ export function renderBrandedEmail(input: BrandedEmailInput): { html: string; te
     <td align="center">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;background-color:${CARD};border:1px solid ${INK};">
         <tr>
-          <td bgcolor="${INK}" style="padding:22px 32px;font-family:Arial,Helvetica,sans-serif;">
-            <div style="font-size:16px;font-weight:bold;letter-spacing:0.12em;text-transform:uppercase;color:${PAPER};">${WORDMARK}</div>
+          <td bgcolor="${INK}" style="padding:20px 32px;font-family:Arial,Helvetica,sans-serif;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td style="vertical-align:middle;padding-right:14px;">
+                <img src="${LOGO_URL}" width="40" height="40" alt="" style="display:block;border:0;outline:none;text-decoration:none;width:40px;height:40px;" />
+              </td>
+              <td style="vertical-align:middle;">
+                <div style="font-size:16px;font-weight:bold;letter-spacing:0.12em;text-transform:uppercase;color:${PAPER};">${WORDMARK}</div>
+              </td>
+            </tr></table>
           </td>
         </tr>
         <tr><td bgcolor="${ACCENT_VIVID}" height="4" style="height:4px;line-height:4px;font-size:4px;">&nbsp;</td></tr>

@@ -39,6 +39,16 @@ describe("renderBrandedEmail", () => {
     expect(text).toContain("neverthrowinthetowel.uk");
   });
 
+  it("shows the hosted fist logomark in the header, keeping the wordmark as the image-off fallback", () => {
+    const { html } = renderBrandedEmail({ heading: "Hello" });
+    // absolute URL (email clients can't resolve relative paths)
+    expect(html).toContain('src="https://neverthrowinthetowel.uk/email/logo-mark-email.png"');
+    // decorative alt so a screen reader doesn't double-read the wordmark beside it
+    expect(html).toContain('alt=""');
+    // the text wordmark is still present, so a blocked image still brands the mail
+    expect(html).toContain("Never Throw In The Towel");
+  });
+
   it("defaults to a warm sign-off and can omit it", () => {
     const withSignoff = renderBrandedEmail({ heading: "Hi" });
     expect(withSignoff.text).toContain("Keep on living");
