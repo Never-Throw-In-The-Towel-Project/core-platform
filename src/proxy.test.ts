@@ -20,8 +20,19 @@ describe("isPublicPath", () => {
     expect(isPublicPath("/terms")).toBe(true);
   });
 
+  it("treats the auth-landing routes as reachable while logged out", () => {
+    // Regression guard (see #164): the user clicking an emailed sign-in /
+    // confirmation / recovery link is LOGGED OUT, so both auth landings must be
+    // public -- gating them bounces the user to /login and drops the token
+    // before verifyOtp / the PKCE exchange ever runs, silently breaking auth.
+    expect(isPublicPath("/auth/callback")).toBe(true); // PKCE code exchange
+    expect(isPublicPath("/auth/confirm")).toBe(true); // token-hash verifyOtp (branded auth emails)
+  });
+
   it("does not match an unrelated gated path", () => {
     expect(isPublicPath("/home")).toBe(false);
     expect(isPublicPath("/signup-not-a-real-path")).toBe(false);
+    // The prefix match must not treat a look-alike as public.
+    expect(isPublicPath("/auth/confirmation-elsewhere")).toBe(false);
   });
 });
