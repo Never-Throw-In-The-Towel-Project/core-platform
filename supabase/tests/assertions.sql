@@ -21,8 +21,8 @@ begin
     raise exception 'RLS disabled on % public/private table(s)', missing;
   end if;
   select count(*) into total from pg_tables where schemaname in ('public','private');
-  if total <> 38 then
-    raise exception 'expected 38 public+private tables (26+12), found %', total;
+  if total <> 40 then
+    raise exception 'expected 40 public+private tables (26+14), found %', total;
   end if;
   raise notice 'PASS  1  RLS enabled on all % public/private tables', total;
 end
@@ -640,6 +640,56 @@ begin
   end if;
 
   raise notice 'PASS  6* live: step_entries own-rows-only (self-write allowed, cross-user blocked + isolated)';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+-- ============================================================================
+-- LIVE RLS test of the CLEAN STREAK tables (habit_challenges + habit_check_ins):
+-- a member creates + marks ONLY their own recovery journey -- private and never
+-- visible to anyone else, exactly like step_entries. Reuses usera / userb.
+-- ============================================================================
+-- userb creates a challenge + a check-in as the bootstrap superuser (bypassing
+-- RLS) so we can prove usera can neither see nor write them.
+insert into private.habit_challenges (id, user_id, habit_label, target_days, started_on) values
+  ('11ab0000-0000-0000-0000-0000000000b1', 'b0000000-0000-0000-0000-00000000000b', 'no smoking', 30, '2026-08-13');
+insert into private.habit_check_ins (user_id, habit_challenge_id, check_in_date, outcome) values
+  ('b0000000-0000-0000-0000-00000000000b', '11ab0000-0000-0000-0000-0000000000b1', '2026-08-13', 'success');
+
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+set role authenticated;
+do $$
+declare visible int; my_challenge uuid;
+begin
+  -- TEST 1 (must be BLOCKED): creating a challenge as another user
+  begin
+    insert into private.habit_challenges (user_id, habit_label, target_days, started_on)
+    values ('b0000000-0000-0000-0000-00000000000b', 'no gambling', 7, '2026-08-13');
+    raise exception 'FAIL habit-write: a member created a challenge for another user';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- TEST 2 (must be ISOLATED): usera cannot see userb's challenge or check-in
+  select count(*) into visible from private.habit_challenges;
+  if visible <> 0 then raise exception 'FAIL habit-read: another user''s challenge leaked (saw %)', visible; end if;
+  select count(*) into visible from private.habit_check_ins;
+  if visible <> 0 then raise exception 'FAIL habit-read: another user''s check-in leaked (saw %)', visible; end if;
+
+  -- TEST 3 (must be ALLOWED): usera creates their OWN challenge + marks a clean day
+  insert into private.habit_challenges (user_id, habit_label, target_days, started_on)
+    values ('a0000000-0000-0000-0000-00000000000a', 'no smoking', 7, '2026-08-13')
+    returning id into my_challenge;
+  insert into private.habit_check_ins (user_id, habit_challenge_id, check_in_date, outcome)
+    values ('a0000000-0000-0000-0000-00000000000a', my_challenge, '2026-08-13', 'success');
+
+  -- TEST 4 (must be ISOLATED): usera now sees exactly their own 1 challenge + 1 check-in
+  select count(*) into visible from private.habit_challenges;
+  if visible <> 1 then raise exception 'FAIL habit-read: expected usera to see exactly 1 (own) challenge, saw %', visible; end if;
+  select count(*) into visible from private.habit_check_ins;
+  if visible <> 1 then raise exception 'FAIL habit-read: expected usera to see exactly 1 (own) check-in, saw %', visible; end if;
+
+  raise notice 'PASS  6c* live: clean-streak tables own-rows-only (self-write allowed, cross-user blocked + isolated)';
 end
 $$;
 reset role;
