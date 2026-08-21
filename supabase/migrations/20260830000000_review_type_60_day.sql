@@ -1,0 +1,14 @@
+-- ============================================================================
+-- 60-DAY REVIEW — add the review_type enum value.
+-- ============================================================================
+-- Anthony's journal has THREE milestone reviews (30 / 60 / 90 day); the app
+-- only had 30 and 90. This adds the middle one. Inserted BEFORE '90_day' so the
+-- enum reads in journey order (30, 60, 90) -- though the app keys off explicit
+-- day thresholds, not enum sort order.
+--
+-- Its own migration/transaction on purpose: Postgres forbids using a newly-added
+-- enum value in the same transaction that added it (same reason the content
+-- 'text' type and the ntitt_admin role each got their own migration). The
+-- periodic_reviews table needs NO schema change -- 60-day-specific answers live
+-- in the existing `extra` jsonb, exactly like the 90-day-only fields.
+alter type public.review_type add value if not exists '60_day' before '90_day';

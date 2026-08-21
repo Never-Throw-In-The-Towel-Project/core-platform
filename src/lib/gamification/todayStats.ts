@@ -6,9 +6,13 @@ import { evaluateBadges, countEarned, type Badge, type BadgeStatsInput } from ".
 import { resolveRank, type Rank } from "./rank";
 import { todayISODate, type TimeZone } from "@/lib/routines/dates";
 
-/** Thresholds that drive both the ring and the "days to review" line. */
-const FIRST_REVIEW = 30;
-const SECOND_REVIEW = 90;
+/** Milestones (in active-engagement days) that drive both the ring and the
+ *  "days to review" line -- ascending; the last one is the final milestone. */
+const REVIEW_MILESTONES: { days: number; label: string }[] = [
+  { days: 30, label: "30 Day Review" },
+  { days: 60, label: "60 Day Review" },
+  { days: 90, label: "90 Day Review" },
+];
 
 export interface RecentWin {
   id: string;
@@ -72,15 +76,28 @@ function resolveReviewProgress(activeDayCount: number): {
   reviewLabel: string;
   reviewComplete: boolean;
 } {
-  if (activeDayCount >= SECOND_REVIEW) {
-    return { ringPct: 100, daysToReview: 0, reviewLabel: "90 Day Review", reviewComplete: true };
+  const last = REVIEW_MILESTONES[REVIEW_MILESTONES.length - 1];
+  if (activeDayCount >= last.days) {
+    return { ringPct: 100, daysToReview: 0, reviewLabel: last.label, reviewComplete: true };
   }
-  const [prev, next, label] =
-    activeDayCount < FIRST_REVIEW
-      ? [0, FIRST_REVIEW, "30 Day Review"]
-      : [FIRST_REVIEW, SECOND_REVIEW, "90 Day Review"];
-  const ringPct = Math.max(0, Math.min(100, Math.round(((activeDayCount - prev) / (next - prev)) * 100)));
-  return { ringPct, daysToReview: Math.max(0, next - activeDayCount), reviewLabel: label, reviewComplete: false };
+  // The next milestone not yet reached, measuring the ring from the previous one.
+  let prev = 0;
+  for (const milestone of REVIEW_MILESTONES) {
+    if (activeDayCount < milestone.days) {
+      const ringPct = Math.max(
+        0,
+        Math.min(100, Math.round(((activeDayCount - prev) / (milestone.days - prev)) * 100))
+      );
+      return {
+        ringPct,
+        daysToReview: Math.max(0, milestone.days - activeDayCount),
+        reviewLabel: milestone.label,
+        reviewComplete: false,
+      };
+    }
+    prev = milestone.days;
+  }
+  return { ringPct: 100, daysToReview: 0, reviewLabel: last.label, reviewComplete: true };
 }
 
 /** The raw engagement a member has built, derived from records the platform

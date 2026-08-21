@@ -51,7 +51,11 @@ const WEEKDAY_LABEL: Record<Weekday, string> = {
   friday: "Friday",
 };
 
-const REVIEW_ROUTES = { "30_day": "/reviews/30-day", "90_day": "/reviews/90-day" } as const;
+const REVIEW_ROUTES = {
+  "30_day": "/reviews/30-day",
+  "60_day": "/reviews/60-day",
+  "90_day": "/reviews/90-day",
+} as const;
 
 const CHECKIN_IMAGE = "/site/community-group.jpg";
 

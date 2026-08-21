@@ -5,7 +5,7 @@
 
 export type UserRole = "employee" | "hr_admin" | "ntitt_admin";
 export type Weekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday";
-export type ReviewType = "30_day" | "90_day";
+export type ReviewType = "30_day" | "60_day" | "90_day";
 export type SupportUrgency = "check_in" | "talk_today" | "urgent";
 export type SupportStatus = "new" | "contacted" | "resolved";
 export type VideoCategory = "mental_fitness" | "physical_fitness" | "nutrition" | "tools_tips";
@@ -432,12 +432,18 @@ export interface HabitSummary {
   themed_eligible: number;
 }
 
-// 90-day-only fields, kept out of the shared column set (see the Phase 1
+// Milestone-specific fields, kept out of the shared column set (see the Phase 1
 // migration's comment on `extra`) so the 30-day review doesn't carry sparse
-// unused columns.
+// unused columns. life_changes/next_period_vision are 90-day only;
+// progress_since_start/learned_about_myself/identity_becoming are 60-day only;
+// habit_summary + comparison_self_assessment are shared by the 60- and 90-day
+// reviews (the delta view against the 30-day baseline).
 export interface PeriodicReviewExtra {
   life_changes?: string;
   next_period_vision?: string;
+  progress_since_start?: string;
+  learned_about_myself?: string;
+  identity_becoming?: string;
   habit_summary?: HabitSummary;
   comparison_self_assessment?: SelfAssessment; // snapshot of the prior 30-day scores, for the delta view
 }

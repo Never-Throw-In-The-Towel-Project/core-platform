@@ -63,6 +63,7 @@ export default async function WorkspaceOverviewPage() {
   const latestWeek = weeklyParticipation[weeklyParticipation.length - 1] ?? null;
   const trendDelta = computeTrendDelta(weeklyParticipation);
   const thirtyDayReviews = reviewCompletions.find((r) => r.reviewType === "30_day");
+  const sixtyDayReviews = reviewCompletions.find((r) => r.reviewType === "60_day");
   const ninetyDayReviews = reviewCompletions.find((r) => r.reviewType === "90_day");
 
   const engagedThisWeek = weekdayThisWeek.filter((w) => w.percent !== null);
@@ -92,10 +93,12 @@ export default async function WorkspaceOverviewPage() {
             {thirtyDayReviews?.completedCount ?? 0}
             <span className="text-lg font-semibold text-muted">
               {" / "}
+              {sixtyDayReviews?.completedCount ?? 0}
+              {" / "}
               {ninetyDayReviews?.completedCount ?? 0}
             </span>
           </p>
-          <p className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">30 / 90 day reviews completed</p>
+          <p className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">30 / 60 / 90 day reviews completed</p>
         </div>
       </div>
 
