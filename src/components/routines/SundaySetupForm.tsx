@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState } from "react";
 import { submitSundaySetup } from "@/lib/actions/sundaySetup";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import { RoutineComplete } from "./RoutineComplete";
 
 const SUGGESTIONS = ["Gym kit ready", "Meals prepped", "Diary checked", "Alarm set"];
 
@@ -11,14 +11,7 @@ export function SundaySetupForm() {
   const [state, formAction, isPending] = useActionState(submitSundaySetup, initialRoutineState);
 
   if (state.status === "success") {
-    return (
-      <div className="space-y-4 text-center">
-        <h1 className="text-2xl font-extrabold tracking-tight">Ready for Monday.</h1>
-        <Link href="/home" className="inline-block text-sm font-semibold text-brand-accent-deep underline">
-          Back to Today →
-        </Link>
-      </div>
-    );
+    return <RoutineComplete title="Ready for Monday." />;
   }
 
   return (

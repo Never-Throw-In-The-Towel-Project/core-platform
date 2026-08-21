@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { submitMorningEntry } from "@/lib/actions/morning";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import { RoutineComplete } from "./RoutineComplete";
 
 const SLEEP_SCALE = Array.from({ length: 10 }, (_, i) => i + 1);
 
@@ -11,12 +12,7 @@ export function MorningRoutineForm() {
   const [sleepScore, setSleepScore] = useState<number | null>(null);
 
   if (state.status === "success") {
-    return (
-      <div className="space-y-2 text-center">
-        <p className="text-4xl">☀️</p>
-        <h1 className="text-2xl font-extrabold tracking-tight">Morning sorted. Go win the day.</h1>
-      </div>
-    );
+    return <RoutineComplete title="Morning sorted. Go win the day." />;
   }
 
   return (

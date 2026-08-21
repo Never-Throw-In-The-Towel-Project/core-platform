@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { submitThemedCheckin } from "@/lib/actions/themedCheckin";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import { RoutineComplete } from "./RoutineComplete";
 import { CHECKIN_CONFIG, FRIDAY_GOAL_OPTIONS, type TextCheckinWeekday } from "@/lib/routines/checkinConfig";
 
 type Props = {
@@ -20,11 +21,7 @@ export function ThemedCheckinForm({ weekday, mondayGoals, quote, podcastEpisode 
   const config = CHECKIN_CONFIG[weekday];
 
   if (state.status === "success") {
-    return (
-      <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-extrabold tracking-tight">{config.title} complete.</h1>
-      </div>
-    );
+    return <RoutineComplete title={`${config.title} complete.`} />;
   }
 
   return (
