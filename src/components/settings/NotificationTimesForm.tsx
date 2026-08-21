@@ -36,7 +36,7 @@ export function NotificationTimesForm({
         defaultValue={toHHMM(morningTime, "07:00")}
       />
       <TimeField name="nightTime" label="Night routine" defaultValue={toHHMM(nightTime, "21:00")} />
-      <TimeField name="sundayTime" label="Sunday setup" defaultValue={toHHMM(sundayTime, "18:00")} />
+      <TimeField name="sundayTime" label="Set Up Sunday" defaultValue={toHHMM(sundayTime, "18:00")} />
 
       {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
       {state.status === "success" && <p className="text-sm font-semibold text-foreground">Saved.</p>}

@@ -127,7 +127,7 @@ export function getMondayOfWeek(now: Date, timeZone: TimeZone): string {
   return civilDateToISO(d);
 }
 
-/** The Monday of the week *after* `now`'s week -- what Sunday Setup preps for. */
+/** The Monday of the week *after* `now`'s week -- what Set Up Sunday preps for. */
 export function getNextMonday(now: Date, timeZone: TimeZone): string {
   const monday = new Date(getMondayOfWeek(now, timeZone) + "T00:00:00Z");
   monday.setUTCDate(monday.getUTCDate() + 7);

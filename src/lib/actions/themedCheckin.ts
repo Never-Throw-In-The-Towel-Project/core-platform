@@ -10,7 +10,7 @@ import { type RoutineActionState } from "./routineState";
 const TEXT_CHECKIN_WEEKDAYS: readonly TextCheckinWeekday[] = ["monday", "tuesday", "thursday", "friday"];
 
 /**
- * Handles Momentum Monday, Talking Tuesday, Thoughts on Thursday, and Feel
+ * Handles Momentum Monday, Talking Tuesday, Thursday Thoughts, and Feel
  * Good Friday -- the four themed check-ins that are plain prompt-and-answer
  * forms. Workout Wednesday is structurally different (exercise bank + tier
  * picker, not free-text prompts) and has its own action, submitWorkoutWednesday.

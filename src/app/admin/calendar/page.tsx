@@ -37,7 +37,7 @@ const WEEK_COLUMNS: { day: number; name: string; theme: string }[] = [
   { day: 1, name: "Monday", theme: "Momentum Monday" },
   { day: 2, name: "Tuesday", theme: "Talking Tuesday" },
   { day: 3, name: "Wednesday", theme: "Workout Wednesday" },
-  { day: 4, name: "Thursday", theme: "Thoughts on Thursday" },
+  { day: 4, name: "Thursday", theme: "Thursday Thoughts" },
   { day: 5, name: "Friday", theme: "Feel Good Friday" },
   { day: 6, name: "Saturday", theme: "Open slot" },
   { day: 7, name: "Sunday", theme: "Open slot" },

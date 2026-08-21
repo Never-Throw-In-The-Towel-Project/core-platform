@@ -266,9 +266,9 @@ export default async function HomePage() {
   const alsoThisWeek: { label: string; href: string }[] = [];
   if (weeklyReviewOpen) alsoThisWeek.push({ label: "Weekly Review is open", href: "/weekly-review" });
   if (todayWeekday === "sunday") {
-    alsoThisWeek.push({ label: "Sunday Setup is open", href: "/sunday-setup" });
+    alsoThisWeek.push({ label: "Set Up Sunday is open", href: "/sunday-setup" });
   } else if (todayWeekday === "saturday") {
-    alsoThisWeek.push({ label: "Sunday Setup opens tomorrow", href: "/sunday-setup" });
+    alsoThisWeek.push({ label: "Set Up Sunday opens tomorrow", href: "/sunday-setup" });
   }
   alsoThisWeek.push({ label: "Explore the Library", href: "/content" });
 

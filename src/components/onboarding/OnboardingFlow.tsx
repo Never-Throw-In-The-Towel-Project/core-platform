@@ -230,7 +230,7 @@ function ScheduleStep({ profile }: { profile: Profile }) {
           />
           <TimeField
             name="sundayTime"
-            label="Sunday setup"
+            label="Set Up Sunday"
             hint="Optional. Ready for Monday?"
             defaultValue={toHHMM(profile.sunday_notification_time, "18:00")}
           />

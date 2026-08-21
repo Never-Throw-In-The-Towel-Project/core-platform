@@ -54,7 +54,7 @@ export function PushNotificationToggle({ initiallySubscribed }: { initiallySubsc
         <div>
           <p className="text-sm font-medium">Push notifications</p>
           <p className="mt-1 text-xs text-muted">
-            A reminder at your Morning/Night Routine and Sunday Setup times, if set.
+            A reminder at your Morning/Night Routine and Set Up Sunday times, if set.
           </p>
         </div>
         <button

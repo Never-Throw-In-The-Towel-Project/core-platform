@@ -17,8 +17,8 @@ export function SundaySetupForm() {
   return (
     <form action={formAction} className="space-y-6">
       <header>
-        <h1 className="text-2xl font-extrabold tracking-tight">Sunday Setup</h1>
-        <p className="text-muted">A little prep goes a long way.</p>
+        <h1 className="text-2xl font-extrabold tracking-tight">Set Up Sunday</h1>
+        <p className="text-muted">Prepare with intention, then switch off.</p>
       </header>
 
       <div className="space-y-2 text-sm">
@@ -55,7 +55,7 @@ export function SundaySetupForm() {
         disabled={isPending}
         className="w-full bg-brand-accent px-4 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
       >
-        {isPending ? "Saving…" : "Save Sunday Setup"}
+        {isPending ? "Saving…" : "Complete Set Up Sunday"}
       </button>
     </form>
   );

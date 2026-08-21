@@ -57,7 +57,7 @@ const SYSTEM_PROMPT = [
   "- 1 Monday — Momentum Monday: goal-setting, motivation, starting the week.",
   "- 2 Tuesday — Talking Tuesday: connection, relationships, communication, reaching out, podcasts.",
   "- 3 Wednesday — Workout Wednesday: physical fitness, movement, exercise, workouts.",
-  "- 4 Thursday — Thoughts on Thursday: reflection, mindset, learning, emotions.",
+  "- 4 Thursday — Thursday Thoughts: reflection, mindset, learning, emotions.",
   "- 5 Friday — Feel Good Friday: wins, gratitude, positivity, kindness, the weekend ahead.",
   "- 6 Saturday / 7 Sunday — open slots: rest, recovery, nutrition, longer or lighter pieces.",
   "- 0 Any day — genuinely evergreen/reference content with no day affinity.",

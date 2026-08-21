@@ -13,7 +13,7 @@ const WINDOW_MINUTES = 15;
 const NOTIFICATION_CONTENT: Record<PushNotificationType, { title: string; body: string; url: string }> = {
   morning: { title: "Morning Routine", body: "Start your day -- your Morning Routine is ready.", url: "/home" },
   night: { title: "Night Routine", body: "Wind down -- your Night Routine is ready.", url: "/home" },
-  sunday: { title: "Sunday Setup", body: "Set your intention for the week ahead.", url: "/sunday-setup" },
+  sunday: { title: "Set Up Sunday", body: "Set your intention for the week ahead.", url: "/sunday-setup" },
 };
 
 type ProfileNotificationRow = {
