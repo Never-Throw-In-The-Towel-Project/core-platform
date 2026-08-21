@@ -16,7 +16,7 @@ import type { ContentType, VideoCategory } from "@/types/database";
  * auth + the DB insert on top of `parseContentImportCsv`.
  */
 export const ContentInputSchema = z.object({
-  type: z.enum(["video", "document", "image"]),
+  type: z.enum(["video", "document", "image", "text"]),
   title: z.string().trim().min(1).max(200),
   category: z.enum(["mental_fitness", "physical_fitness", "nutrition", "tools_tips"]),
   summary: z.string().trim().max(1000).optional(),
@@ -50,6 +50,9 @@ export type ContentImportRow = {
   external_url: string | null;
   tags: string[];
   is_published: boolean;
+  /** Optional Brain folder NAME to file this item under (create-or-reuse by
+   *  name in the importer action). null = Unfiled. */
+  folder: string | null;
 };
 
 /** A per-row problem, anchored to the 1-based line in the uploaded file so the
@@ -124,7 +127,7 @@ export function parseCsv(input: string): string[][] {
   return rows;
 }
 
-type Canon = "type" | "title" | "category" | "summary" | "day" | "vimeo" | "url" | "tags" | "publish";
+type Canon = "type" | "title" | "category" | "summary" | "day" | "vimeo" | "url" | "tags" | "publish" | "folder";
 
 /** Header spellings we accept, normalised (lowercased, spaces/hyphens → `_`). */
 const HEADER_ALIASES: Record<string, Canon> = {
@@ -151,6 +154,9 @@ const HEADER_ALIASES: Record<string, Canon> = {
   tag: "tags",
   publish: "publish",
   published: "publish",
+  folder: "folder",
+  folder_name: "folder",
+  group: "folder",
 };
 
 const DAY_NAMES: Record<string, number> = {
@@ -186,7 +192,7 @@ function normalizePublish(raw: string): "true" | "false" | null {
 function friendlyIssue(err: z.ZodError): string {
   const issue = err.issues[0];
   const path = issue?.path[0];
-  if (path === "type") return "type must be video, document, or image.";
+  if (path === "type") return "type must be video, document, image, or text.";
   if (path === "category")
     return "category must be one of mental_fitness, physical_fitness, nutrition, tools_tips.";
   if (path === "title") return "title is required (1–200 characters).";
@@ -303,7 +309,9 @@ export function parseContentImportCsv(
       errors.push({ line, message: "A video row needs a vimeo_id." });
       continue;
     }
-    if (d.type !== "video" && !d.externalUrl) {
+    // `text` items (a journal principle / prompt / quote) carry no media at all
+    // -- title + summary is the whole item. document/image still need a URL.
+    if ((d.type === "document" || d.type === "image") && !d.externalUrl) {
       errors.push({
         line,
         message: `A ${d.type} row needs an external_url (file uploads can’t ride a CSV — add those in the form above).`,
@@ -320,17 +328,20 @@ export function parseContentImportCsv(
       ),
     ];
 
+    const folderCell = get("folder");
     rows.push({
       type: d.type,
       title: d.title,
       summary: d.summary ?? null,
       category: d.category,
       day_of_week: d.dayOfWeek ?? null,
+      // Only video/document/image carry media; a text item never does.
       vimeo_id: d.type === "video" ? d.vimeoId ?? null : null,
       asset_path: null,
-      external_url: d.type === "video" ? null : d.externalUrl ?? null,
+      external_url: d.type === "document" || d.type === "image" ? d.externalUrl ?? null : null,
       tags,
       is_published: d.publish === "true",
+      folder: folderCell.length > 0 ? folderCell.slice(0, 100) : null,
     });
   }
 

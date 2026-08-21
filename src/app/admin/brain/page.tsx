@@ -18,6 +18,7 @@ const TYPE_LABEL: Record<ContentItem["type"], string> = {
   video: "Video",
   document: "Document",
   image: "Image",
+  text: "Text",
 };
 
 const CATEGORY_LABEL: Record<VideoCategory, string> = {
@@ -260,7 +261,7 @@ function BrainThumb({ item, assetUrl }: { item: ContentItem; assetUrl?: string }
     );
   }
 
-  const glyph = item.type === "video" ? "▶" : "PDF";
+  const glyph = item.type === "video" ? "▶" : item.type === "text" ? "TEXT" : "PDF";
   return (
     <div className="flex aspect-video w-full items-center justify-center border-b border-rule-hairline bg-foreground/[0.03]">
       <span className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-muted">{glyph}</span>

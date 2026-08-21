@@ -1,0 +1,14 @@
+-- ============================================================================
+-- CONTENT `text` TYPE (1/2) — add the enum value.
+-- ============================================================================
+-- Adds a `text` content type so a pure-text "point" (a journal principle, a
+-- daily prompt, a quote from Anthony's journal) can live in the content library
+-- with just a title + body and NO media payload. Every existing type requires a
+-- Vimeo id / asset / URL (see content_items_media_for_type); `text` deliberately
+-- carries none.
+--
+-- Split into its own migration/transaction on purpose: Postgres forbids using a
+-- newly-added enum value in the same transaction that added it (same reason the
+-- ntitt_admin role got its own migration). The CHECK-constraint relax that lets
+-- a `text` item carry no media is the NEXT migration file.
+alter type public.content_type add value if not exists 'text';

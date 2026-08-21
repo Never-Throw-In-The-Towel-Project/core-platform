@@ -13,7 +13,7 @@ export interface ChallengeDayView {
   content: { id: string; title: string; type: ContentType } | null;
 }
 
-const CONTENT_VERB: Record<ContentType, string> = { video: "Watch", document: "Read", image: "View" };
+const CONTENT_VERB: Record<ContentType, string> = { video: "Watch", document: "Read", image: "View", text: "Read" };
 
 /**
  * The interactive half of a challenge detail page: join/leave, and tick days as

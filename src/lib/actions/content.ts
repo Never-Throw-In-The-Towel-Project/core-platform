@@ -96,7 +96,7 @@ export async function createContentItem(
       if (!data.vimeoId) {
         return { status: "error", message: "Add the Vimeo ID for a video." };
       }
-    } else {
+    } else if (data.type === "document" || data.type === "image") {
       const asset = formData.get("asset");
       if (asset instanceof File && asset.size > 0) {
         const result = await uploadContentAsset(supabase, asset, data.type);
@@ -109,6 +109,7 @@ export async function createContentItem(
         return { status: "error", message: "Add a file to upload or an external link." };
       }
     }
+    // type === "text": no media at all (title + summary is the whole item).
 
     const { data: inserted, error } = await supabase
       .from("content_items")
@@ -238,7 +239,7 @@ export async function updateContentItem(
     // Upload a new file first (if any), then let the pure resolver decide the
     // three media columns for the (possibly changed) type.
     let newAssetPath: string | null = null;
-    if (data.type !== "video") {
+    if (data.type === "document" || data.type === "image") {
       const asset = formData.get("asset");
       if (asset instanceof File && asset.size > 0) {
         const result = await uploadContentAsset(supabase, asset, data.type);
@@ -370,9 +371,42 @@ export async function importContentItems(
 
   try {
     const supabase = await createClient();
-    const { error } = await supabase
-      .from("content_items")
-      .insert(rows.map((r) => ({ ...r, created_by: session.userId })));
+
+    // Resolve any `folder` NAMES on the rows to folder ids, creating a folder
+    // the first time its name is seen (case-insensitive reuse of an existing
+    // one). Lets one CSV lay down the folder structure + file every item, so a
+    // bulk load (e.g. Anthony's journal, one folder per day) needs no clicking.
+    const wantedFolders = Array.from(
+      new Map(rows.filter((r) => r.folder).map((r) => [r.folder!.toLowerCase(), r.folder!])).values()
+    );
+    const folderIdByLower = new Map<string, string>();
+    if (wantedFolders.length > 0) {
+      const { data: existing } = await supabase.from("content_folders").select("id, name");
+      for (const f of (existing as { id: string; name: string }[] | null) ?? []) {
+        folderIdByLower.set(f.name.toLowerCase(), f.id);
+      }
+      const toCreate = wantedFolders.filter((name) => !folderIdByLower.has(name.toLowerCase()));
+      if (toCreate.length > 0) {
+        const { data: created, error: folderErr } = await supabase
+          .from("content_folders")
+          .insert(toCreate.map((name) => ({ name, created_by: session.userId })))
+          .select("id, name");
+        if (folderErr) {
+          return { status: "error", message: "Couldn’t create the folders for the import. Please try again." };
+        }
+        for (const f of (created as { id: string; name: string }[] | null) ?? []) {
+          folderIdByLower.set(f.name.toLowerCase(), f.id);
+        }
+      }
+    }
+
+    // Strip the folder NAME (not a column) and swap in folder_id.
+    const insertRows = rows.map(({ folder, ...r }) => ({
+      ...r,
+      folder_id: folder ? folderIdByLower.get(folder.toLowerCase()) ?? null : null,
+      created_by: session.userId,
+    }));
+    const { error } = await supabase.from("content_items").insert(insertRows);
     if (error) {
       return { status: "error", message: "Couldn’t save the imported content. Please try again." };
     }

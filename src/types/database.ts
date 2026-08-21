@@ -120,7 +120,7 @@ export interface ContentVideo {
 // The content-platform spine (see docs/CONTENT_PLATFORM_STRATEGY.md and
 // supabase/migrations/20260812010000_content_platform_spine.sql). Generalises
 // content_videos into typed, day-taggable, channel-targetable content.
-export type ContentType = "video" | "document" | "image";
+export type ContentType = "video" | "document" | "image" | "text";
 
 export interface ContentItem {
   id: string;

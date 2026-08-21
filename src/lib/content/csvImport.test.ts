@@ -47,8 +47,25 @@ describe("parseContentImportCsv", () => {
         external_url: null,
         tags: ["stress", "sleep"],
         is_published: true,
+        folder: null,
       },
     ]);
+  });
+
+  it("maps a text row with no media, filed into a folder", () => {
+    const csv = `type,title,category,day,summary,folder,publish\ntext,Law of Polarity,tools_tips,,The opposites always exist,Toolkit,false`;
+    const { rows, errors } = parseContentImportCsv(csv, { defaultPublish: true });
+    expect(errors).toEqual([]);
+    expect(rows[0]).toMatchObject({
+      type: "text",
+      title: "Law of Polarity",
+      summary: "The opposites always exist",
+      vimeo_id: null,
+      external_url: null,
+      asset_path: null,
+      folder: "Toolkit",
+      is_published: false,
+    });
   });
 
   it("defaults type to video and day to null (any day)", () => {

@@ -5,6 +5,7 @@ const TYPE_LABEL: Record<ContentType, string> = {
   video: "Watch",
   document: "Read",
   image: "View",
+  text: "Read",
 };
 
 /**
