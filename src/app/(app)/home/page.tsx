@@ -94,7 +94,7 @@ export default async function HomePage() {
 
   const stats = await getTodayStats(profile.id, now, timeZone);
 
-  // The 30/90-Day Review takes over the home screen as a full-screen moment
+  // The 30/60/90-Day Review takes over the home screen as a full-screen moment
   // until completed (see the brief) -- checked before rendering the Rail.
   const pendingReview = await getPendingPeriodicReview(profile.id, stats.activeDayCount);
   if (pendingReview) {
