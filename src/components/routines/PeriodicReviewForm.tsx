@@ -185,7 +185,10 @@ export function PeriodicReviewForm({
           </div>
         </fieldset>
 
-        <Field name="focusNextPeriod" label={`My focus for the next ${periodLabel} days`} />
+        {/* The forward focus always looks to the NEXT milestone: 30-day and
+            60-day both aim at the next 30 days (the 60-day reaches day 90),
+            the 90-day sets the next 90. */}
+        <Field name="focusNextPeriod" label={`My focus for the next ${isNinetyDay ? "90" : "30"} days`} />
 
         <div className="border border-rule-border p-4">
           <p className="italic">

@@ -78,7 +78,7 @@ function formatWeekRange(weekStartDate: string): string {
 }
 
 // "My Journey" / "My History" -- per the brief's flag, Weekly Review and
-// the 30/90-Day Reviews are a personal record the user can scroll back
+// the 30/60/90-Day Reviews are a personal record the user can scroll back
 // through over time, not just a one-time form. Read-only; only the user
 // themselves can see this page (RLS is per-user on every table read here).
 export default async function JourneyPage() {
