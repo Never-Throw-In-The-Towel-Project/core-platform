@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { verifySession, getProfile } from "@/lib/auth/dal";
 import { catchUpEligibleWeekdays, getMondayOfWeek, weekdayNameOrWeekend } from "@/lib/routines/dates";
 import { CHECKIN_CONFIG, type TextCheckinWeekday } from "@/lib/routines/checkinConfig";
+import { WORKOUT_WEDNESDAY_PROMPT_KEYS } from "@/lib/routines/workoutWednesdayPrompts";
 import { type RoutineActionState } from "./routineState";
 
 const TEXT_CHECKIN_WEEKDAYS: readonly TextCheckinWeekday[] = ["monday", "tuesday", "thursday", "friday"];
@@ -149,6 +150,17 @@ export async function submitWorkoutWednesday(
     return { status: "error", message: "Please select a difficulty level." };
   }
 
+  // The chosen tier plus the optional journal prompts (PB tracking + the
+  // reflective questions), all stored in the same free-form answers jsonb.
+  // Each prompt is optional; blank ones simply aren't written.
+  const answers: Record<string, string> = { tier: parsed.data };
+  for (const key of WORKOUT_WEDNESDAY_PROMPT_KEYS) {
+    const raw = formData.get(key);
+    if (typeof raw !== "string") continue;
+    const trimmed = raw.trim().slice(0, 4000);
+    if (trimmed.length > 0) answers[key] = trimmed;
+  }
+
   // Wrapped in try/catch: createClient() throws synchronously if the
   // URL/key are missing or malformed -- same gap already closed elsewhere.
   try {
@@ -159,7 +171,7 @@ export async function submitWorkoutWednesday(
         user_id: session.userId,
         week_start_date: getMondayOfWeek(now, profile.timezone),
         weekday: "wednesday",
-        answers: { tier: parsed.data },
+        answers,
         completed_at: new Date().toISOString(),
       },
       { onConflict: "user_id,week_start_date,weekday" }
