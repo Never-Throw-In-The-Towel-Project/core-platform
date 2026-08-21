@@ -8,7 +8,11 @@
 export type PromptField = {
   key: string;
   label: string;
-  type: "textarea" | "text";
+  // "scale" renders a 1-10 rating row (the same control the Morning/Night
+  // routines use). Its value is stored as a string in the answers jsonb, so
+  // the server action needs no special handling -- it validates every field
+  // as an optional string regardless of type.
+  type: "textarea" | "text" | "scale";
 };
 
 export type TextCheckinWeekday = "monday" | "tuesday" | "thursday" | "friday";
@@ -31,6 +35,14 @@ export const CHECKIN_CONFIG: Record<
     fields: [
       { key: "action_plan", label: "How am I going to take action on these?", type: "textarea" },
       { key: "start_right", label: "What can I do to start the week off right?", type: "textarea" },
+      { key: "feeling_score", label: "How are you feeling? (1 = struggling, 10 = flying)", type: "scale" },
+      {
+        key: "score_up",
+        label: "How can I get that score up by the end of the week?",
+        type: "textarea",
+      },
+      { key: "promise", label: "A promise I'm making myself this week:", type: "textarea" },
+      { key: "excited_for", label: "What am I excited for this week?", type: "textarea" },
     ],
   },
   tuesday: {
@@ -66,8 +78,8 @@ export const CHECKIN_CONFIG: Record<
     ],
   },
   thursday: {
-    title: "Thoughts on Thursday",
-    subtitle: "Reflect and learn",
+    title: "Thursday Thoughts",
+    subtitle: "Pause, reflect and learn",
     fields: [
       { key: "week_going", label: "How is this week going?", type: "textarea" },
       { key: "gone_well", label: "What has gone well this week?", type: "textarea" },
@@ -76,6 +88,12 @@ export const CHECKIN_CONFIG: Record<
       { key: "whats_helped", label: "What has helped me this week?", type: "textarea" },
       { key: "todays_win", label: "What would make today a win?", type: "textarea" },
       { key: "proud_of_yesterday", label: "What did I do yesterday that I'm proud of?", type: "textarea" },
+      {
+        key: "avoiding_thing",
+        label:
+          "What's one thing I've been avoiding that I know would make my life better if I finally got it done?",
+        type: "textarea",
+      },
     ],
   },
   friday: {
@@ -88,6 +106,7 @@ export const CHECKIN_CONFIG: Record<
       { key: "most_proud", label: "What am I most proud of this week?", type: "textarea" },
       { key: "most_fun", label: "What is the most fun I've had this week?", type: "textarea" },
       { key: "weekend_plans", label: "What are my plans for the weekend?", type: "textarea" },
+      { key: "feel_today", label: "How good do I feel today? (1 = flat, 10 = brilliant)", type: "scale" },
       { key: "kindness_act", label: "Random act of kindness -- what did I do today?", type: "textarea" },
       { key: "compliment_given", label: "Give someone a compliment -- who and what did I say?", type: "textarea" },
     ],

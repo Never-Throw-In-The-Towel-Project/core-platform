@@ -6,6 +6,8 @@ import { initialRoutineState } from "@/lib/actions/routineState";
 import { RoutineComplete } from "./RoutineComplete";
 import { CHECKIN_CONFIG, FRIDAY_GOAL_OPTIONS, type TextCheckinWeekday } from "@/lib/routines/checkinConfig";
 
+const SCALE_1_TO_10 = Array.from({ length: 10 }, (_, i) => i + 1);
+
 type Props = {
   weekday: TextCheckinWeekday;
   /** Friday only: this week's Monday goals, read back to close the loop. */
@@ -84,24 +86,41 @@ export function ThemedCheckinForm({ weekday, mondayGoals, quote, podcastEpisode 
         </fieldset>
       )}
 
-      {config.fields.map((field) => (
-        <label key={field.key} className="block text-sm">
-          <span className="font-medium">{field.label}</span>
-          {field.type === "textarea" ? (
-            <textarea
-              name={field.key}
-              rows={2}
-              className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
-            />
-          ) : (
-            <input
-              name={field.key}
-              type="text"
-              className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
-            />
-          )}
-        </label>
-      ))}
+      {config.fields.map((field) =>
+        field.type === "scale" ? (
+          <fieldset key={field.key} className="text-sm">
+            <legend className="mb-2 font-medium">{field.label}</legend>
+            <div className="flex flex-wrap gap-2">
+              {SCALE_1_TO_10.map((n) => (
+                <label key={n}>
+                  <input type="radio" name={field.key} value={n} className="peer sr-only" />
+                  <span className="flex h-9 w-9 cursor-pointer items-center justify-center border border-rule-border text-sm peer-checked:bg-brand-accent peer-checked:text-brand-accent-foreground">
+                    {n}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-muted">Private to you. Never shared or reported.</p>
+          </fieldset>
+        ) : (
+          <label key={field.key} className="block text-sm">
+            <span className="font-medium">{field.label}</span>
+            {field.type === "textarea" ? (
+              <textarea
+                name={field.key}
+                rows={2}
+                className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
+              />
+            ) : (
+              <input
+                name={field.key}
+                type="text"
+                className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
+              />
+            )}
+          </label>
+        )
+      )}
 
       {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
 

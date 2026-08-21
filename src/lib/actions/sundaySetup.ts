@@ -19,10 +19,10 @@ export async function submitSundaySetup(
   const profile = await getProfile();
 
   // Server derives "today" itself rather than trusting the client, same
-  // pattern as the themed check-in lock -- Sunday Setup only writes on an
+  // pattern as the themed check-in lock -- Set Up Sunday only writes on an
   // actual Sunday.
   if (weekdayNameOrWeekend(new Date(), profile.timezone) !== "sunday") {
-    return { status: "error", message: "Sunday Setup is only available on Sundays." };
+    return { status: "error", message: "Set Up Sunday is only available on Sundays." };
   }
 
   const parsed = SundaySetupSchema.safeParse({
