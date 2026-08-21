@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { submitNightEntry } from "@/lib/actions/night";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import { RoutineComplete } from "./RoutineComplete";
 
 const DAY_SCALE = Array.from({ length: 10 }, (_, i) => i + 1);
 
@@ -11,12 +12,7 @@ export function NightRoutineForm({ initialSteps = null }: { initialSteps?: numbe
   const [dayRating, setDayRating] = useState<number | null>(null);
 
   if (state.status === "success") {
-    return (
-      <div className="space-y-2 text-center">
-        <p className="text-4xl">🌙</p>
-        <h1 className="text-2xl font-extrabold tracking-tight">Good work today. Rest well.</h1>
-      </div>
-    );
+    return <RoutineComplete title="Good work today. Rest well." />;
   }
 
   return (

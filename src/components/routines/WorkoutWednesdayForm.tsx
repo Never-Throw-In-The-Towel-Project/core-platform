@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { submitWorkoutWednesday } from "@/lib/actions/themedCheckin";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import { RoutineComplete } from "./RoutineComplete";
 import type { WeekWorkout } from "@/lib/routines/workouts";
 import type { WorkoutTier } from "@/types/database";
 
@@ -24,11 +25,7 @@ export function WorkoutWednesdayForm({
   const [tier, setTier] = useState<WorkoutTier>(defaultTier ?? "beginner");
 
   if (state.status === "success") {
-    return (
-      <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-extrabold tracking-tight">Workout Wednesday complete. Nice work.</h1>
-      </div>
-    );
+    return <RoutineComplete title="Workout Wednesday complete. Nice work." />;
   }
 
   return (
