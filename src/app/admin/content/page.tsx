@@ -13,6 +13,7 @@ const TYPE_LABEL: Record<ContentItem["type"], string> = {
   video: "Video",
   document: "Document",
   image: "Image",
+  text: "Text",
 };
 
 const CATEGORY_LABEL: Record<VideoCategory, string> = {

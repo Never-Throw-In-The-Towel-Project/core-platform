@@ -24,6 +24,7 @@ const TYPE_LABEL: Record<ContentItem["type"], string> = {
   video: "Watch",
   document: "Read",
   image: "View",
+  text: "Read",
 };
 
 function formatDuration(seconds: number | null): string | null {
