@@ -26,12 +26,29 @@ const REVIEW_FIELDS: { key: keyof WeeklyReview; label: string }[] = [
   { key: "one_thing_to_improve", label: "What's one thing I can improve on that will help me move forward?" },
 ];
 
-const REVIEW_THRESHOLDS: Record<ReviewType, number> = { "30_day": 30, "90_day": 90 };
-const REVIEW_ROUTES: Record<ReviewType, string> = { "30_day": "/reviews/30-day/summary", "90_day": "/reviews/90-day/summary" };
+const REVIEW_THRESHOLDS: Record<ReviewType, number> = { "30_day": 30, "60_day": 60, "90_day": 90 };
+const REVIEW_ROUTES: Record<ReviewType, string> = {
+  "30_day": "/reviews/30-day/summary",
+  "60_day": "/reviews/60-day/summary",
+  "90_day": "/reviews/90-day/summary",
+};
 // Same routes home's own pending-review redirect uses (src/app/(app)/home/page.tsx)
 // to land someone on the fill-out form, not the read-back summary.
-const REVIEW_START_ROUTES: Record<ReviewType, string> = { "30_day": "/reviews/30-day", "90_day": "/reviews/90-day" };
-const REVIEW_LABEL: Record<ReviewType, string> = { "30_day": "30 Day Review", "90_day": "90 Day Review" };
+const REVIEW_START_ROUTES: Record<ReviewType, string> = {
+  "30_day": "/reviews/30-day",
+  "60_day": "/reviews/60-day",
+  "90_day": "/reviews/90-day",
+};
+const REVIEW_LABEL: Record<ReviewType, string> = {
+  "30_day": "30 Day Review",
+  "60_day": "60 Day Review",
+  "90_day": "90 Day Review",
+};
+// Each milestone unlocks after the previous one is complete (30 → 60 → 90).
+const REVIEW_PREREQUISITE_LABEL: Partial<Record<ReviewType, string>> = {
+  "60_day": "30 Day Review",
+  "90_day": "60 Day Review",
+};
 
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 function dowLabel(iso: string): string {
@@ -183,6 +200,7 @@ export default async function JourneyPage() {
   const thisWeekDone = reviews.some((r) => r.week_start_date === currentWeekMonday);
 
   const review30 = (periodicReviews as PeriodicReview[] | null)?.find((r) => r.review_type === "30_day") ?? null;
+  const review60 = (periodicReviews as PeriodicReview[] | null)?.find((r) => r.review_type === "60_day") ?? null;
   const review90 = (periodicReviews as PeriodicReview[] | null)?.find((r) => r.review_type === "90_day") ?? null;
 
   const dailyRatings = stepDates.map((d) => ({
@@ -308,7 +326,8 @@ export default async function JourneyPage() {
             <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Milestones</h2>
             <div className="mt-2 space-y-3">
               <MilestoneCard type="30_day" review={review30} activeDayCount={activeDayCount} />
-              <MilestoneCard type="90_day" review={review90} activeDayCount={activeDayCount} locked={!review30} />
+              <MilestoneCard type="60_day" review={review60} activeDayCount={activeDayCount} locked={!review30} />
+              <MilestoneCard type="90_day" review={review90} activeDayCount={activeDayCount} locked={!review60} />
             </div>
           </div>
 
@@ -380,13 +399,14 @@ function MilestoneCard({
     return (
       <div className="border border-rule-hairline p-4 text-sm">
         <p className="font-extrabold text-muted">{REVIEW_LABEL[type]}</p>
-        <p className="mt-1 text-muted">Opens after your 30 Day Review.</p>
+        <p className="mt-1 text-muted">Opens after your {REVIEW_PREREQUISITE_LABEL[type] ?? "previous review"}.</p>
       </div>
     );
   }
 
   const threshold = REVIEW_THRESHOLDS[type];
-  const floor = type === "90_day" ? REVIEW_THRESHOLDS["30_day"] : 0;
+  const floor =
+    type === "90_day" ? REVIEW_THRESHOLDS["60_day"] : type === "60_day" ? REVIEW_THRESHOLDS["30_day"] : 0;
   const progress = Math.min(Math.max((activeDayCount - floor) / (threshold - floor), 0), 1);
   const remaining = Math.max(threshold - activeDayCount, 0);
 

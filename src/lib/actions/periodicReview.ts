@@ -23,7 +23,7 @@ const SelfAssessmentSchema = z.object({
 });
 
 const PeriodicReviewSchema = z.object({
-  reviewType: z.enum(["30_day", "90_day"]),
+  reviewType: z.enum(["30_day", "60_day", "90_day"]),
   mostProudOf: z.string().max(2000).optional(),
   mostConsistentHabits: z.string().max(2000).optional(),
   challengesFaced: z.string().max(2000).optional(),
@@ -34,6 +34,10 @@ const PeriodicReviewSchema = z.object({
   // 90-day only
   lifeChanges: z.string().max(2000).optional(),
   nextPeriodVision: z.string().max(2000).optional(),
+  // 60-day only
+  progressSinceStart: z.string().max(2000).optional(),
+  learnedAboutMyself: z.string().max(2000).optional(),
+  identityBecoming: z.string().max(2000).optional(),
 });
 
 /**
@@ -61,6 +65,9 @@ export async function submitPeriodicReview(
     commitmentSignedName: formData.get("commitmentSignedName") || undefined,
     lifeChanges: formData.get("lifeChanges") || undefined,
     nextPeriodVision: formData.get("nextPeriodVision") || undefined,
+    progressSinceStart: formData.get("progressSinceStart") || undefined,
+    learnedAboutMyself: formData.get("learnedAboutMyself") || undefined,
+    identityBecoming: formData.get("identityBecoming") || undefined,
   });
 
   if (!parsed.success) {
@@ -107,8 +114,12 @@ export async function submitPeriodicReview(
   // screen specifically (see home/page.tsx's comment on why this screen
   // takes over the home render entirely until completed).
   try {
+    // The 60- and 90-day reviews both show progress against the 30-day baseline
+    // (habit completion + the self-assessment delta); the 30-day review is the
+    // baseline itself, so it carries none of this. Each milestone then adds its
+    // own reflective fields into `extra` (no new columns -- see the type).
     let extra: PeriodicReviewExtra = {};
-    if (reviewType === "90_day") {
+    if (reviewType === "60_day" || reviewType === "90_day") {
       const habitSummary = await getHabitSummary(session.userId, periodStart, periodEnd);
 
       const comparisonClient = await createClient("private");
@@ -121,11 +132,18 @@ export async function submitPeriodicReview(
         .maybeSingle();
 
       extra = {
-        life_changes: parsed.data.lifeChanges,
-        next_period_vision: parsed.data.nextPeriodVision,
         habit_summary: habitSummary,
         comparison_self_assessment: (thirtyDayReview?.self_assessment as SelfAssessment | null) ?? undefined,
       };
+
+      if (reviewType === "90_day") {
+        extra.life_changes = parsed.data.lifeChanges;
+        extra.next_period_vision = parsed.data.nextPeriodVision;
+      } else {
+        extra.progress_since_start = parsed.data.progressSinceStart;
+        extra.learned_about_myself = parsed.data.learnedAboutMyself;
+        extra.identity_becoming = parsed.data.identityBecoming;
+      }
     }
 
     const supabase = await createClient("private");

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMondayOfWeek } from "./dates";
 import type { HabitSummary, ReviewType } from "@/types/database";
 
-const THRESHOLDS: Record<ReviewType, number> = { "30_day": 30, "90_day": 90 };
+const THRESHOLDS: Record<ReviewType, number> = { "30_day": 30, "60_day": 60, "90_day": 90 };
 
 /**
  * The calendar date of the user's first ever completed Morning or Night
@@ -85,6 +85,7 @@ export async function getPendingPeriodicReview(
     // the 30-day review before the 90-day one, in order, not dropped into
     // the 90-day and then bounced back to the 30-day on the next load.
     if (activeDayCount >= THRESHOLDS["30_day"] && !done.has("30_day")) return "30_day";
+    if (activeDayCount >= THRESHOLDS["60_day"] && !done.has("60_day")) return "60_day";
     if (activeDayCount >= THRESHOLDS["90_day"] && !done.has("90_day")) return "90_day";
     return null;
   } catch {

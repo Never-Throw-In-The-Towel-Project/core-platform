@@ -44,6 +44,7 @@ const WEEKDAY_LABEL: Record<string, string> = {
 
 const REVIEW_LABEL: Record<string, string> = {
   "30_day": "30-Day Review",
+  "60_day": "60-Day Review",
   "90_day": "90-Day Review",
 };
 
@@ -83,6 +84,7 @@ export function ImpactReportDocument({ data }: { data: ImpactReportData }) {
   const leastEngaged = [...engaged].sort((a, b) => (a.percent ?? 0) - (b.percent ?? 0))[0];
 
   const thirtyDay = data.reviewCompletions.find((r) => r.reviewType === "30_day");
+  const sixtyDay = data.reviewCompletions.find((r) => r.reviewType === "60_day");
   const ninetyDay = data.reviewCompletions.find((r) => r.reviewType === "90_day");
 
   return (
@@ -103,7 +105,7 @@ export function ImpactReportDocument({ data }: { data: ImpactReportData }) {
         </View>
 
         <Text style={styles.sectionTitle}>Review completion</Text>
-        {[thirtyDay, ninetyDay].map(
+        {[thirtyDay, sixtyDay, ninetyDay].map(
           (review, i) =>
             review && (
               <View style={styles.row} key={i}>

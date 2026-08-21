@@ -17,18 +17,28 @@ const SELF_ASSESSMENT_DIMENSIONS: { key: keyof SelfAssessment; label: string }[]
 
 const RATING_SCALE = Array.from({ length: 10 }, (_, i) => i + 1);
 
+const PERIOD_LABEL: Record<ReviewType, string> = { "30_day": "30", "60_day": "60", "90_day": "90" };
+const SUMMARY_HREF: Record<ReviewType, string> = {
+  "30_day": "/reviews/30-day/summary",
+  "60_day": "/reviews/60-day/summary",
+  "90_day": "/reviews/90-day/summary",
+};
+
 export function PeriodicReviewForm({
   reviewType,
   comparisonSelfAssessment,
 }: {
   reviewType: ReviewType;
-  /** 90-day only: the user's prior 30-day scores, for the delta view. */
+  /** 60- and 90-day: the user's prior 30-day scores, for the delta view. */
   comparisonSelfAssessment?: SelfAssessment | null;
 }) {
   const [state, formAction, isPending] = useActionState(submitPeriodicReview, initialRoutineState);
   const [ratings, setRatings] = useState<Partial<Record<keyof SelfAssessment, number>>>({});
   const isNinetyDay = reviewType === "90_day";
-  const periodLabel = isNinetyDay ? "90" : "30";
+  const isSixtyDay = reviewType === "60_day";
+  // Both the 60- and 90-day reviews compare against the 30-day baseline scores.
+  const hasComparison = isNinetyDay || isSixtyDay;
+  const periodLabel = PERIOD_LABEL[reviewType];
   const winCount = isNinetyDay ? 10 : 5;
   const now = new Date();
   const today = [now.getDate(), now.getMonth() + 1, now.getFullYear() % 100]
@@ -36,7 +46,7 @@ export function PeriodicReviewForm({
     .join(".");
 
   if (state.status === "success") {
-    const summaryHref = isNinetyDay ? "/reviews/90-day/summary" : "/reviews/30-day/summary";
+    const summaryHref = SUMMARY_HREF[reviewType];
     return (
       <div className="mx-auto max-w-xl space-y-6 px-6 py-16 text-center">
         <h1 className="text-2xl font-extrabold tracking-tight">You&apos;ve completed your {periodLabel} days.</h1>
@@ -63,7 +73,7 @@ export function PeriodicReviewForm({
       <div className="bg-brand-accent px-6 py-10 text-brand-accent-foreground">
         <div className="mx-auto max-w-xl">
           <p className="text-xs font-semibold tracking-wide uppercase opacity-90">
-            {isNinetyDay ? "Day 90 · Unlocked today" : "Day 30 · Unlocked today"}
+            Day {periodLabel} · Unlocked today
           </p>
           <h1 className="mt-2 text-3xl font-extrabold uppercase">
             Congratulations. You&apos;ve completed your first {periodLabel} days.
@@ -103,6 +113,17 @@ export function PeriodicReviewForm({
           </div>
         )}
 
+        {isSixtyDay && (
+          <div>
+            <p className="text-xs font-semibold tracking-wide uppercase text-muted">The halfway mark</p>
+            <div className="mt-2 space-y-4">
+              <Field name="progressSinceStart" label="What progress have I made since day one?" />
+              <Field name="learnedAboutMyself" label="What have I learned about myself?" />
+              <Field name="identityBecoming" label="Identity check: who am I becoming?" />
+            </div>
+          </div>
+        )}
+
         <fieldset>
           <legend className="text-xs font-semibold tracking-wide uppercase text-muted">My top {winCount} wins</legend>
           <div className="mt-2">
@@ -123,7 +144,7 @@ export function PeriodicReviewForm({
         <fieldset>
           <legend className="text-xs font-semibold tracking-wide uppercase text-muted">Self assessment</legend>
           <p className="mt-2 text-sm text-muted">
-            Rate yourself 1–10.{isNinetyDay ? " Compared against your 30-day scores." : " You'll compare these against your 90 day scores."}
+            Rate yourself 1–10.{hasComparison ? " Compared against your 30-day scores." : " You'll compare these against your later reviews."}
           </p>
           <div className="mt-3 space-y-3">
             {SELF_ASSESSMENT_DIMENSIONS.map((dimension) => (
@@ -133,7 +154,7 @@ export function PeriodicReviewForm({
               >
                 <span className="text-sm font-medium sm:w-32 sm:shrink-0">
                   {dimension.label}
-                  {isNinetyDay && comparisonSelfAssessment && (
+                  {hasComparison && comparisonSelfAssessment && (
                     <span className="block text-xs font-normal text-muted">
                       30-day: {comparisonSelfAssessment[dimension.key]}
                     </span>

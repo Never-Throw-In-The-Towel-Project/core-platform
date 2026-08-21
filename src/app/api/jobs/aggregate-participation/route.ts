@@ -5,7 +5,7 @@ import { getMondayOfWeek, recentUtcDates, weekdayNameOrWeekend } from "@/lib/rou
 import type { ReviewType, Weekday } from "@/types/database";
 
 const WEEKDAYS: readonly Weekday[] = ["monday", "tuesday", "wednesday", "thursday", "friday"];
-const REVIEW_TYPES: readonly ReviewType[] = ["30_day", "90_day"];
+const REVIEW_TYPES: readonly ReviewType[] = ["30_day", "60_day", "90_day"];
 
 // How many trailing UTC days each run re-aggregates. `entry_date` is written
 // in each user's OWN timezone, so a single "yesterday-UTC" pass under-counts
