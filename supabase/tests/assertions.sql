@@ -21,8 +21,8 @@ begin
     raise exception 'RLS disabled on % public/private table(s)', missing;
   end if;
   select count(*) into total from pg_tables where schemaname in ('public','private');
-  if total <> 40 then
-    raise exception 'expected 40 public+private tables (26+14), found %', total;
+  if total <> 41 then
+    raise exception 'expected 41 public+private tables (26+15), found %', total;
   end if;
   raise notice 'PASS  1  RLS enabled on all % public/private tables', total;
 end
@@ -690,6 +690,46 @@ begin
   if visible <> 1 then raise exception 'FAIL habit-read: expected usera to see exactly 1 (own) check-in, saw %', visible; end if;
 
   raise notice 'PASS  6c* live: clean-streak tables own-rows-only (self-write allowed, cross-user blocked + isolated)';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+-- ============================================================================
+-- LIVE RLS test of stand_entries (STAND daily fundamentals): a member reads +
+-- writes ONLY their own day's fundamentals -- private and never visible to
+-- anyone else, exactly like the morning/night routines. Reuses usera / userb.
+-- ============================================================================
+-- userb's stand entry, seeded as the bootstrap superuser (bypassing RLS).
+insert into private.stand_entries (user_id, entry_date, hydration, strength_of_connection) values
+  ('b0000000-0000-0000-0000-00000000000b', '2026-08-13', true, 'called my brother');
+
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+set role authenticated;
+do $$
+declare visible int;
+begin
+  -- TEST 1 (must be BLOCKED): writing a stand entry as another user
+  begin
+    insert into private.stand_entries (user_id, entry_date, hydration)
+    values ('b0000000-0000-0000-0000-00000000000b', '2026-08-14', true);
+    raise exception 'FAIL stand-write: a member wrote a stand entry for another user';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- TEST 2 (must be ISOLATED): usera cannot see userb's stand entry
+  select count(*) into visible from private.stand_entries;
+  if visible <> 0 then raise exception 'FAIL stand-read: another user''s stand entry leaked (saw %)', visible; end if;
+
+  -- TEST 3 (must be ALLOWED): usera writes their OWN day's fundamentals
+  insert into private.stand_entries (user_id, entry_date, hydration, healthy_food, do_good_for_others)
+    values ('a0000000-0000-0000-0000-00000000000a', '2026-08-13', true, true, 'helped a neighbour');
+
+  -- TEST 4 (must be ISOLATED): usera now sees exactly their own 1 entry
+  select count(*) into visible from private.stand_entries;
+  if visible <> 1 then raise exception 'FAIL stand-read: expected usera to see exactly 1 (own) stand entry, saw %', visible; end if;
+
+  raise notice 'PASS  6d* live: stand_entries own-rows-only (self-write allowed, cross-user blocked + isolated)';
 end
 $$;
 reset role;

@@ -85,6 +85,26 @@ export interface NightEntry {
   created_at: string;
 }
 
+// STAND — the daily fundamentals checklist from Anthony's journal. PRIVATE +
+// own-rows-only; never surface outside the owning user's own view, never
+// aggregate. Four discipline ticks + five reflective prompts (one per letter).
+export interface StandEntry {
+  id: string;
+  user_id: string;
+  entry_date: string;
+  hydration: boolean;
+  steps: boolean;
+  alcohol_free: boolean;
+  healthy_food: boolean;
+  strength_of_connection: string | null;
+  try_new_things: string | null;
+  active_lifestyle: string | null;
+  notice_the_more: string | null;
+  do_good_for_others: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ThemedCheckin {
   id: string;
   user_id: string;

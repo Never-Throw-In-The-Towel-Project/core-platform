@@ -33,7 +33,10 @@ import { NoticeBoard } from "@/components/notices/NoticeBoard";
 import { listActiveNotices, type NoticeView } from "@/lib/notices/queries";
 import { CleanStreakEntryCard } from "@/components/habits/CleanStreakEntryCard";
 import { getMyHabitEntrySummary, type HabitEntrySummary } from "@/lib/habits/queries";
-import type { ContentItem, ChallengeWithProgress } from "@/types/database";
+import { StandFundamentals } from "@/components/today/StandFundamentals";
+import { getMyStandEntry } from "@/lib/routines/stand";
+import { toStandState, type StandState } from "@/lib/routines/standConfig";
+import type { ContentItem, ChallengeWithProgress, StandEntry } from "@/types/database";
 
 const THEMED_TITLES: Record<Weekday, { title: string; subtitle: string }> = {
   ...CHECKIN_CONFIG,
@@ -123,6 +126,7 @@ export default async function HomePage() {
   let myChallenges: ChallengeWithProgress[] = [];
   let notices: NoticeView[] = [];
   let habitSummary: HabitEntrySummary = { hasAny: false, active: null };
+  let standState: StandState = toStandState(null);
 
   try {
     const privateClient = await createClient("private");
@@ -180,7 +184,8 @@ export default async function HomePage() {
     // spine by channel and participation to the caller), folded into this same
     // guarded block so /home still degrades to "nothing yet" if Supabase is
     // unreachable rather than crashing the universal landing page.
-    [dayItems, myChallenges, notices, habitSummary] = await Promise.all([
+    let standEntry: StandEntry | null = null;
+    [dayItems, myChallenges, notices, habitSummary, standEntry] = await Promise.all([
       getDayContent(publicClient, isoWeekday),
       listChallengesWithProgress(publicClient, privateClient, profile.id),
       // The Notice Board: ad-hoc promo cards Anthony schedules for today (RLS
@@ -188,7 +193,10 @@ export default async function HomePage() {
       listActiveNotices(publicClient, { isoWeekday, todayIso: todayISO }),
       // The member's own Clean Streak (private, own-rows only) for the rail card.
       getMyHabitEntrySummary(privateClient, profile.id, todayISO),
+      // The member's own STAND fundamentals for today (private, own-rows only).
+      getMyStandEntry(privateClient, profile.id, todayISO),
     ]);
+    standState = toStandState(standEntry);
   } catch {
     // safe defaults above
   }
@@ -335,6 +343,11 @@ export default async function HomePage() {
                 ))}
               </div>
             )}
+
+            {/* STAND: the daily fundamentals checklist from Anthony's journal --
+                four one-tap discipline ticks + the five STAND reflections behind
+                an expander. Private, own-rows only; nothing here is reported. */}
+            <StandFundamentals initial={standState} />
 
             {catchUp.length > 0 && (
               <div>
