@@ -1533,5 +1533,29 @@ begin
 end
 $$;
 
+-- ---- 14. Thursday Thoughts quote bank seeded contiguously -------------------
+-- getDailyQuote resolves a quote via resolveBankPosition(isoWeek, count) =
+-- ((isoWeek - 1) % count) + 1, which only lands on a real row when the
+-- bank_positions are a contiguous 1..count sequence. Assert the seed applied
+-- (15 rows) and the sequence has no gap, so no ISO week resolves to a missing
+-- position.
+do $$
+declare total int; distinct_positions int; min_pos int; max_pos int; blank int;
+begin
+  select count(*), count(distinct bank_position), min(bank_position), max(bank_position)
+    into total, distinct_positions, min_pos, max_pos
+    from public.daily_quotes;
+  if total <> 15 then
+    raise exception 'FAIL daily_quotes: expected 15 seeded quotes, found %', total;
+  end if;
+  if distinct_positions <> 15 or min_pos <> 1 or max_pos <> 15 then
+    raise exception 'FAIL daily_quotes: bank_position is not a contiguous 1..15 (distinct=%, min=%, max=%)', distinct_positions, min_pos, max_pos;
+  end if;
+  select count(*) into blank from public.daily_quotes where coalesce(btrim(quote_text), '') = '';
+  if blank <> 0 then raise exception 'FAIL daily_quotes: % quotes have empty text', blank; end if;
+  raise notice 'PASS  14  Thursday Thoughts quote bank seeded contiguously (15 rows, 1..15)';
+end
+$$;
+
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'
