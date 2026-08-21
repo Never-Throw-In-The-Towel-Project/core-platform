@@ -4,6 +4,10 @@ import { useActionState, useState } from "react";
 import { submitWorkoutWednesday } from "@/lib/actions/themedCheckin";
 import { initialRoutineState } from "@/lib/actions/routineState";
 import { RoutineComplete } from "./RoutineComplete";
+import {
+  WORKOUT_WEDNESDAY_REFLECTIONS,
+  WORKOUT_WEDNESDAY_PBS,
+} from "@/lib/routines/workoutWednesdayPrompts";
 import type { WeekWorkout } from "@/lib/routines/workouts";
 import type { WorkoutTier } from "@/types/database";
 
@@ -90,6 +94,41 @@ export function WorkoutWednesdayForm({
           })}
         </ol>
       )}
+
+      {/* Journal prompts, alongside the workout above -- movement is medicine.
+          All optional: log a personal best, reflect on how training's going. */}
+      <div className="space-y-5 border-t border-rule-hairline pt-5">
+        <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-brand-accent-deep">
+          Movement is medicine
+        </p>
+
+        <fieldset className="space-y-3 text-sm">
+          <legend className="mb-1 font-medium">Personal bests</legend>
+          <div className="grid grid-cols-2 gap-3">
+            {WORKOUT_WEDNESDAY_PBS.map((pb) => (
+              <label key={pb.key} className="block">
+                <span className="text-xs text-muted">{pb.label}</span>
+                <input
+                  name={pb.key}
+                  type="text"
+                  className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
+                />
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        {WORKOUT_WEDNESDAY_REFLECTIONS.map((prompt) => (
+          <label key={prompt.key} className="block text-sm">
+            <span className="font-medium">{prompt.label}</span>
+            <textarea
+              name={prompt.key}
+              rows={2}
+              className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
+            />
+          </label>
+        ))}
+      </div>
 
       {state.status === "error" && <p className="text-sm text-brand-accent-deep">{state.message}</p>}
 
