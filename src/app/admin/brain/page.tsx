@@ -213,7 +213,15 @@ export default async function BrainPage({
                       </span>
                     </div>
                     <p className="font-extrabold leading-tight tracking-tight">{item.title}</p>
-                    {item.summary && <p className="line-clamp-2 text-xs text-muted">{item.summary}</p>}
+                    {item.summary && (
+                      <p
+                        className={`text-xs text-muted ${
+                          item.type === "text" ? "line-clamp-4" : "line-clamp-2"
+                        }`}
+                      >
+                        {item.summary}
+                      </p>
+                    )}
                     {item.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {item.tags.slice(0, 6).map((tag) => (
@@ -271,6 +279,13 @@ function FolderLink({
  * is a management grid, not a player, so a label reads faster than an embed.
  */
 function BrainThumb({ item, assetUrl }: { item: ContentItem; assetUrl?: string }) {
+  // A text item (a journal principle / prompt / quote) carries no media — its
+  // title and summary are the whole card — so it gets no media tile at all and
+  // the card leads straight with its content. An empty 16:9 "TEXT" placeholder
+  // was pure dead space in a Brain that's now mostly text. Video/image/document
+  // keep a real preview (thumbnail or a typed glyph tile).
+  if (item.type === "text") return null;
+
   const imageSrc = item.type === "image" ? assetUrl ?? item.external_url ?? null : null;
 
   if (imageSrc) {
@@ -280,7 +295,7 @@ function BrainThumb({ item, assetUrl }: { item: ContentItem; assetUrl?: string }
     );
   }
 
-  const glyph = item.type === "video" ? "▶" : item.type === "text" ? "TEXT" : "PDF";
+  const glyph = item.type === "video" ? "▶" : "PDF";
   return (
     <div className="flex aspect-video w-full items-center justify-center border-b border-rule-hairline bg-foreground/[0.03]">
       <span className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-muted">{glyph}</span>
