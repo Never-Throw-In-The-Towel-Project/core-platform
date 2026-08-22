@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandMark } from "@/components/BrandMark";
-import { ADMIN_SECTIONS, type AdminCounts } from "./adminSections";
+import { ADMIN_SECTIONS, isAdminSectionActive, type AdminCounts } from "./adminSections";
 
 /**
  * The Admin Centre sidebar (desktop) — the dark rail of the super-admin shell.
@@ -37,7 +37,7 @@ export function AdminSidebar({ counts, displayName }: { counts: AdminCounts; dis
 
       <nav className="flex-1 overflow-y-auto py-2" aria-label="Admin sections">
         {ADMIN_SECTIONS.map((s) => {
-          const active = pathname === s.href || pathname.startsWith(`${s.href}/`);
+          const active = isAdminSectionActive(pathname, s.href);
           const count = s.countKey ? counts[s.countKey] : undefined;
           return (
             <Link

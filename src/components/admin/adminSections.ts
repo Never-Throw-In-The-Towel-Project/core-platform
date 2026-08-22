@@ -6,6 +6,7 @@ export type AdminCountKey = "content" | "notices" | "challenges" | "events" | "m
 export type AdminCounts = Partial<Record<AdminCountKey, number>>;
 
 export const ADMIN_SECTIONS: { href: string; label: string; countKey?: AdminCountKey }[] = [
+  { href: "/admin", label: "Overview" },
   { href: "/admin/content", label: "Content Studio", countKey: "content" },
   { href: "/admin/brain", label: "Brain" },
   { href: "/admin/calendar", label: "Calendar" },
@@ -18,7 +19,18 @@ export const ADMIN_SECTIONS: { href: string; label: string; countKey?: AdminCoun
   { href: "/admin/settings", label: "Settings" },
 ];
 
-/** The section whose page is currently shown (longest-prefix match). */
+/**
+ * Is `href` the active section for `pathname`? A section is active on its own
+ * page or any sub-route — EXCEPT the Overview home ("/admin"), which matches its
+ * exact path only. Without that exception "/admin" is a prefix of every other
+ * section's route and would light up (and win the breadcrumb) everywhere.
+ */
+export function isAdminSectionActive(pathname: string, href: string): boolean {
+  if (href === "/admin") return pathname === "/admin";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** The section whose page is currently shown. */
 export function activeAdminSection(pathname: string) {
-  return ADMIN_SECTIONS.find((s) => pathname === s.href || pathname.startsWith(`${s.href}/`));
+  return ADMIN_SECTIONS.find((s) => isAdminSectionActive(pathname, s.href));
 }
