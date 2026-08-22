@@ -7,10 +7,10 @@ import { initialContentImportState } from "@/lib/content/csvImport";
 const LABEL = "block text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted";
 const FIELD = "mt-1 w-full border border-rule-border bg-transparent px-3 py-2 text-sm";
 
-const TEMPLATE = `type,title,category,day,vimeo_id,external_url,tags,summary,publish
-video,Breathing reset,mental_fitness,monday,123456789,,"stress;sleep",A 5-minute box-breathing reset,true
-video,Mobility flow,physical_fitness,,987654321,,mobility,,true
-document,Nutrition basics,nutrition,,,https://example.com/guide.pdf,nutrition,One-page starter guide,false`;
+const TEMPLATE = `type,title,category,day,folder,vimeo_id,external_url,tags,summary,publish
+video,Breathing reset,mental_fitness,monday,,123456789,,"stress;sleep",A 5-minute box-breathing reset,true
+text,Win the next point,mental_fitness,monday,Momentum Monday,,,focus;goals,Don't try to win the match — just win the next point,false
+document,Nutrition basics,nutrition,,,,https://example.com/guide.pdf,nutrition,One-page starter guide,false`;
 
 /**
  * Bulk content importer -- paste CSV or upload a .csv, validate every row
@@ -89,17 +89,19 @@ export function ContentImportForm() {
             <p>
               First row is the header. Required columns: <b className="text-foreground">title</b> and{" "}
               <b className="text-foreground">category</b>. Optional: <b className="text-foreground">type</b>{" "}
-              (video/document/image, default video), <b className="text-foreground">day</b> (1–7 or a weekday
-              name, blank = any day), <b className="text-foreground">vimeo_id</b>,{" "}
+              (video/document/image/text, default video), <b className="text-foreground">day</b> (1–7 or a
+              weekday name, blank = any day), <b className="text-foreground">folder</b> (the Brain folder to
+              file it under — created if new, blank = Unfiled), <b className="text-foreground">vimeo_id</b>,{" "}
               <b className="text-foreground">external_url</b>, <b className="text-foreground">tags</b>,{" "}
               <b className="text-foreground">summary</b>, <b className="text-foreground">publish</b>.
             </p>
             <p>
               A video row needs a numeric <b className="text-foreground">vimeo_id</b>; a document/image row
-              needs an <b className="text-foreground">external_url</b> (file uploads use the form above).
-              Category is one of <code>mental_fitness</code>, <code>physical_fitness</code>,{" "}
-              <code>nutrition</code>, <code>tools_tips</code>. Separate tags with <code>;</code> (or wrap a
-              comma-containing cell in double quotes).
+              needs an <b className="text-foreground">external_url</b> (file uploads use the form above); a{" "}
+              <b className="text-foreground">text</b> row needs neither — just a title and summary. Category is
+              one of <code>mental_fitness</code>, <code>physical_fitness</code>, <code>nutrition</code>,{" "}
+              <code>tools_tips</code>. Separate tags with <code>;</code> (or wrap a comma-containing cell in
+              double quotes).
             </p>
             <pre className="overflow-x-auto whitespace-pre border border-rule-hairline bg-foreground/[0.02] p-2 text-[11px] leading-relaxed text-foreground">
               {TEMPLATE}
