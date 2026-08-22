@@ -1,41 +1,42 @@
-import Link from "next/link";
 import { requireNtittAdmin } from "@/lib/auth/dal";
-
-const SECTIONS = [
-  { href: "/admin/content", title: "Content Studio", desc: "Author, tag, target and publish content." },
-  { href: "/admin/brain", title: "Brain", desc: "The AI knowledge base — upload, foldered and tagged." },
-  { href: "/admin/calendar", title: "Calendar", desc: "Plan content across the Mon–Sun motivation framework." },
-  { href: "/admin/challenges", title: "Challenges", desc: "Build guided multi-day challenge programmes." },
-  { href: "/admin/events", title: "Events", desc: "List real-world meet-ups and manage bookings." },
-  { href: "/admin/moderation", title: "Moderation", desc: "Review reported community posts." },
-  { href: "/admin/podcast", title: "Podcast guests", desc: "See who's opted in to appear as a guest." },
-  { href: "/admin/companies", title: "Companies", desc: "Create and manage partner company portals." },
-];
+import { createClient } from "@/lib/supabase/server";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { OverviewDashboard } from "@/components/admin/overview/OverviewDashboard";
+import { emptyAdminOverview, getAdminOverview, type AdminOverviewData } from "@/lib/admin/overview";
 
 /**
- * Control Tower home -- the landing for admin.neverthrowinthetowel.uk. Guard is also on the
- * layout; kept here as defence in depth (matches the codebase pattern).
+ * The Admin Centre home — a live Overview of the platform: what's published and
+ * queued, how the community is moving, events and bookings, with quick links
+ * into every management surface. Guard is on the layout; re-asserted here as
+ * defence in depth (the codebase pattern).
+ *
+ * Every number is aggregate/operational content-and-community data read through
+ * the admin's own RLS-scoped session. Nothing here reads the private schema or
+ * surfaces any member's check-ins, ratings or reviews — that boundary is a
+ * product promise, enforced by what this page queries (see lib/admin/overview.ts).
  */
 export default async function AdminHomePage() {
   await requireNtittAdmin();
 
-  return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-deep">NTITT Admin</p>
-      <h1 className="mt-2 text-2xl font-extrabold tracking-tight">Control Tower</h1>
-      <p className="mt-1 text-sm text-muted">Everything NTITT curates and manages, in one place.</p>
+  // createClient() throws synchronously on a missing/malformed URL/key — degrade
+  // to the zero-state (which renders the same empty tiles) rather than crashing
+  // the Admin Centre home. Same guard the other admin pages use.
+  let data: AdminOverviewData = emptyAdminOverview();
+  try {
+    const supabase = await createClient();
+    data = await getAdminOverview(supabase);
+  } catch {
+    data = emptyAdminOverview();
+  }
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2">
-        {SECTIONS.map((s) => (
-          <Link
-            key={s.href}
-            href={s.href}
-            className="border border-rule-border p-5 transition-colors hover:border-brand-accent hover:bg-foreground/[0.03]"
-          >
-            <p className="font-semibold">{s.title}</p>
-            <p className="mt-1 text-sm text-muted">{s.desc}</p>
-          </Link>
-        ))}
+  return (
+    <main className="mx-auto max-w-6xl px-6 py-10">
+      <AdminPageHeader
+        title="Overview"
+        description="A live read on the platform — content, community and events at a glance, with quick links into every surface. Aggregate and operational data only; members' private check-ins and reviews are never shown here."
+      />
+      <div className="mt-8">
+        <OverviewDashboard data={data} />
       </div>
     </main>
   );

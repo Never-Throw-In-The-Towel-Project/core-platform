@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandMark } from "@/components/BrandMark";
-import { ADMIN_SECTIONS, type AdminCounts } from "./adminSections";
+import { ADMIN_SECTIONS, isAdminSectionActive, type AdminCounts } from "./adminSections";
 
 /**
  * The Admin Centre header on small screens (below md), where the desktop
@@ -26,7 +26,7 @@ export function AdminMobileHeader({ counts }: { counts: AdminCounts }) {
       </div>
       <nav className="flex gap-1 overflow-x-auto border-t border-ink-hairline px-2" aria-label="Admin sections">
         {ADMIN_SECTIONS.map((s) => {
-          const active = pathname === s.href || pathname.startsWith(`${s.href}/`);
+          const active = isAdminSectionActive(pathname, s.href);
           const count = s.countKey ? counts[s.countKey] : undefined;
           return (
             <Link
