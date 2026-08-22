@@ -71,6 +71,39 @@ export function ProportionBar({ label, count, max }: { label: string; count: num
   );
 }
 
+/** A compact vertical bar chart (e.g. sign-ups per week). Bars scale to the max
+ *  in the series against a fixed-height track; the latest bar is emphasised in
+ *  accent, and the counts sit in their own row below. Decorative fill only. */
+export function MiniBars({ data }: { data: { label: string; count: number }[] }) {
+  const max = Math.max(1, ...data.map((d) => d.count));
+  return (
+    <div>
+      <div className="flex h-16 items-end gap-1.5">
+        {data.map((d, i) => {
+          const isLast = i === data.length - 1;
+          const pct = Math.round((d.count / max) * 100);
+          return (
+            <div key={`bar-${d.label}-${i}`} className="flex h-full flex-1 items-end">
+              <div
+                className={`w-full ${isLast ? "bg-brand-accent-vivid" : "bg-foreground/15"}`}
+                style={{ height: `${d.count > 0 ? Math.max(pct, 4) : 0}%` }}
+                title={`${d.label}: ${d.count}`}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-1 flex gap-1.5">
+        {data.map((d, i) => (
+          <span key={`n-${d.label}-${i}`} className="flex-1 text-center text-[9px] font-semibold tabular-nums text-muted">
+            {d.count}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const DAY_LETTERS = ["M", "T", "W", "T", "F", "S", "S"]; // ISO 1..7 (Mon..Sun)
 
 const THEME_LABEL: Record<VideoCategory, string> = {

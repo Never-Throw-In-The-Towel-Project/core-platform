@@ -1,6 +1,14 @@
 import Link from "next/link";
 import type { AdminOverviewData } from "@/lib/admin/overviewSummary";
-import { CONTENT_TYPE_LABEL, CoverageStrip, ProportionBar, SectionHeading, StatTile } from "./primitives";
+import type { PeopleOverview } from "@/lib/admin/overviewPeopleSummary";
+import type { UserRole } from "@/types/database";
+import { CONTENT_TYPE_LABEL, CoverageStrip, MiniBars, ProportionBar, SectionHeading, StatTile } from "./primitives";
+
+const ROLE_LABEL: Record<UserRole, string> = {
+  employee: "Employees",
+  hr_admin: "HR admins",
+  ntitt_admin: "Super admins",
+};
 
 /**
  * The Super Admin Overview board — the Admin Centre home. Reads as a live,
@@ -27,9 +35,11 @@ const MANAGE_LINKS: { href: string; title: string; desc: string }[] = [
   { href: "/admin/settings", title: "Settings", desc: "Super-admin invites and platform settings." },
 ];
 
-export function OverviewDashboard({ data }: { data: AdminOverviewData }) {
+export function OverviewDashboard({ data, people }: { data: AdminOverviewData; people: PeopleOverview }) {
   const { content, community, events, programming } = data;
   const typeMax = Math.max(1, ...content.byType.map((t) => t.count));
+  const roleMax = Math.max(1, ...people.byRole.map((r) => r.count));
+  const onboardingPct = Math.round(people.onboardingRate * 100);
 
   return (
     <div className="space-y-12">
@@ -37,28 +47,79 @@ export function OverviewDashboard({ data }: { data: AdminOverviewData }) {
       <section>
         <SectionHeading>Platform at a glance</SectionHeading>
         <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <StatTile value={people.total} label="Members" />
+          <StatTile value={people.newLast30d} label="New · last 30 days" />
+          <StatTile value={people.active7d} label="Active · last 7 days" />
           <StatTile value={data.companies} label="Companies" href="/admin/companies" />
           <StatTile value={content.published} label="Published content" href="/admin/content" />
-          <StatTile
-            value={content.drafts}
-            label="Drafts"
-            accent={content.drafts > 0}
-            hint={content.scheduledAhead > 0 ? `${content.scheduledAhead} scheduled ahead` : undefined}
-            href="/admin/brain"
-          />
-          <StatTile value={community.postsLast7d} label="Posts · last 7 days" href="/admin/moderation" />
           <StatTile
             value={community.openReports}
             label="Open reports"
             accent={community.openReports > 0}
             href="/admin/moderation"
           />
-          <StatTile value={events.upcoming} label="Upcoming events" href="/admin/events" />
         </div>
         <p className="mt-3 text-xs text-muted">
           Live counts, refreshed each time you open this page. Aggregate and operational data only — members&rsquo;
           private check-ins, ratings and reviews are never shown here.
         </p>
+      </section>
+
+      {/* ---- People & tenants ---- */}
+      <section>
+        <SectionHeading count={people.total}>People &amp; tenants</SectionHeading>
+        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <StatTile value={people.total} label="Members" />
+          <StatTile value={people.newLast7d} label="New · 7 days" />
+          <StatTile value={people.newLast30d} label="New · 30 days" />
+          <StatTile value={people.activeToday} label="Active today" />
+          <StatTile value={people.active7d} label="Active · 7 days" />
+          <StatTile value={`${onboardingPct}%`} label="Onboarded" hint={`${people.onboardedCount} of ${people.total}`} />
+        </div>
+        <p className="mt-3 text-xs text-muted">
+          &ldquo;Active&rdquo; counts members seen in-app within the window. Activity tracking is new, so these fill
+          in as members return — a fresh install shows low numbers until people sign back in.
+        </p>
+
+        <div className="mt-6 grid gap-8 lg:grid-cols-2">
+          <div>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">By role</p>
+            <div className="mt-2 space-y-2">
+              {people.byRole.map((r) => (
+                <ProportionBar key={r.role} label={ROLE_LABEL[r.role]} count={r.count} max={roleMax} />
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-muted">
+              {people.communityOptIn} opted into the community · {people.podcastOptIn} open to the podcast.
+            </p>
+          </div>
+          <div>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">New sign-ups · 8 weeks</p>
+            <div className="mt-2">
+              {people.newByWeek.length > 0 ? (
+                <MiniBars data={people.newByWeek.map((w) => ({ label: w.weekStartIso, count: w.count }))} />
+              ) : (
+                <p className="text-xs text-muted">No sign-up history yet.</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {people.perCompany.length > 0 && (
+          <div className="mt-6">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Members per company</p>
+            <ul className="mt-2 divide-y divide-rule-hairline border border-rule-border">
+              {people.perCompany.map((c) => (
+                <li key={c.companyId} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+                  <span className="min-w-0 truncate font-semibold">{c.name}</span>
+                  <span className="shrink-0 text-xs text-muted tabular-nums">
+                    {c.members} member{c.members === 1 ? "" : "s"} · {c.onboarded} onboarded
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
 
       {/* ---- Content & programming ---- */}
