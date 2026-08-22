@@ -6,6 +6,7 @@ import { listContentFolders, resolveAssetUrls } from "@/lib/content/brain";
 import { isAiConfigured } from "@/lib/ai/client";
 import { DAY_LABEL } from "@/lib/content/rotation";
 import { ContentStudioForm } from "@/components/admin/ContentStudioForm";
+import { ContentImportForm } from "@/components/admin/ContentImportForm";
 import { ContentItemActions } from "@/components/admin/ContentItemActions";
 import { BrainMoveControl } from "@/components/admin/BrainMoveControl";
 import { BrainFolderCreate } from "@/components/admin/BrainFolderCreate";
@@ -152,6 +153,14 @@ export default async function BrainPage({
               <ContentStudioForm companies={companies} folderId={activeFolder?.id} />
             </div>
           </details>
+
+          {/* Bulk import: the same CSV importer as Content Studio, surfaced here
+              too so a whole catalogue (or Anthony's journal) can be loaded
+              straight into the Brain. A row's `folder` column files it into that
+              folder (created if new); rows without one start Unfiled. */}
+          <div className="mt-4">
+            <ContentImportForm />
+          </div>
 
           {/* ---- Auto-organise (AI batch: propose folder + tags, admin approves) ---- */}
           {visible.length > 0 && (
