@@ -47,6 +47,10 @@ export interface Profile {
   sunday_notification_time: string | null;
   timezone: string;
   created_at: string;
+  /** Coarse last-activity timestamp (updated at most hourly via the
+   *  touch_last_seen() RPC). Powers the admin active-users metric; null until
+   *  the member is first seen after the feature shipped. Not behavioural data. */
+  last_seen_at: string | null;
 }
 
 export interface PushSubscriptionRow {

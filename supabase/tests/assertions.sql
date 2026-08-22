@@ -1597,5 +1597,72 @@ begin
 end
 $$;
 
+-- ---- 15. profiles.last_seen_at activity marker + throttled self-touch -------
+-- (20260831000000) last_seen_at powers the admin active-users metric. It must be
+-- a nullable timestamptz; touch_last_seen() must be SECURITY DEFINER; and a
+-- member must NOT be able to write last_seen_at directly (spoofing activity).
+do $$
+declare col_type text; col_nullable text; is_def boolean;
+begin
+  select data_type, is_nullable into col_type, col_nullable
+    from information_schema.columns
+    where table_schema='public' and table_name='profiles' and column_name='last_seen_at';
+  if col_type is null then raise exception 'profiles.last_seen_at missing (active-users metric)'; end if;
+  if col_type <> 'timestamp with time zone' then
+    raise exception 'profiles.last_seen_at is % (expected timestamptz)', col_type;
+  end if;
+  if col_nullable <> 'YES' then raise exception 'profiles.last_seen_at must be nullable'; end if;
+
+  select p.prosecdef into is_def from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname='public' and p.proname='touch_last_seen';
+  if is_def is null then raise exception 'touch_last_seen() missing'; end if;
+  if not is_def then raise exception 'touch_last_seen() must be SECURITY DEFINER'; end if;
+
+  if has_column_privilege('authenticated','public.profiles','last_seen_at','update') then
+    raise exception 'authenticated can UPDATE profiles.last_seen_at (activity spoofing)';
+  end if;
+  raise notice 'PASS  15  profiles.last_seen_at present (timestamptz, nullable); touch_last_seen() SECURITY DEFINER; not member-writable';
+end
+$$;
+
+-- live: touch_last_seen() stamps only the caller's own row; a direct write is
+-- refused. Reuses usera / userb (their last_seen_at is null from the fixtures).
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+set role authenticated;
+do $$
+declare seen_after timestamptz;
+begin
+  -- BLOCKED: a direct UPDATE of last_seen_at (no column grant) must be refused
+  begin
+    update public.profiles set last_seen_at = now() where id = 'a0000000-0000-0000-0000-00000000000a';
+    raise exception 'FAIL last_seen: a member wrote last_seen_at directly (spoofable)';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- ALLOWED: the throttled self-touch stamps the caller's own row
+  perform public.touch_last_seen();
+  select last_seen_at into seen_after from public.profiles where id='a0000000-0000-0000-0000-00000000000a';
+  if seen_after is null then raise exception 'FAIL last_seen: touch_last_seen did not stamp the caller row'; end if;
+
+  raise notice 'PASS  15* live: touch_last_seen stamps the caller; direct member write refused';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+-- ISOLATED: usera's touch must not have stamped userb's row (checked as the
+-- bootstrap superuser, which bypasses RLS -- usera can't even see userb's row).
+do $$
+declare other_seen timestamptz;
+begin
+  select last_seen_at into other_seen from public.profiles where id='b0000000-0000-0000-0000-00000000000b';
+  if other_seen is not null then
+    raise exception 'FAIL last_seen: touch_last_seen stamped another user''s row (%)' , other_seen;
+  end if;
+  raise notice 'PASS  15** touch_last_seen touched only the caller, not other members';
+end
+$$;
+
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'

@@ -1,8 +1,36 @@
 import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/types/database";
+
+/** At most one activity stamp per hour per member — matches the throttle baked
+ *  into the touch_last_seen() SQL function, so within the hour we skip the RPC
+ *  round-trip entirely (the value we just read tells us it's fresh). */
+const LAST_SEEN_THROTTLE_MS = 60 * 60 * 1000;
+
+/**
+ * Best-effort activity stamp for the admin active-users metric. Fires the
+ * throttled, self-only touch_last_seen() RPC (see 20260831000000) only when the
+ * profile we just loaded is stale, so most page loads make no extra query. Any
+ * failure is swallowed: recording activity must NEVER break a page render.
+ */
+async function recordActivity(
+  // Loose typing (the RPC name isn't in a generated Database type) — same
+  // escape hatch as lib/content/queries.ts.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any>,
+  profile: Profile
+): Promise<void> {
+  const lastMs = profile.last_seen_at ? Date.parse(profile.last_seen_at) : 0;
+  if (Number.isFinite(lastMs) && Date.now() - lastMs < LAST_SEEN_THROTTLE_MS) return;
+  try {
+    await supabase.rpc("touch_last_seen");
+  } catch {
+    // Activity tracking is best-effort; never surface it to the user.
+  }
+}
 
 /**
  * Data Access Layer per docs/app/guides/authentication.md — centralizes the
@@ -53,8 +81,11 @@ export const getProfile = cache(async (): Promise<Profile> => {
   // `error || !data` check already treats it -- both should redirect, not
   // crash.
   let profile: Profile | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let client: SupabaseClient<any, any> | null = null;
   try {
     const supabase = await createClient();
+    client = supabase;
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
@@ -69,6 +100,13 @@ export const getProfile = cache(async (): Promise<Profile> => {
 
   if (!profile) {
     redirect("/login");
+  }
+
+  // Stamp coarse activity for the admin active-users metric. Awaited so it
+  // completes in the serverless request, but throttled to a no-op within the
+  // hour (see recordActivity), so it costs a round-trip at most hourly.
+  if (client) {
+    await recordActivity(client, profile);
   }
 
   return profile;
