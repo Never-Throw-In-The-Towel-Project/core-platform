@@ -482,6 +482,53 @@ export async function setContentItemPublished(
   return { status: "success" };
 }
 
+const BulkPublishSchema = z.object({ ids: z.array(z.string().uuid()).min(1).max(1000) });
+
+/**
+ * Publish many content items at once -- the Brain's "Publish all drafts in view"
+ * control, so a freshly-imported batch (e.g. the journal) goes live in one click
+ * instead of card-by-card. ntitt_admin only (friendly check; the content_items
+ * UPDATE RLS policy is the real gate). Publish-only and scoped to the drafts it's
+ * given, so it never clears a schedule or pulls anything already live.
+ */
+export async function bulkPublishContentItems(
+  ids: string[]
+): Promise<{ status: "success" | "error"; published: number; message?: string }> {
+  await verifySession();
+  const profile = await getProfile();
+  if (profile.role !== "ntitt_admin") {
+    return { status: "error", published: 0, message: "You don’t have access to the content studio." };
+  }
+
+  const parsed = BulkPublishSchema.safeParse({ ids });
+  if (!parsed.success) {
+    return { status: "error", published: 0, message: "Nothing to publish." };
+  }
+
+  try {
+    const supabase = await createClient();
+    // .eq("is_published", false) so already-live items are left untouched and the
+    // returned rows are exactly the drafts that flipped -- an accurate count.
+    const { data, error } = await supabase
+      .from("content_items")
+      .update({ is_published: true })
+      .in("id", parsed.data.ids)
+      .eq("is_published", false)
+      .select("id");
+    if (error) {
+      return { status: "error", published: 0, message: "Couldn’t publish those. Please try again." };
+    }
+
+    revalidatePath("/admin/content");
+    revalidatePath("/admin/brain");
+    revalidatePath("/admin/calendar");
+    revalidatePath("/content");
+    return { status: "success", published: data?.length ?? 0 };
+  } catch {
+    return { status: "error", published: 0, message: "Couldn’t publish those. Please try again." };
+  }
+}
+
 const ContentIdSchema = z.object({ id: z.string().uuid() });
 
 /**

@@ -12,6 +12,7 @@ import { BrainMoveControl } from "@/components/admin/BrainMoveControl";
 import { BrainFolderCreate } from "@/components/admin/BrainFolderCreate";
 import { BrainFolderSettings } from "@/components/admin/BrainFolderSettings";
 import { BrainAutoOrganize } from "@/components/admin/BrainAutoOrganize";
+import { BrainPublishAll } from "@/components/admin/BrainPublishAll";
 import type { ContentFolder, ContentItem, VideoCategory } from "@/types/database";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
@@ -89,6 +90,8 @@ export default async function BrainPage({
   const heading = view === "unfiled" ? "Unfiled" : activeFolder ? activeFolder.name : "All items";
   const folderOptions = folders.map((f) => ({ id: f.id, name: f.name }));
   const aiConfigured = isAiConfigured();
+  // The drafts in the current view, for the one-click "Publish all" control.
+  const draftIds = visible.filter((i) => !i.is_published).map((i) => i.id);
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
@@ -161,6 +164,13 @@ export default async function BrainPage({
           <div className="mt-4">
             <ContentImportForm />
           </div>
+
+          {/* ---- Publish all drafts in this view (one-click go-live) ---- */}
+          {draftIds.length > 0 && (
+            <div className="mt-4">
+              <BrainPublishAll draftIds={draftIds} />
+            </div>
+          )}
 
           {/* ---- Auto-organise (AI batch: propose folder + tags, admin approves) ---- */}
           {visible.length > 0 && (
