@@ -4,6 +4,7 @@ import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { OverviewDashboard } from "@/components/admin/overview/OverviewDashboard";
 import { emptyAdminOverview, getAdminOverview, type AdminOverviewData } from "@/lib/admin/overview";
 import { emptyPeopleOverview, getPeopleOverview, type PeopleOverview } from "@/lib/admin/overviewPeople";
+import { emptyEngagementOverview, getEngagementOverview, type EngagementOverview } from "@/lib/admin/overviewEngagement";
 
 /**
  * The Admin Centre home — a live Overview of the platform: what's published and
@@ -41,6 +42,15 @@ export default async function AdminHomePage() {
     people = emptyPeopleOverview();
   }
 
+  // Cross-tenant engagement roll-up from the anonymised company_* aggregates
+  // (service-role, since those tables have no ntitt_admin read policy).
+  let engagement: EngagementOverview = emptyEngagementOverview();
+  try {
+    engagement = await getEngagementOverview();
+  } catch {
+    engagement = emptyEngagementOverview();
+  }
+
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
       <AdminPageHeader
@@ -48,7 +58,7 @@ export default async function AdminHomePage() {
         description="A live read on the platform — members, content, community and events at a glance, with quick links into every surface. Aggregate and operational data only; members' private check-ins and reviews are never shown here."
       />
       <div className="mt-8">
-        <OverviewDashboard data={data} people={people} />
+        <OverviewDashboard data={data} people={people} engagement={engagement} />
       </div>
     </main>
   );
