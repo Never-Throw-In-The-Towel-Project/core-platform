@@ -31,7 +31,7 @@ export function RoutineRow({
           "flex h-8 w-8 shrink-0 items-center justify-center text-sm font-extrabold " +
           (done
             ? "bg-brand-accent-vivid text-white"
-            : "border-2 border-rule-border text-muted")
+            : "border-2 border-brand-accent text-muted")
         }
       >
         {done ? "✓" : ""}

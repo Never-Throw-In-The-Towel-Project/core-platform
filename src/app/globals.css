@@ -100,6 +100,29 @@
   --success-vivid: #16a34a;
 }
 
+/*
+ * Ink surface scope. Opt a whole subtree into the dark "ink" palette by
+ * remapping the paper-ground tokens to their EXISTING ink equivalents (no new
+ * colours). Any descendant that reads a ground token -- bg-background,
+ * text-foreground, text-muted, border-rule-border/-hairline, bg-inactive, and
+ * red text via text-brand-accent-deep -- then renders dark, and ONLY inside this
+ * scope, so a shared component still renders light on its own page. This is the
+ * same runtime CSS-variable-override mechanism as the per-tenant ThemeProvider.
+ * Applied to the Today board via <main data-surface="ink">. Unlayered and placed
+ * right after :root so it wins by source order (equal specificity to :root).
+ */
+[data-surface="ink"] {
+  --background: var(--brand-background);
+  --foreground: var(--brand-foreground);
+  --muted: var(--muted-on-ink);
+  --rule-hairline: var(--ink-hairline);
+  --rule-border: var(--ink-hairline);
+  --inactive: var(--inactive-ink);
+  /* --brand-accent-deep is tuned as red text for the light ground; on ink swap
+     to the on-ink red so links/eyebrows stay legible. */
+  --brand-accent-deep: var(--brand-accent-light);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

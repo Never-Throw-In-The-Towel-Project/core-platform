@@ -2,11 +2,12 @@ import Image from "next/image";
 import Link from "next/link";
 
 /**
- * The focal hero card on Today. A 2px ink border, a red header strip (using the
- * AA-safe --brand-accent so its small uppercase label clears 4.5:1 on the
- * red), the big day title, a one-line description, the ink CTA that inverts to
- * red on hover, an optional "N of 6 answered" progress line, and -- on desktop
- * only -- a photograph.
+ * The focal hero card on Today. On the board's ink surface it's a red-bordered
+ * card (2px --brand-accent) on near-black: a red header strip (using the AA-safe
+ * --brand-accent so its small uppercase label clears 4.5:1 on the red), the big
+ * day title, a one-line description, a solid red CTA, an optional "N of 6
+ * answered" progress line, and -- on desktop only -- a photograph. `bg-background`
+ * resolves to ink inside the Today `data-surface="ink"` scope (see globals.css).
  *
  * Reused for the morning/night/weekend phases too (different header, CTA and
  * image, no answered-count), so the whole Today screen speaks one visual
@@ -34,7 +35,7 @@ export function CheckinCard({
   const showProgress = typeof answered === "number" && typeof total === "number";
 
   return (
-    <article className="border-2 border-foreground bg-background">
+    <article className="border-2 border-brand-accent bg-background">
       <div className="bg-brand-accent px-4 py-2 text-[11px] font-extrabold uppercase tracking-[0.14em] text-brand-accent-foreground">
         {headerLabel}
       </div>
@@ -47,7 +48,7 @@ export function CheckinCard({
           <div className="mt-auto flex flex-wrap items-center gap-4 pt-6">
             <Link
               href={ctaHref}
-              className="bg-brand-background px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-foreground transition-colors hover:bg-brand-accent hover:text-brand-accent-foreground"
+              className="bg-brand-accent px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground transition-opacity hover:opacity-90"
             >
               {ctaLabel}
             </Link>
