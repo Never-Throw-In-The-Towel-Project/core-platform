@@ -23,6 +23,10 @@
     {
       "path": "/api/jobs/publish-scheduled-content",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/jobs/sync-vimeo-library",
+      "schedule": "0 * * * *"
     }
   ]
 }

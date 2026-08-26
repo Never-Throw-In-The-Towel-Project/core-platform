@@ -8,6 +8,7 @@ import { DAY_LABEL } from "@/lib/content/rotation";
 import { ContentStudioForm } from "@/components/admin/ContentStudioForm";
 import { ContentImportForm } from "@/components/admin/ContentImportForm";
 import { BrainVimeoImport } from "@/components/admin/BrainVimeoImport";
+import { BrainVimeoSync } from "@/components/admin/BrainVimeoSync";
 import { BrainVimeoBackfill } from "@/components/admin/BrainVimeoBackfill";
 import { ContentItemActions } from "@/components/admin/ContentItemActions";
 import { BrainMoveControl } from "@/components/admin/BrainMoveControl";
@@ -171,6 +172,13 @@ export default async function BrainPage({
               folder (created if new); rows without one start Unfiled. */}
           <div className="mt-4">
             <ContentImportForm />
+          </div>
+
+          {/* One-click: pull the WHOLE Vimeo account, AI-categorise and publish
+              live. New uploads also flow in hourly via the auto-sync cron. This
+              is the primary path; the picker below is for granular control. */}
+          <div className="mt-4">
+            <BrainVimeoSync />
           </div>
 
           {/* Import straight from the connected Vimeo account — pick the videos

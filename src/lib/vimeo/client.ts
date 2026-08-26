@@ -1,5 +1,5 @@
 import "server-only";
-import { mapVimeoVideo, type VimeoVideoRef } from "@/lib/vimeo/parse";
+import { friendlyVimeoError, mapVimeoVideo, type VimeoVideoRef } from "@/lib/vimeo/parse";
 
 /**
  * The ONE place the app talks to the Vimeo API (v3.4 REST, keyed by
@@ -13,7 +13,7 @@ import { mapVimeoVideo, type VimeoVideoRef } from "@/lib/vimeo/parse";
 const VIMEO_API = "https://api.vimeo.com";
 const VIMEO_ACCEPT = "application/vnd.vimeo.*+json;version=3.4";
 // Only the fields we use — keeps responses small and stable.
-const VIDEO_FIELDS = "uri,name,description,duration,link,player_embed_url,privacy,pictures";
+const VIDEO_FIELDS = "uri,name,description,duration,link,player_embed_url,privacy,pictures,status";
 
 export type VimeoResult<T> = { ok: true; data: T } | { ok: false; error: string; status?: number };
 
@@ -39,8 +39,11 @@ async function vimeoGet<T>(path: string, params: Record<string, string | number>
     });
     if (!res.ok) {
       const data = await res.json().catch(() => null);
-      // Vimeo error bodies carry a human message in `error`.
-      return { ok: false, error: (data?.error as string) ?? `HTTP ${res.status}`, status: res.status };
+      // Vimeo error bodies carry a human message in `error`; map auth/scope
+      // failures (401/403 or Vimeo's opaque "get in touch with the app's
+      // creator") to an operator-actionable message instead of relaying it raw.
+      const raw = (data?.error as string) ?? `HTTP ${res.status}`;
+      return { ok: false, error: friendlyVimeoError(res.status, raw), status: res.status };
     }
     return { ok: true, data: (await res.json()) as T };
   } catch (err) {

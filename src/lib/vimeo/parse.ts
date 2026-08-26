@@ -24,6 +24,8 @@ export interface VimeoVideoRef {
   /** False when Vimeo will refuse to embed this anywhere (privacy.embed = private). */
   embeddable: boolean;
   link: string | null;
+  /** Vimeo transcode `status`: available | uploading | transcoding | … ; null if absent. */
+  status: string | null;
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- raw Vimeo JSON is untyped */
@@ -98,10 +100,37 @@ export function mapVimeoVideo(raw: any): VimeoVideoRef | null {
     // embeds where the domain is allowlisted, "public" anywhere.
     embeddable: privacyEmbed !== "private",
     link: typeof raw?.link === "string" ? raw.link : null,
+    status: typeof raw?.status === "string" ? raw.status : null,
   };
 }
 
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+/**
+ * Ready to play? Vimeo returns `status = "available"` once a video has finished
+ * transcoding; while it's "uploading"/"transcoding" the player would be blank.
+ * The auto-sync uses this to avoid publishing a half-processed upload as a broken
+ * tile — those get picked up on a later run once Vimeo marks them available.
+ * A missing status (older field set) is treated as playable rather than dropped.
+ */
+export function isVimeoPlayable(video: Pick<VimeoVideoRef, "status">): boolean {
+  return video.status == null || video.status === "available";
+}
+
+/**
+ * Turn a Vimeo API failure into an operator-actionable message. A 401/403 — or
+ * Vimeo's generic "Something strange occurred. Please get in touch with the
+ * app's creator." — almost always means the access token is missing or lacks the
+ * read scopes, so say exactly that instead of relaying Vimeo's opaque string.
+ */
+export function friendlyVimeoError(status: number | undefined, rawError: string): string {
+  const looksLikeAuth =
+    status === 401 || status === 403 || /get in touch with the app|scope|token|unauthor/i.test(rawError);
+  if (looksLikeAuth) {
+    return "Vimeo rejected the access token — check it’s an “Authenticated” Personal Access Token with Public + Private read scopes, then redeploy.";
+  }
+  return rawError;
+}
 
 /** The member-facing player URL, hash-aware so unlisted videos actually play. */
 export function buildVimeoEmbedUrl(vimeoId: string, hash?: string | null): string {

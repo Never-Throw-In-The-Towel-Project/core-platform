@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchVimeoVideo, isVimeoConfigured, listVimeoVideos } from "@/lib/vimeo/client";
 import { vimeoEmbedWarning, type VimeoVideoRef } from "@/lib/vimeo/parse";
 import { buildVimeoInsertRow } from "@/lib/vimeo/importRow";
+import { syncVimeoLibrary, type VimeoSyncOutcome } from "@/lib/vimeo/sync";
 
 /**
  * Server actions behind the Brain's "Import from Vimeo" picker. Both are
@@ -189,4 +190,37 @@ export async function backfillVimeoMetadataAction(): Promise<VimeoBackfillResult
     revalidatePath("/content");
   }
   return { status: "success", updated, failed, remaining };
+}
+
+/** How many videos one "Sync entire library" click imports — bounds the AI +
+ *  insert work so the action returns well inside the request budget; the button
+ *  reports `more` and the operator clicks again to drain a big backlog. */
+const BULK_SYNC_LIMIT = 40;
+
+/**
+ * One-click "Sync entire Vimeo library" for the Brain: pulls every video not yet
+ * imported, AI-categorises it and publishes it LIVE (the operator chose fully-
+ * automatic ingestion). Shares the exact engine the hourly cron uses, so the
+ * manual button and the automation can never drift apart. ntitt_admin-gated;
+ * the content_items INSERT RLS is the real gate.
+ */
+export async function syncVimeoLibraryAction(): Promise<VimeoSyncOutcome> {
+  const session = await verifySession();
+  const profile = await getProfile();
+  if (profile.role !== "ntitt_admin") return { status: "error", message: "You don’t have access to the Brain." };
+
+  const supabase = await createClient();
+  const result = await syncVimeoLibrary(supabase, {
+    publish: true,
+    limit: BULK_SYNC_LIMIT,
+    createdBy: session.userId,
+  });
+
+  if (result.status === "success" && result.imported > 0) {
+    revalidatePath("/admin/brain");
+    revalidatePath("/admin/content");
+    revalidatePath("/admin/calendar");
+    revalidatePath("/content");
+  }
+  return result;
 }
