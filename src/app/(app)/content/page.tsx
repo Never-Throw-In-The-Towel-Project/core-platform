@@ -5,6 +5,7 @@ import { listContentItems, getDayContent } from "@/lib/content/queries";
 import { rotateForWeek, isoWeekdayFromName, DAY_LABEL } from "@/lib/content/rotation";
 import { weekdayNameOrWeekend, getIsoWeekNumber } from "@/lib/routines/dates";
 import { DayCarousel } from "@/components/content/DayCarousel";
+import { ContentCard } from "@/components/content/ContentCard";
 import type { ContentItem, VideoCategory } from "@/types/database";
 
 const CATEGORIES: { value: VideoCategory; label: string }[] = [
@@ -20,17 +21,12 @@ const CATEGORIES: { value: VideoCategory; label: string }[] = [
 // searchable by (title or tags), not a separate filter mechanism.
 const TOPICS = ["Addiction", "Divorce", "Grief", "Redundancy", "Identity loss", "Anxiety", "Relationships", "Purpose"];
 
-const TYPE_LABEL: Record<ContentItem["type"], string> = {
-  video: "Watch",
-  document: "Read",
-  image: "View",
-  text: "Read",
+const CATEGORY_LABEL: Record<VideoCategory, string> = {
+  mental_fitness: "Mental Fitness",
+  tools_tips: "Tools & Tips",
+  physical_fitness: "Physical Fitness",
+  nutrition: "Nutrition",
 };
-
-function formatDuration(seconds: number | null): string | null {
-  if (!seconds) return null;
-  return `${Math.round(seconds / 60)} min`;
-}
 
 // Preserve the sibling query param when building a filter link, so choosing a
 // category doesn't drop the active search and vice-versa (a topic chip keeps
@@ -213,54 +209,54 @@ export default async function ContentLibraryPage({
           })}
         </div>
 
-        {/* Results */}
+        {/* Results — a poster-led grid. */}
         <div className="mt-8">
+          <div className="flex items-baseline justify-between gap-3 border-b border-rule-hairline pb-3">
+            <h2 className="text-sm font-extrabold tracking-tight">
+              {q ? (
+                <>
+                  Results for “{q}”
+                </>
+              ) : category && CATEGORY_LABEL[category as VideoCategory] ? (
+                CATEGORY_LABEL[category as VideoCategory]
+              ) : (
+                "All content"
+              )}
+              {items.length > 0 && <span className="text-muted"> · {items.length}</span>}
+            </h2>
+            {(q || category) && (
+              <Link href="/content" className="shrink-0 text-xs font-semibold text-brand-accent-deep hover:underline">
+                Clear
+              </Link>
+            )}
+          </div>
+
           {items.length === 0 ? (
-            <p className="py-8 text-sm text-muted">
-              {q || category ? "No matches here." : "Nothing here yet — check back soon."}
-            </p>
+            <div className="py-16 text-center">
+              <p className="text-lg font-extrabold tracking-tight">
+                {q || category ? "No matches here." : "Nothing here yet."}
+              </p>
+              <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
+                {q || category
+                  ? "Try a different topic or clear the filters — new content lands here as it’s published."
+                  : "Check back soon — new content lands here as it’s published."}
+              </p>
+              {(q || category) && (
+                <Link
+                  href="/content"
+                  className="mt-5 inline-block border-2 border-foreground px-5 py-2.5 text-sm font-extrabold uppercase tracking-wide transition-colors hover:bg-foreground hover:text-background"
+                >
+                  Browse everything
+                </Link>
+              )}
+            </div>
           ) : (
-            <ul>
-              {items.map((item) => {
-                const duration = formatDuration(item.duration_seconds);
-                return (
-                  <li key={item.id}>
-                    <Link
-                      href={`/content/${item.id}`}
-                      className="flex gap-4 border-t border-rule-hairline py-5 transition-colors hover:bg-foreground/[0.03]"
-                    >
-                      {/* A real still when one was captured (e.g. a Vimeo thumbnail);
-                          otherwise an honest framed placeholder labelled by type. */}
-                      {item.thumbnail_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- remote poster URL, not a local/optimizable asset
-                        <img
-                          src={item.thumbnail_url}
-                          alt=""
-                          className="h-20 w-32 shrink-0 border border-rule-border object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-20 w-32 shrink-0 items-center justify-center border border-rule-border bg-foreground/[0.04] text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
-                          {TYPE_LABEL[item.type]}
-                        </div>
-                      )}
-                      <div className="min-w-0">
-                        <p className="font-extrabold leading-tight tracking-tight">{item.title}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          {item.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="border border-rule-border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                          {duration && <span className="text-xs text-muted">{duration}</span>}
-                        </div>
-                      </div>
-                    </Link>
-                  </li>
-                );
-              })}
+            <ul className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {items.map((item) => (
+                <li key={item.id}>
+                  <ContentCard item={item} />
+                </li>
+              ))}
             </ul>
           )}
         </div>
