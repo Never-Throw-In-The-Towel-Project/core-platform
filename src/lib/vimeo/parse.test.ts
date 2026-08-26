@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   buildVimeoEmbedUrl,
+  friendlyVimeoError,
+  isVimeoPlayable,
   mapVimeoVideo,
   vimeoEmbedWarning,
   vimeoHashFrom,
@@ -82,6 +84,7 @@ describe("mapVimeoVideo", () => {
     player_embed_url: "https://player.vimeo.com/video/123456789?h=abcdef1234",
     privacy: { view: "unlisted", embed: "whitelist" },
     pictures: { sizes: [{ width: 1280, link: "https://i.vimeocdn.com/video/large" }] },
+    status: "available",
   };
 
   it("maps a full video object", () => {
@@ -96,7 +99,13 @@ describe("mapVimeoVideo", () => {
       privacyEmbed: "whitelist",
       embeddable: true,
       link: "https://vimeo.com/123456789/abcdef1234",
+      status: "available",
     });
+  });
+
+  it("captures the transcode status, null when absent", () => {
+    expect(mapVimeoVideo({ uri: "/videos/1", status: "transcoding" })?.status).toBe("transcoding");
+    expect(mapVimeoVideo({ uri: "/videos/1" })?.status).toBeNull();
   });
 
   it("returns null without a video id", () => {
@@ -132,5 +141,28 @@ describe("vimeoEmbedWarning", () => {
     expect(vimeoEmbedWarning({ privacyView: "unlisted", privacyEmbed: "whitelist" })).toMatch(/allowlist/i);
     expect(vimeoEmbedWarning({ privacyView: "password", privacyEmbed: "public" })).toMatch(/password/i);
     expect(vimeoEmbedWarning({ privacyView: "anybody", privacyEmbed: "public" })).toBeNull();
+  });
+});
+
+describe("isVimeoPlayable", () => {
+  it("is playable when available or when status is absent, not while transcoding", () => {
+    expect(isVimeoPlayable({ status: "available" })).toBe(true);
+    expect(isVimeoPlayable({ status: null })).toBe(true);
+    expect(isVimeoPlayable({ status: "transcoding" })).toBe(false);
+    expect(isVimeoPlayable({ status: "uploading" })).toBe(false);
+  });
+});
+
+describe("friendlyVimeoError", () => {
+  it("maps 401/403 and Vimeo's generic app error to a token/scope message", () => {
+    expect(friendlyVimeoError(401, "whatever")).toMatch(/access token/i);
+    expect(friendlyVimeoError(403, "nope")).toMatch(/access token/i);
+    expect(friendlyVimeoError(400, "Something strange occurred. Please get in touch with the app's creator.")).toMatch(
+      /access token/i
+    );
+  });
+  it("passes other errors through unchanged", () => {
+    expect(friendlyVimeoError(500, "Vimeo is down")).toBe("Vimeo is down");
+    expect(friendlyVimeoError(undefined, "HTTP 502")).toBe("HTTP 502");
   });
 });

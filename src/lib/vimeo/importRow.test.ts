@@ -50,10 +50,34 @@ describe("buildVimeoInsertRow", () => {
     expect(row.folder_id).toBeNull();
   });
 
-  it("is always a draft and never channel-targeted or tagged", () => {
+  it("defaults to a draft and never channel-targeted or tagged", () => {
     const row = buildVimeoInsertRow(base, opts);
     expect(row.is_published).toBe(false);
     expect(row.tags).toEqual([]);
     expect(row.day_of_week).toBeNull();
+  });
+
+  it("publishes live and carries cleaned tags when the auto-sync asks it to", () => {
+    const row = buildVimeoInsertRow(base, {
+      ...opts,
+      isPublished: true,
+      tags: ["#Sleep", "sleep", "  Grief ", "", "x".repeat(60)],
+    });
+    expect(row.is_published).toBe(true);
+    // de-hashed, lowercased, de-duped, blanks + over-long dropped
+    expect(row.tags).toEqual(["sleep", "grief"]);
+  });
+
+  it("accepts a null author (the automated sync has no session user)", () => {
+    const row = buildVimeoInsertRow(base, { ...opts, createdBy: null });
+    expect(row.created_by).toBeNull();
+  });
+
+  it("caps tags at six", () => {
+    const row = buildVimeoInsertRow(base, {
+      ...opts,
+      tags: ["a", "b", "c", "d", "e", "f", "g", "h"],
+    });
+    expect(row.tags).toHaveLength(6);
   });
 });
