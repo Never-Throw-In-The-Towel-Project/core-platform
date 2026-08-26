@@ -98,7 +98,11 @@ export default async function ContentLibraryPage({
     items = [];
     dayItems = [];
   }
-  const rotatedDay = rotateForWeek(dayItems, isoWeek);
+  // Text items (quotes/prompts) belong to the daily loop on the Today board,
+  // not the browsable Library — keep them out of the Library's day-picks too, so
+  // the whole Library surface is video/document/image only (the grid filters
+  // them in listContentItems; Today keeps showing them via its own carousel).
+  const rotatedDay = rotateForWeek(dayItems, isoWeek).filter((i) => i.type !== "text");
 
   return (
     <main className="min-h-full">

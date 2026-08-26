@@ -85,12 +85,21 @@ export default async function ContentItemPage({ params }: { params: Promise<{ id
             Open ↗
           </a>
         </div>
-      ) : (
+      ) : item.type === "text" ? null : (
+        // Only a genuine media item that failed to resolve is "unavailable"; a
+        // text item carries no media by design — its words are the content.
         <p className="mt-6 text-sm text-muted">This content isn’t available to view right now.</p>
       )}
 
       <h1 className="mt-6 text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">{item.title}</h1>
-      {item.summary && <p className="mt-3 text-muted">{item.summary}</p>}
+      {/* For a text item the summary IS the piece (a quote / daily prompt), so it
+          reads as prose; for media it's a short caption under the player. */}
+      {item.summary &&
+        (item.type === "text" ? (
+          <div className="mt-4 whitespace-pre-line text-lg leading-relaxed text-foreground">{item.summary}</div>
+        ) : (
+          <p className="mt-3 text-muted">{item.summary}</p>
+        ))}
       {(item.tags.length > 0 || duration) && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {item.tags.map((tag) => (
