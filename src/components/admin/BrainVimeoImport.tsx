@@ -186,7 +186,7 @@ export function BrainVimeoImport({ folderId, folderName }: { folderId?: string; 
           <div className="text-sm text-muted">
             <p className="font-semibold text-foreground">Vimeo isn’t connected yet.</p>
             <p className="mt-1">
-              Add a Vimeo access token (<code className="text-foreground">VIMEO_ACCESS_TOKEN</code>) in the
+              Add a Vimeo access token (<code className="text-foreground">vimeo_access_token</code>) in the
               deployment’s environment — a Personal Access Token from{" "}
               <span className="text-foreground">developer.vimeo.com</span> with read scopes. Then reload this page.
               Pasting a Vimeo ID in Content Studio keeps working in the meantime.

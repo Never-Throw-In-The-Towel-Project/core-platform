@@ -3,7 +3,7 @@ import { mapVimeoVideo, type VimeoVideoRef } from "@/lib/vimeo/parse";
 
 /**
  * The ONE place the app talks to the Vimeo API (v3.4 REST, keyed by
- * VIMEO_ACCESS_TOKEN; no SDK) — mirrors lib/email/brevo.ts: server-only, native
+ * vimeo_access_token; no SDK) — mirrors lib/email/brevo.ts: server-only, native
  * fetch, and a graceful "not configured" result (never a throw) when the token
  * is absent, so the existing paste-an-ID embed path keeps working until Vimeo is
  * connected. Only ever reads (list + single video metadata); it never writes to
@@ -17,12 +17,15 @@ const VIDEO_FIELDS = "uri,name,description,duration,link,player_embed_url,privac
 
 export type VimeoResult<T> = { ok: true; data: T } | { ok: false; error: string; status?: number };
 
+// NB: the env var is lowercase `vimeo_access_token` to match how it is set in
+// the deployment (Vercel). Env var names are case-sensitive on Node/Linux, so
+// do NOT "normalise" this to upper-case — that silently disconnects Vimeo.
 export function isVimeoConfigured(): boolean {
-  return typeof process.env.VIMEO_ACCESS_TOKEN === "string" && process.env.VIMEO_ACCESS_TOKEN.trim().length > 0;
+  return typeof process.env.vimeo_access_token === "string" && process.env.vimeo_access_token.trim().length > 0;
 }
 
 async function vimeoGet<T>(path: string, params: Record<string, string | number> = {}): Promise<VimeoResult<T>> {
-  const token = process.env.VIMEO_ACCESS_TOKEN;
+  const token = process.env.vimeo_access_token;
   if (!token) return { ok: false, error: "not configured" };
 
   const url = new URL(`${VIMEO_API}${path}`);

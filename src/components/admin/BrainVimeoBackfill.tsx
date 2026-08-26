@@ -20,7 +20,7 @@ export function BrainVimeoBackfill({ count }: { count: number }) {
     startTransition(async () => {
       const res = await backfillVimeoMetadataAction();
       if (res.status === "not_configured") {
-        setNote("Connect Vimeo first (set VIMEO_ACCESS_TOKEN), then try again.");
+        setNote("Connect Vimeo first (set vimeo_access_token), then try again.");
       } else if (res.status === "error") {
         setNote(res.message);
       } else {

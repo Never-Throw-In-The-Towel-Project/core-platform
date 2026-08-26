@@ -20,7 +20,7 @@ const FULL_ENV: Record<string, string> = {
   TWILIO_AUTH_TOKEN: "tok",
   TWILIO_FROM_NUMBER: "+441234567890",
   ANTHROPIC_API_KEY: "sk-ant",
-  VIMEO_ACCESS_TOKEN: "vimeo-token",
+  vimeo_access_token: "vimeo-token",
 };
 
 const group = (summary: ReturnType<typeof summarizeConfig>, key: string) =>
@@ -78,8 +78,10 @@ describe("summarizeConfig", () => {
   it("never leaks values — only var names appear in `missing`", () => {
     const summary = summarizeConfig({});
     const allMissing = summary.groups.flatMap((g) => g.missing);
-    // Every reported name is an env var KEY (UPPER_SNAKE), not a secret value.
-    expect(allMissing.every((name) => /^[A-Z0-9_]+$/.test(name))).toBe(true);
+    // Every reported name is an env var KEY (SNAKE_CASE — mostly upper, but
+    // `vimeo_access_token` is lowercase to match its Vercel var), not a secret
+    // value. The point is that a value (with spaces/punctuation) never appears.
+    expect(allMissing.every((name) => /^[A-Za-z0-9_]+$/.test(name))).toBe(true);
     expect(summary.criticalOk).toBe(false);
   });
 });
