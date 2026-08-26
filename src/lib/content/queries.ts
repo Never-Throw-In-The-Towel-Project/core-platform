@@ -15,6 +15,10 @@ type AnyClient = SupabaseClient<any, any>;
  * (global items, plus anything placed on the caller's company) -- this query
  * doesn't and shouldn't re-implement that filter. Search matches title or
  * tags, escaped through the shared PostgREST filter escaper.
+ *
+ * Text items (quotes / daily prompts, e.g. "Workout Wednesday") are excluded:
+ * they're daily-loop content shown on the Today board's day-picks, not
+ * browsable Library media. The Library is video / document / image only.
  */
 export async function listContentItems(
   supabase: AnyClient,
@@ -24,6 +28,7 @@ export async function listContentItems(
     .from("content_items")
     .select("*")
     .eq("is_published", true)
+    .neq("type", "text")
     .order("created_at", { ascending: false });
 
   if (opts.category) {
