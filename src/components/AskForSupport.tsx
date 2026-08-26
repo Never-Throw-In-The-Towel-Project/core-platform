@@ -145,6 +145,13 @@ export function AskForSupport({
 
       {isOpen && (
         <div
+          // data-surface="paper": this dialog is a viewport-level modal, so it
+          // owns its surface and always renders on the light palette -- even when
+          // launched from an ink surface (the Today board's data-surface="ink"),
+          // whose ground-token overrides it would otherwise inherit through the
+          // DOM tree and render dark. Keeps the safety-critical helpline band's
+          // ink-on-paper emphasis intact wherever the dialog is opened.
+          data-surface="paper"
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsOpen(false);

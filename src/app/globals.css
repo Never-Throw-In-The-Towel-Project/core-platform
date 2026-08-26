@@ -123,6 +123,28 @@
   --brand-accent-deep: var(--brand-accent-light);
 }
 
+/*
+ * Paper surface scope -- the inverse of the ink scope: it resets the ground
+ * tokens back to the light :root values so a subtree renders on paper even when
+ * nested inside an ink surface. Needed because CSS custom properties inherit
+ * through the DOM tree regardless of `position: fixed`: a viewport-level overlay
+ * (e.g. the Ask-for-Support dialog) that is a DOM descendant of the Today
+ * `data-surface="ink"` <main> would otherwise inherit ink and render dark. A
+ * modal owns its own surface, so it opts back to paper with data-surface="paper".
+ * Values mirror :root exactly -- keep them in sync if a ground token changes
+ * there. --brand-background/-foreground are intentionally NOT reset, so an ink
+ * band inside a paper card (the dialog's helpline strip) keeps its emphasis.
+ */
+[data-surface="paper"] {
+  --background: #f3f2f2;
+  --foreground: #201e1d;
+  --muted: #605d5d;
+  --rule-hairline: #d7d3d3;
+  --rule-border: #bab6b6;
+  --inactive: #d7d3d3;
+  --brand-accent-deep: #ae1800;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
