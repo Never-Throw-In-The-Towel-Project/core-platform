@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { verifySession, getProfile } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
-import { isVimeoConfigured, listVimeoVideos } from "@/lib/vimeo/client";
+import { fetchVimeoVideo, isVimeoConfigured, listVimeoVideos } from "@/lib/vimeo/client";
 import { vimeoEmbedWarning, type VimeoVideoRef } from "@/lib/vimeo/parse";
 import { buildVimeoInsertRow } from "@/lib/vimeo/importRow";
 
@@ -122,4 +122,71 @@ export async function importVimeoVideosAction(input: unknown): Promise<VimeoImpo
   } catch {
     return { status: "error", message: "Something went wrong importing those. Please try again." };
   }
+}
+
+/** How many videos to enrich per backfill run — bounds the outbound Vimeo calls. */
+const BACKFILL_LIMIT = 40;
+
+export type VimeoBackfillResult =
+  | { status: "not_configured" }
+  | { status: "error"; message: string }
+  | { status: "success"; updated: number; failed: number; remaining: number };
+
+/**
+ * Backfill thumbnail/hash/duration for existing video items that were added by
+ * hand (paste-an-ID) before Vimeo was connected — a one-click "sync from Vimeo".
+ * Only fills the metadata fields; never overwrites an edited title/summary.
+ * Processes up to BACKFILL_LIMIT per run and reports how many still remain.
+ */
+export async function backfillVimeoMetadataAction(): Promise<VimeoBackfillResult> {
+  await verifySession();
+  const profile = await getProfile();
+  if (profile.role !== "ntitt_admin") return { status: "error", message: "You don’t have access to the Brain." };
+  if (!isVimeoConfigured()) return { status: "not_configured" };
+
+  const supabase = await createClient();
+  // "Not yet enriched" = a video with no still or no duration. (A public video
+  // legitimately has no hash, so hash-null is NOT the signal.)
+  const { data, error } = await supabase
+    .from("content_items")
+    .select("id, vimeo_id")
+    .eq("type", "video")
+    .or("thumbnail_url.is.null,duration_seconds.is.null")
+    .limit(BACKFILL_LIMIT + 1);
+  if (error) return { status: "error", message: "Couldn’t list videos to sync. Please try again." };
+
+  const rows = (data ?? []) as { id: string; vimeo_id: string | null }[];
+  const batch = rows.slice(0, BACKFILL_LIMIT);
+  const remaining = Math.max(0, rows.length - BACKFILL_LIMIT);
+
+  let updated = 0;
+  let failed = 0;
+  for (const row of batch) {
+    if (!row.vimeo_id) {
+      failed++;
+      continue;
+    }
+    const res = await fetchVimeoVideo(row.vimeo_id);
+    if (!res.ok) {
+      failed++;
+      continue;
+    }
+    const { error: updateError } = await supabase
+      .from("content_items")
+      .update({
+        thumbnail_url: res.data.thumbnailUrl ?? null,
+        vimeo_hash: res.data.hash ?? null,
+        duration_seconds: res.data.durationSeconds ?? null,
+      })
+      .eq("id", row.id);
+    if (updateError) failed++;
+    else updated++;
+  }
+
+  if (updated > 0) {
+    revalidatePath("/admin/brain");
+    revalidatePath("/admin/content");
+    revalidatePath("/content");
+  }
+  return { status: "success", updated, failed, remaining };
 }
