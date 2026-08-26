@@ -275,8 +275,10 @@ function FolderLink({
 
 /**
  * The card's media preview. Images render inline (content-assets public URL or
- * an external image URL); video and document show a typed glyph tile — the Brain
- * is a management grid, not a player, so a label reads faster than an embed.
+ * an external image URL); a video renders its captured still (e.g. the Vimeo
+ * thumbnail) with a ▶ overlay, falling back to a glyph tile when no still was
+ * captured; a document shows a typed glyph tile — the Brain is a management
+ * grid, not a player, so a poster/label reads faster than an embed.
  */
 function BrainThumb({ item, assetUrl }: { item: ContentItem; assetUrl?: string }) {
   // A text item (a journal principle / prompt / quote) carries no media — its
@@ -286,12 +288,27 @@ function BrainThumb({ item, assetUrl }: { item: ContentItem; assetUrl?: string }
   // keep a real preview (thumbnail or a typed glyph tile).
   if (item.type === "text") return null;
 
-  const imageSrc = item.type === "image" ? assetUrl ?? item.external_url ?? null : null;
+  // Poster: an image's own asset, or a video's captured thumbnail (Vimeo).
+  const imageSrc =
+    item.type === "image"
+      ? assetUrl ?? item.external_url ?? null
+      : item.type === "video"
+        ? item.thumbnail_url ?? null
+        : null;
 
   if (imageSrc) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element -- remote/derived URL, not a local/optimizable asset
-      <img src={imageSrc} alt="" className="aspect-video w-full border-b border-rule-hairline object-cover" />
+      <div className="relative aspect-video w-full border-b border-rule-hairline">
+        {/* eslint-disable-next-line @next/next/no-img-element -- remote/derived URL, not a local/optimizable asset */}
+        <img src={imageSrc} alt="" className="h-full w-full object-cover" />
+        {item.type === "video" && (
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground/70 text-sm text-background">
+              ▶
+            </span>
+          </span>
+        )}
+      </div>
     );
   }
 

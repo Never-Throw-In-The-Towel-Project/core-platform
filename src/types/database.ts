@@ -156,9 +156,15 @@ export interface ContentItem {
   /** ISO weekday, 1 = Monday … 7 = Sunday. null = day-agnostic. */
   day_of_week: number | null;
   vimeo_id: string | null;
+  /** Vimeo unlisted/private play hash (the `?h=` token) so a non-public video
+   *  embeds off-Vimeo. null for public videos / non-video items. */
+  vimeo_hash: string | null;
   /** Object path within the `content-assets` Storage bucket (document/image). */
   asset_path: string | null;
   external_url: string | null;
+  /** Poster/still URL (e.g. the Vimeo thumbnail CDN link). null = typed
+   *  placeholder. A public image, not private media. */
+  thumbnail_url: string | null;
   tags: string[];
   workout_tier: WorkoutTier | null;
   duration_seconds: number | null;

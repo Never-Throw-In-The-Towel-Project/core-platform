@@ -1664,5 +1664,28 @@ begin
 end
 $$;
 
+-- ---- 16. content_items video metadata columns (thumbnail_url + vimeo_hash) --
+-- (20260901000000) both nullable text, additive; the media CHECK is unchanged.
+do $$
+declare thumb_type text; thumb_null text; hash_type text; hash_null text;
+begin
+  select data_type, is_nullable into thumb_type, thumb_null
+    from information_schema.columns
+    where table_schema='public' and table_name='content_items' and column_name='thumbnail_url';
+  if thumb_type is null then raise exception 'content_items.thumbnail_url missing (video posters)'; end if;
+  if thumb_type <> 'text' then raise exception 'content_items.thumbnail_url is % (expected text)', thumb_type; end if;
+  if thumb_null <> 'YES' then raise exception 'content_items.thumbnail_url must be nullable'; end if;
+
+  select data_type, is_nullable into hash_type, hash_null
+    from information_schema.columns
+    where table_schema='public' and table_name='content_items' and column_name='vimeo_hash';
+  if hash_type is null then raise exception 'content_items.vimeo_hash missing (private video embed)'; end if;
+  if hash_type <> 'text' then raise exception 'content_items.vimeo_hash is % (expected text)', hash_type; end if;
+  if hash_null <> 'YES' then raise exception 'content_items.vimeo_hash must be nullable'; end if;
+
+  raise notice 'PASS  16  content_items.thumbnail_url + vimeo_hash present (text, nullable)';
+end
+$$;
+
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'

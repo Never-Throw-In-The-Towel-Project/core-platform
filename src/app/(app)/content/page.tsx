@@ -229,11 +229,20 @@ export default async function ContentLibraryPage({
                       href={`/content/${item.id}`}
                       className="flex gap-4 border-t border-rule-hairline py-5 transition-colors hover:bg-foreground/[0.03]"
                     >
-                      {/* No still is stored, so the thumbnail is an honest framed
-                          placeholder labelled by content type, not a fetched image. */}
-                      <div className="flex h-20 w-32 shrink-0 items-center justify-center border border-rule-border bg-foreground/[0.04] text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
-                        {TYPE_LABEL[item.type]}
-                      </div>
+                      {/* A real still when one was captured (e.g. a Vimeo thumbnail);
+                          otherwise an honest framed placeholder labelled by type. */}
+                      {item.thumbnail_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- remote poster URL, not a local/optimizable asset
+                        <img
+                          src={item.thumbnail_url}
+                          alt=""
+                          className="h-20 w-32 shrink-0 border border-rule-border object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-20 w-32 shrink-0 items-center justify-center border border-rule-border bg-foreground/[0.04] text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
+                          {TYPE_LABEL[item.type]}
+                        </div>
+                      )}
                       <div className="min-w-0">
                         <p className="font-extrabold leading-tight tracking-tight">{item.title}</p>
                         <div className="mt-2 flex flex-wrap items-center gap-2">

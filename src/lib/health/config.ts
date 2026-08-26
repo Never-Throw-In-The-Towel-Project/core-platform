@@ -74,6 +74,7 @@ const GROUP_DEFS: { key: string; label: string; critical: boolean; vars: string[
     vars: ["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_FROM_NUMBER"],
   },
   { key: "ai", label: "AI Studio assist", critical: false, vars: ["ANTHROPIC_API_KEY"] },
+  { key: "vimeo", label: "Vimeo video import", critical: false, vars: ["VIMEO_ACCESS_TOKEN"] },
 ];
 
 const isSet = (value: string | undefined) => typeof value === "string" && value.trim().length > 0;
