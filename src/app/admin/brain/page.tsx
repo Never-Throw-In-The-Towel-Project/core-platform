@@ -7,6 +7,7 @@ import { isAiConfigured } from "@/lib/ai/client";
 import { DAY_LABEL } from "@/lib/content/rotation";
 import { ContentStudioForm } from "@/components/admin/ContentStudioForm";
 import { ContentImportForm } from "@/components/admin/ContentImportForm";
+import { BrainVimeoImport } from "@/components/admin/BrainVimeoImport";
 import { ContentItemActions } from "@/components/admin/ContentItemActions";
 import { BrainMoveControl } from "@/components/admin/BrainMoveControl";
 import { BrainFolderCreate } from "@/components/admin/BrainFolderCreate";
@@ -163,6 +164,12 @@ export default async function BrainPage({
               folder (created if new); rows without one start Unfiled. */}
           <div className="mt-4">
             <ContentImportForm />
+          </div>
+
+          {/* Import straight from the connected Vimeo account — pick the videos
+              that belong and they come in as drafts with metadata + thumbnails. */}
+          <div className="mt-4">
+            <BrainVimeoImport folderId={activeFolder?.id} folderName={activeFolder?.name} />
           </div>
 
           {/* ---- Publish all drafts in this view (one-click go-live) ---- */}
