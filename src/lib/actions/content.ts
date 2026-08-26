@@ -12,6 +12,8 @@ import {
   parseContentImportCsv,
   type ContentImportState,
 } from "@/lib/content/csvImport";
+import { fetchVimeoVideo, isVimeoConfigured } from "@/lib/vimeo/client";
+import { enrichVideoFields } from "@/lib/vimeo/enrich";
 import { type RoutineActionState } from "./routineState";
 
 /**
@@ -92,9 +94,36 @@ export async function createContentItem(
 
     // Per-type media, matching the table CHECK constraint.
     let assetPath: string | null = null;
+    // Video metadata, filled from Vimeo when connected (else all null → the
+    // paste path behaves exactly as before).
+    let summary = data.summary ?? null;
+    let videoMeta: { thumbnail_url: string | null; vimeo_hash: string | null; duration_seconds: number | null } = {
+      thumbnail_url: null,
+      vimeo_hash: null,
+      duration_seconds: null,
+    };
     if (data.type === "video") {
       if (!data.vimeoId) {
         return { status: "error", message: "Add the Vimeo ID for a video." };
+      }
+      // Verify + enrich against Vimeo when a token is set. A 404 means the ID is
+      // wrong — block it rather than create a broken embed. Any other Vimeo
+      // hiccup (network, rate limit) degrades to "create without enrichment".
+      if (isVimeoConfigured()) {
+        const res = await fetchVimeoVideo(data.vimeoId);
+        if (!res.ok) {
+          if (res.status === 404) {
+            return { status: "error", message: "Vimeo couldn’t find that video — check the ID." };
+          }
+        } else {
+          const enriched = enrichVideoFields({ summary }, res.data);
+          summary = enriched.summary;
+          videoMeta = {
+            thumbnail_url: enriched.thumbnail_url,
+            vimeo_hash: enriched.vimeo_hash,
+            duration_seconds: enriched.duration_seconds,
+          };
+        }
       }
     } else if (data.type === "document" || data.type === "image") {
       const asset = formData.get("asset");
@@ -116,12 +145,15 @@ export async function createContentItem(
       .insert({
         type: data.type,
         title: data.title,
-        summary: data.summary ?? null,
+        summary,
         category: data.category,
         day_of_week: data.dayOfWeek ?? null,
         vimeo_id: data.type === "video" ? data.vimeoId : null,
+        vimeo_hash: videoMeta.vimeo_hash,
         asset_path: assetPath,
         external_url: data.type === "video" ? null : data.externalUrl ?? null,
+        thumbnail_url: videoMeta.thumbnail_url,
+        duration_seconds: videoMeta.duration_seconds,
         tags,
         is_published: data.publish === "true",
         folder_id: folderId,

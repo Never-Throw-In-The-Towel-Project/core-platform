@@ -8,6 +8,7 @@ import { DAY_LABEL } from "@/lib/content/rotation";
 import { ContentStudioForm } from "@/components/admin/ContentStudioForm";
 import { ContentImportForm } from "@/components/admin/ContentImportForm";
 import { BrainVimeoImport } from "@/components/admin/BrainVimeoImport";
+import { BrainVimeoBackfill } from "@/components/admin/BrainVimeoBackfill";
 import { ContentItemActions } from "@/components/admin/ContentItemActions";
 import { BrainMoveControl } from "@/components/admin/BrainMoveControl";
 import { BrainFolderCreate } from "@/components/admin/BrainFolderCreate";
@@ -93,6 +94,12 @@ export default async function BrainPage({
   const aiConfigured = isAiConfigured();
   // The drafts in the current view, for the one-click "Publish all" control.
   const draftIds = visible.filter((i) => !i.is_published).map((i) => i.id);
+  // Videos (anywhere) still missing a still/duration — the "sync from Vimeo"
+  // backfill target. A public video has no hash legitimately, so hash isn't the
+  // signal; a missing thumbnail or duration is.
+  const videosNeedingSync = items.filter(
+    (i) => i.type === "video" && (i.thumbnail_url == null || i.duration_seconds == null)
+  ).length;
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
@@ -171,6 +178,13 @@ export default async function BrainPage({
           <div className="mt-4">
             <BrainVimeoImport folderId={activeFolder?.id} folderName={activeFolder?.name} />
           </div>
+
+          {/* Backfill metadata for videos added before Vimeo was connected. */}
+          {videosNeedingSync > 0 && (
+            <div className="mt-4">
+              <BrainVimeoBackfill count={videosNeedingSync} />
+            </div>
+          )}
 
           {/* ---- Publish all drafts in this view (one-click go-live) ---- */}
           {draftIds.length > 0 && (
