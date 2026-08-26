@@ -285,7 +285,10 @@ export default async function HomePage() {
   alsoThisWeek.push({ label: "Explore the Library", href: "/content" });
 
   return (
-    <main className="min-h-full">
+    // The Today board is a dark "ink" surface (Anthony's design): the ink-scope
+    // remaps the ground tokens so every card here renders on near-black, while
+    // the same shared components stay light on their own pages (see globals.css).
+    <main data-surface="ink" className="min-h-full bg-background text-foreground">
       <ProgressBand
         rank={stats.rank}
         streak={stats.streak}
@@ -307,7 +310,10 @@ export default async function HomePage() {
             The Day/Week eyebrow now lives in the ink band above. */}
         <BadgeSync />
 
-        <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+        {/* grid-cols-1 at base so the single mobile column is a definite 1fr
+            track (not an auto/max-content one that the big check-in title would
+            widen past the viewport); the two-column layout kicks in at lg. */}
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_320px]">
           {/* Main column */}
           <div className="space-y-6">
             <CheckinCard
@@ -391,7 +397,7 @@ export default async function HomePage() {
             <section>
               <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">The Week</h2>
               <div className="mt-2">
-                <WeekStrip completedWeekdays={completedWeekdays} todayKey={todayWeekday} />
+                <WeekStrip completedWeekdays={completedWeekdays} todayKey={todayWeekday} onDark />
               </div>
             </section>
 
