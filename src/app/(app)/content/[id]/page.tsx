@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getContentItem } from "@/lib/content/queries";
+import { buildVimeoEmbedUrl } from "@/lib/vimeo/parse";
 import type { ContentItem } from "@/types/database";
 
 function formatDuration(seconds: number | null): string | null {
@@ -58,7 +59,7 @@ export default async function ContentItemPage({ params }: { params: Promise<{ id
       {item.type === "video" && item.vimeo_id ? (
         <div className="mt-6 aspect-video w-full overflow-hidden border-2 border-foreground">
           <iframe
-            src={`https://player.vimeo.com/video/${item.vimeo_id}`}
+            src={buildVimeoEmbedUrl(item.vimeo_id, item.vimeo_hash)}
             title={item.title}
             allow="autoplay; fullscreen; picture-in-picture"
             allowFullScreen

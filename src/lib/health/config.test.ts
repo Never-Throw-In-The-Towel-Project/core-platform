@@ -20,6 +20,7 @@ const FULL_ENV: Record<string, string> = {
   TWILIO_AUTH_TOKEN: "tok",
   TWILIO_FROM_NUMBER: "+441234567890",
   ANTHROPIC_API_KEY: "sk-ant",
+  VIMEO_ACCESS_TOKEN: "vimeo-token",
 };
 
 const group = (summary: ReturnType<typeof summarizeConfig>, key: string) =>

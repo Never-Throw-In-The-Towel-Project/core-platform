@@ -31,8 +31,20 @@ export function DayCarousel({ dayLabel, items }: { dayLabel: string; items: Cont
               href={`/content/${item.id}`}
               className="block w-60 border border-rule-border p-3 transition-colors hover:bg-foreground/[0.03]"
             >
-              <div className="flex h-28 w-full items-center justify-center border border-rule-border bg-foreground/[0.04] text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
-                {i === 0 ? "This week’s pick" : TYPE_LABEL[item.type]}
+              <div className="relative h-28 w-full border border-rule-border">
+                {item.thumbnail_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- remote poster URL, not a local/optimizable asset
+                  <img src={item.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-foreground/[0.04] text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
+                    {TYPE_LABEL[item.type]}
+                  </div>
+                )}
+                {i === 0 && (
+                  <span className="absolute left-1 top-1 bg-brand-accent px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.14em] text-brand-accent-foreground">
+                    This week’s pick
+                  </span>
+                )}
               </div>
               <p className="mt-3 line-clamp-2 font-extrabold leading-tight tracking-tight">{item.title}</p>
               <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
