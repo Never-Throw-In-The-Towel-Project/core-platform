@@ -112,6 +112,28 @@ export async function listLibrarySeries(
   return shelves.filter((s) => s.items.length > 0);
 }
 
+/**
+ * The Library's "Picked for you" hero carousel bank — the watchable videos that
+ * lead the browse view ("Four minutes that change the afternoon"). Videos only
+ * (the carousel is a watch experience), published + channel-visible via RLS,
+ * newest first, capped small.
+ *
+ * This is a deliberately simple, swappable source: it's a derived highlight for
+ * now, and an editorial / "where you are" stage-driven curation can replace the
+ * body of this one function later without the carousel component changing.
+ */
+export async function listPickedForYou(supabase: AnyClient, opts: { limit?: number } = {}): Promise<ContentItem[]> {
+  const limit = opts.limit ?? 8;
+  const { data } = await supabase
+    .from("content_items")
+    .select("*")
+    .eq("is_published", true)
+    .eq("type", "video")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return (data as ContentItem[] | null) ?? [];
+}
+
 /** A single item for the watch/read page. RLS applies as for the list. */
 export async function getContentItem(supabase: AnyClient, id: string): Promise<ContentItem | null> {
   const { data } = await supabase.from("content_items").select("*").eq("id", id).maybeSingle();

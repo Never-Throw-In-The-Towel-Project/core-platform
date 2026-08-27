@@ -1,11 +1,18 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { listContentItems, listLibrarySeries, type ContentFilter, type LibrarySeries } from "@/lib/content/queries";
+import {
+  listContentItems,
+  listLibrarySeries,
+  listPickedForYou,
+  type ContentFilter,
+  type LibrarySeries,
+} from "@/lib/content/queries";
 import { listResumeItems, type ResumeItem } from "@/lib/content/resumeQueries";
 import { listTopicsWithCounts } from "@/lib/content/topicQueries";
 import { ContentCard } from "@/components/content/ContentCard";
 import { Shelf } from "@/components/content/Shelf";
 import { ResumeShelf } from "@/components/content/ResumeShelf";
+import { PickedForYouCarousel } from "@/components/content/PickedForYouCarousel";
 import type { ContentItem, ContentTopicWithCount, VideoCategory } from "@/types/database";
 
 const CATEGORIES: { value: VideoCategory; label: string }[] = [
@@ -90,6 +97,7 @@ export default async function ContentLibraryPage({
   let series: LibrarySeries[] = [];
   let shortItems: ContentItem[] = [];
   let readItems: ContentItem[] = [];
+  let pickedItems: ContentItem[] = [];
   let resumeItems: ResumeItem[] = [];
   let topics: ContentTopicWithCount[] = [];
   try {
@@ -113,11 +121,12 @@ export default async function ContentLibraryPage({
       // The default browse view: the grid plus the curated shelves and the
       // member's resume row, fetched together. Each shelf renders nothing when
       // its bank is empty (resume renders nothing until there's progress).
-      const [grid, seriesRes, shortRes, readsRes, resumeRes] = await Promise.all([
+      const [grid, seriesRes, shortRes, readsRes, pickedRes, resumeRes] = await Promise.all([
         listContentItems(supabase, { limit: PAGE_SIZE * page }),
         listLibrarySeries(supabase, { maxSeries: 2, maxItems: 10 }),
         listContentItems(supabase, { filter: "short", limit: 12 }),
         listContentItems(supabase, { filter: "reads", limit: 12 }),
+        listPickedForYou(supabase, { limit: 8 }),
         listResumeItems({ limit: 12 }),
       ]);
       items = grid.items;
@@ -125,6 +134,7 @@ export default async function ContentLibraryPage({
       series = seriesRes;
       shortItems = shortRes.items;
       readItems = readsRes.items;
+      pickedItems = pickedRes;
       resumeItems = resumeRes;
     }
   } catch {
@@ -263,11 +273,12 @@ export default async function ContentLibraryPage({
       )}
 
       <div className="mx-auto max-w-6xl space-y-14 px-6 py-10">
-        {/* Curated shelves + topic rooms — only on the default browse view.
-            The member's own "Pick up where you left off" row leads, when they
-            have anything in progress. */}
+        {/* Curated shelves + topic rooms — only on the default browse view. The
+            "Picked for you" carousel is the hero; the member's own "Pick up
+            where you left off" row follows when they have anything in progress. */}
         {!filtered && (
           <>
+            <PickedForYouCarousel items={pickedItems} />
             <ResumeShelf items={resumeItems} />
             {series.map((s) => (
               <Shelf
