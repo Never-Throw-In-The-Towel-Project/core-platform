@@ -1,6 +1,5 @@
 "use server";
 
-import { verifySession } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeProgressInput, type RawProgressInput } from "@/lib/content/progressInput";
 
@@ -13,25 +12,35 @@ import { normalizeProgressInput, type RawProgressInput } from "@/lib/content/pro
  *
  * Privacy: this lives in the `private` schema and is written via the session
  * client, so RLS (auth.uid() = user_id) is what guarantees a member can only ever
- * touch their OWN row — the user_id is taken from the verified session, never from
- * the client. Nothing aggregates over this table; what a member watches is theirs.
+ * touch their OWN row — the user_id is taken from the authenticated session, never
+ * from the client. Nothing aggregates over this table; what a member watches is
+ * theirs.
+ *
+ * Auth deliberately does NOT go through the DAL's verifySession(): that redirects
+ * to /login when there's no session, which is right for a user-clicked save but
+ * wrong here — this fires automatically as a video plays, and a background ping
+ * must never navigate the member away. Instead we resolve the user with
+ * getUser() (which still re-validates the JWT, so the RLS boundary is unchanged)
+ * and simply no-op if the session has lapsed.
  */
 export async function recordContentProgress(input: RawProgressInput): Promise<{ ok: boolean }> {
   const normalized = normalizeProgressInput(input);
   if (!normalized) return { ok: false };
 
-  // verifySession() re-validates the JWT (see the DAL) and is the source of the
-  // user_id we write — a client can't claim to be someone else.
-  const session = await verifySession();
-
-  // createClient() throws synchronously on a missing/malformed URL/key -- same
-  // best-effort guard as the routine actions; a failed progress ping must never
-  // surface an error to a member who's just watching a video.
+  // createClient() throws synchronously on a missing/malformed URL/key, and
+  // getUser() can throw on an unrecognised auth error -- both are treated as
+  // "no save", same best-effort stance as the routine actions: a member just
+  // watching a video never sees a progress ping fail.
   try {
     const supabase = await createClient("private");
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { ok: false };
+
     const { error } = await supabase.from("content_progress").upsert(
       {
-        user_id: session.userId,
+        user_id: user.id,
         content_item_id: normalized.contentItemId,
         position_seconds: normalized.positionSeconds,
         duration_seconds: normalized.durationSeconds,
