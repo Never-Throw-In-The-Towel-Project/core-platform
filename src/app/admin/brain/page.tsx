@@ -12,6 +12,7 @@ import { BrainVimeoBackfill } from "@/components/admin/BrainVimeoBackfill";
 import { BrainFolderCreate } from "@/components/admin/BrainFolderCreate";
 import { BrainFolderSettings } from "@/components/admin/BrainFolderSettings";
 import { BrainAutoOrganize } from "@/components/admin/BrainAutoOrganize";
+import { BrainTopicTag } from "@/components/admin/BrainTopicTag";
 import { BrainLibrary } from "@/components/admin/brain/BrainLibrary";
 import type { ContentFolder, ContentItem } from "@/types/database";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -172,6 +173,8 @@ export default async function BrainPage({
                   aiConfigured={aiConfigured}
                 />
               )}
+              {/* AI: tag the whole library into the member Library's topic rooms. */}
+              <BrainTopicTag aiConfigured={aiConfigured} />
             </div>
           </details>
 
