@@ -87,3 +87,31 @@ export function isEffectivelyComplete(positionSeconds: number, durationSeconds: 
   if (durationSeconds == null || !Number.isFinite(durationSeconds) || durationSeconds <= 0) return false;
   return positionSeconds / durationSeconds >= COMPLETE_RATIO;
 }
+
+export interface ResumeMetrics {
+  /** Whole-percent watched (1..99) for the progress bar, or null when the
+   *  duration is unknown (nothing to size the bar against). */
+  percent: number | null;
+  /** Whole minutes remaining for the "N min left" label (>= 1), or null when
+   *  the duration is unknown. */
+  minutesLeft: number | null;
+  /** Effectively finished (>= COMPLETE_RATIO) — such an item is dropped from the
+   *  "Pick up where you left off" shelf even if `completed` was never recorded. */
+  done: boolean;
+}
+
+/**
+ * The bar width + "N min left" for one resume card. Same 95% completion line as
+ * isEffectivelyComplete, so an item that belongs on the shelf here is exactly one
+ * that isn't counted finished elsewhere.
+ */
+export function resumeCardMetrics(positionSeconds: number, durationSeconds: number | null): ResumeMetrics {
+  if (durationSeconds == null || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    return { percent: null, minutesLeft: null, done: false };
+  }
+  const ratio = positionSeconds / durationSeconds;
+  if (ratio >= COMPLETE_RATIO) return { percent: null, minutesLeft: null, done: true };
+  const percent = Math.min(99, Math.max(1, Math.round(ratio * 100)));
+  const minutesLeft = Math.max(1, Math.ceil((durationSeconds - positionSeconds) / 60));
+  return { percent, minutesLeft, done: false };
+}
