@@ -201,6 +201,32 @@ export interface ContentFolder {
   created_at: string;
 }
 
+// The member-facing Library topic taxonomy (see
+// supabase/migrations/20260902000000_content_topics.sql). Editable in the Brain;
+// `slug` is the stable filter key (/content?topic=<slug>), `label` the display.
+// Orthogonal to video_category — a life-situation facet, not a broad theme.
+export interface ContentTopic {
+  id: string;
+  slug: string;
+  label: string;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+}
+
+// A topic decorated with how many published, viewer-visible items carry it —
+// the "Browse by topic" rooms ("Addiction · 62 pieces"). The count is computed
+// through content_items' RLS, so it excludes drafts and other-channel content.
+export interface ContentTopicWithCount extends ContentTopic {
+  count: number;
+}
+
+// One row of the content_item_topics many-to-many assignment.
+export interface ContentItemTopic {
+  content_item_id: string;
+  topic_id: string;
+}
+
 // Challenges — the "container" pillar (docs/CONTENT_PLATFORM_STRATEGY.md
 // "Pillar 3", supabase/migrations/20260812020000_challenges.sql). The public
 // definition (challenges + challenge_days) sequences the content spine; a

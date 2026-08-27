@@ -21,8 +21,8 @@ begin
     raise exception 'RLS disabled on % public/private table(s)', missing;
   end if;
   select count(*) into total from pg_tables where schemaname in ('public','private');
-  if total <> 41 then
-    raise exception 'expected 41 public+private tables (26+15), found %', total;
+  if total <> 43 then
+    raise exception 'expected 43 public+private tables (28+15), found %', total;
   end if;
   raise notice 'PASS  1  RLS enabled on all % public/private tables', total;
 end
@@ -1684,6 +1684,44 @@ begin
   if hash_null <> 'YES' then raise exception 'content_items.vimeo_hash must be nullable'; end if;
 
   raise notice 'PASS  16  content_items.thumbnail_url + vimeo_hash present (text, nullable)';
+end
+$$;
+
+-- ---- 17. content topics: seeded, member-readable, ntitt_admin-gated writes --
+-- (20260902000000) the editable Library topic taxonomy + its assignment join.
+do $$
+declare seeded int; ins text; del text; jcmd text; jconf text;
+begin
+  -- The eight launch topics seeded and slugs unique.
+  select count(*) into seeded from public.content_topics;
+  if seeded <> 8 then raise exception 'expected 8 seeded content_topics, found %', seeded; end if;
+  if not exists (select 1 from public.content_topics where slug = 'identity-loss' and label = 'Identity loss') then
+    raise exception 'content_topics seed missing the identity-loss row';
+  end if;
+
+  -- Writes are ntitt_admin only (INSERT with_check references profiles+ntitt_admin).
+  select pg_get_expr(polwithcheck, polrelid) into ins
+    from pg_policy where polrelid = 'public.content_topics'::regclass and polcmd = 'a';
+  if ins is null or ins not like '%ntitt_admin%' then
+    raise exception 'content_topics INSERT not ntitt_admin-gated: %', ins;
+  end if;
+
+  -- The assignment join cascades on item/topic delete (idempotent tagging).
+  select confdeltype into jconf from pg_constraint
+    where conrelid = 'public.content_item_topics'::regclass and contype = 'f'
+    order by conname limit 1;
+  if jconf is distinct from 'c' then
+    raise exception 'content_item_topics FKs must ON DELETE CASCADE, got %', jconf;
+  end if;
+
+  -- Its writes are ntitt_admin-gated too (DELETE using clause).
+  select pg_get_expr(polqual, polrelid) into del
+    from pg_policy where polrelid = 'public.content_item_topics'::regclass and polcmd = 'd';
+  if del is null or del not like '%ntitt_admin%' then
+    raise exception 'content_item_topics DELETE not ntitt_admin-gated: %', del;
+  end if;
+
+  raise notice 'PASS  17  content_topics seeded (8) + ntitt_admin-gated; content_item_topics cascade join, admin-gated writes';
 end
 $$;
 
