@@ -41,15 +41,22 @@ export type ContentPage = { items: ContentItem[]; total: number };
  */
 export async function listContentItems(
   supabase: AnyClient,
-  opts: { q?: string; category?: string; filter?: ContentFilter; limit?: number; offset?: number } = {}
+  opts: { q?: string; category?: string; filter?: ContentFilter; topicId?: string; limit?: number; offset?: number } = {}
 ): Promise<ContentPage> {
+  // Filtering by topic needs an INNER join to the assignment table; the nested
+  // resource is only in the select so the filter can apply — content_items' own
+  // columns (`*`) are what we read back.
+  const select = opts.topicId ? "*, content_item_topics!inner(topic_id)" : "*";
   let query = supabase
     .from("content_items")
-    .select("*", { count: "exact" })
+    .select(select, { count: "exact" })
     .eq("is_published", true)
     .neq("type", "text")
     .order("created_at", { ascending: false });
 
+  if (opts.topicId) {
+    query = query.eq("content_item_topics.topic_id", opts.topicId);
+  }
   if (opts.category) {
     query = query.eq("category", opts.category);
   }
