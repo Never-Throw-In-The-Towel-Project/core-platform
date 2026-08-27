@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { listContentItems, listLibrarySeries, type ContentFilter, type LibrarySeries } from "@/lib/content/queries";
+import { listResumeItems, type ResumeItem } from "@/lib/content/resumeQueries";
 import { listTopicsWithCounts } from "@/lib/content/topicQueries";
 import { ContentCard } from "@/components/content/ContentCard";
 import { Shelf } from "@/components/content/Shelf";
+import { ResumeShelf } from "@/components/content/ResumeShelf";
 import type { ContentItem, ContentTopicWithCount, VideoCategory } from "@/types/database";
 
 const CATEGORIES: { value: VideoCategory; label: string }[] = [
@@ -88,6 +90,7 @@ export default async function ContentLibraryPage({
   let series: LibrarySeries[] = [];
   let shortItems: ContentItem[] = [];
   let readItems: ContentItem[] = [];
+  let resumeItems: ResumeItem[] = [];
   let topics: ContentTopicWithCount[] = [];
   try {
     const supabase = await createClient();
@@ -107,19 +110,22 @@ export default async function ContentLibraryPage({
       items = result.items;
       total = result.total;
     } else {
-      // The default browse view: the grid plus the curated shelves, fetched
-      // together. Each shelf renders nothing when its bank is empty.
-      const [grid, seriesRes, shortRes, readsRes] = await Promise.all([
+      // The default browse view: the grid plus the curated shelves and the
+      // member's resume row, fetched together. Each shelf renders nothing when
+      // its bank is empty (resume renders nothing until there's progress).
+      const [grid, seriesRes, shortRes, readsRes, resumeRes] = await Promise.all([
         listContentItems(supabase, { limit: PAGE_SIZE * page }),
         listLibrarySeries(supabase, { maxSeries: 2, maxItems: 10 }),
         listContentItems(supabase, { filter: "short", limit: 12 }),
         listContentItems(supabase, { filter: "reads", limit: 12 }),
+        listResumeItems({ limit: 12 }),
       ]);
       items = grid.items;
       total = grid.total;
       series = seriesRes;
       shortItems = shortRes.items;
       readItems = readsRes.items;
+      resumeItems = resumeRes;
     }
   } catch {
     /* safe defaults above */
@@ -257,9 +263,12 @@ export default async function ContentLibraryPage({
       )}
 
       <div className="mx-auto max-w-6xl space-y-14 px-6 py-10">
-        {/* Curated shelves + topic rooms — only on the default browse view. */}
+        {/* Curated shelves + topic rooms — only on the default browse view.
+            The member's own "Pick up where you left off" row leads, when they
+            have anything in progress. */}
         {!filtered && (
           <>
+            <ResumeShelf items={resumeItems} />
             {series.map((s) => (
               <Shelf
                 key={s.challenge.id}

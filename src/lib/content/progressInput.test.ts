@@ -4,6 +4,7 @@ import {
   normalizeProgressInput,
   resumeTarget,
   isEffectivelyComplete,
+  resumeCardMetrics,
   INT4_MAX,
   RESUME_MIN_SECONDS,
 } from "./progressInput";
@@ -89,5 +90,26 @@ describe("isEffectivelyComplete", () => {
   it("is false when the duration is unknown or zero", () => {
     expect(isEffectivelyComplete(50, null)).toBe(false);
     expect(isEffectivelyComplete(50, 0)).toBe(false);
+  });
+});
+
+describe("resumeCardMetrics", () => {
+  it("computes bar percent and minutes-left mid-video", () => {
+    // 150s of 600s → 25% watched, 450s (7.5 min → ceil 8) left.
+    expect(resumeCardMetrics(150, 600)).toEqual({ percent: 25, minutesLeft: 8, done: false });
+  });
+
+  it("clamps the bar to a 1 floor and never shows 0 min left", () => {
+    expect(resumeCardMetrics(1, 100000).percent).toBe(1); // rounds to ~0 → floored to 1
+    expect(resumeCardMetrics(93, 100)).toMatchObject({ percent: 93, minutesLeft: 1 });
+  });
+
+  it("marks >=95% watched as done (dropped from the shelf)", () => {
+    expect(resumeCardMetrics(96, 100)).toEqual({ percent: null, minutesLeft: null, done: true });
+  });
+
+  it("returns nulls (still shown, no bar) when the duration is unknown", () => {
+    expect(resumeCardMetrics(120, null)).toEqual({ percent: null, minutesLeft: null, done: false });
+    expect(resumeCardMetrics(120, 0)).toEqual({ percent: null, minutesLeft: null, done: false });
   });
 });
