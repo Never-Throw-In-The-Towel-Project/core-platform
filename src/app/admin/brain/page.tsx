@@ -14,6 +14,7 @@ import { BrainFolderCreate } from "@/components/admin/BrainFolderCreate";
 import { BrainFolderSettings } from "@/components/admin/BrainFolderSettings";
 import { BrainAutoOrganize } from "@/components/admin/BrainAutoOrganize";
 import { BrainTopicTag } from "@/components/admin/BrainTopicTag";
+import { BrainStageTag } from "@/components/admin/BrainStageTag";
 import { BrainTopics } from "@/components/admin/BrainTopics";
 import { BrainLibrary } from "@/components/admin/brain/BrainLibrary";
 import type { ContentFolder, ContentItem, ContentTopicWithCount } from "@/types/database";
@@ -181,6 +182,8 @@ export default async function BrainPage({
               )}
               {/* AI: tag the whole library into the member Library's topic rooms. */}
               <BrainTopicTag aiConfigured={aiConfigured} />
+              {/* AI: sort the whole library by the member Library's "Where you are" stages. */}
+              <BrainStageTag aiConfigured={aiConfigured} />
             </div>
           </details>
 

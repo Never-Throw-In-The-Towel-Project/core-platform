@@ -6,6 +6,7 @@ import { buildVimeoInsertRow } from "@/lib/vimeo/importRow";
 import { categorizeVideos } from "@/lib/ai/categorizeVideos";
 import { resolveCategory, type CategoryAssignment } from "@/lib/vimeo/categoryPlan";
 import { tagContentTopics } from "@/lib/content/topicTagging";
+import { tagContentStages } from "@/lib/content/stageTagging";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- accept either the session or service-role client
 type AnyClient = SupabaseClient<any, any>;
@@ -106,21 +107,27 @@ export async function syncVimeoLibrary(
 
   const inserted = (data as { id: string; vimeo_id: string | null }[] | null) ?? [];
 
-  // Auto-tag the just-imported items with member topics (the "new uploads flow
-  // in tagged" half of the feature). Best-effort: a tagging failure or missing
-  // AI key must never fail an import that already succeeded, so it's wrapped and
-  // discarded. This one hook covers both callers of the shared engine (the Brain
-  // button and the hourly cron).
+  // Auto-tag the just-imported items with the member Library facets (the "new
+  // uploads flow in tagged" half of the feature): life-situation TOPICS and the
+  // "Where you are" STAGE. Best-effort: a tagging failure or missing AI key must
+  // never fail an import that already succeeded, so each is wrapped and
+  // discarded independently. This one hook covers both callers of the shared
+  // engine (the Brain button and the hourly cron).
+  const toTag = inserted
+    .map((r) => {
+      const v = batch.find((b) => b.id === r.vimeo_id);
+      return v ? { id: r.id, title: v.name, summary: v.description, tags: [] as string[] } : null;
+    })
+    .filter((x): x is { id: string; title: string; summary: string | null; tags: string[] } => x !== null);
   try {
-    const toTag = inserted
-      .map((r) => {
-        const v = batch.find((b) => b.id === r.vimeo_id);
-        return v ? { id: r.id, title: v.name, summary: v.description, tags: [] as string[] } : null;
-      })
-      .filter((x): x is { id: string; title: string; summary: string | null; tags: string[] } => x !== null);
     await tagContentTopics(supabase, toTag);
   } catch {
     /* topics are non-blocking */
+  }
+  try {
+    await tagContentStages(supabase, toTag);
+  } catch {
+    /* stages are non-blocking */
   }
 
   const imported = inserted.length;
