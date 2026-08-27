@@ -21,8 +21,8 @@ begin
     raise exception 'RLS disabled on % public/private table(s)', missing;
   end if;
   select count(*) into total from pg_tables where schemaname in ('public','private');
-  if total <> 44 then
-    raise exception 'expected 44 public+private tables (28+16), found %', total;
+  if total <> 45 then
+    raise exception 'expected 45 public+private tables (29+16), found %', total;
   end if;
   raise notice 'PASS  1  RLS enabled on all % public/private tables', total;
 end
@@ -1753,6 +1753,45 @@ begin
   end if;
 
   raise notice 'PASS  18  content_progress private + own-rows-only; cascades on content delete';
+end
+$$;
+
+-- ---- 19. content stages: fixed CHECK set, member-readable, admin-gated -------
+-- (20260904000000) the "Where you are" journey facet. A fixed 3-value set (no
+-- taxonomy table): the stage is a CHECK-constrained column on the assignment
+-- join, member-readable, ntitt_admin-write, cascading on content delete.
+do $$
+declare ins text; del text; conf text; chk int;
+begin
+  -- The stage set is fixed by a CHECK (start_here / in_it / rebuilding).
+  select count(*) into chk from pg_constraint
+    where conrelid = 'public.content_item_stages'::regclass and contype = 'c'
+      and pg_get_constraintdef(oid) like '%start_here%'
+      and pg_get_constraintdef(oid) like '%in_it%'
+      and pg_get_constraintdef(oid) like '%rebuilding%';
+  if chk < 1 then raise exception 'content_item_stages missing the fixed-stage CHECK'; end if;
+
+  -- Writes are ntitt_admin only (INSERT with_check + DELETE using).
+  select pg_get_expr(polwithcheck, polrelid) into ins
+    from pg_policy where polrelid = 'public.content_item_stages'::regclass and polcmd = 'a';
+  if ins is null or ins not like '%ntitt_admin%' then
+    raise exception 'content_item_stages INSERT not ntitt_admin-gated: %', ins;
+  end if;
+  select pg_get_expr(polqual, polrelid) into del
+    from pg_policy where polrelid = 'public.content_item_stages'::regclass and polcmd = 'd';
+  if del is null or del not like '%ntitt_admin%' then
+    raise exception 'content_item_stages DELETE not ntitt_admin-gated: %', del;
+  end if;
+
+  -- The assignment cascades on item delete (idempotent tagging).
+  select confdeltype into conf from pg_constraint
+    where conrelid = 'public.content_item_stages'::regclass and contype = 'f'
+      and confrelid = 'public.content_items'::regclass;
+  if conf is distinct from 'c' then
+    raise exception 'content_item_stages -> content_items FK must ON DELETE CASCADE, got %', conf;
+  end if;
+
+  raise notice 'PASS  19  content_item_stages fixed-stage CHECK; ntitt_admin-gated writes; cascades on content delete';
 end
 $$;
 
