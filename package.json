@@ -14,6 +14,7 @@
     "@react-pdf/renderer": "^4.5.1",
     "@supabase/ssr": "^0.7",
     "@supabase/supabase-js": "^2",
+    "@vimeo/player": "^2.30.4",
     "geist": "^1.7.2",
     "next": "16.2.12",
     "react": "19.2.4",

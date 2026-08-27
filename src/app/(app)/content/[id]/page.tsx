@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getContentItem } from "@/lib/content/queries";
-import { buildVimeoEmbedUrl } from "@/lib/vimeo/parse";
+import { getContentResumeState } from "@/lib/content/progress";
+import { VimeoWatch } from "@/components/content/VimeoWatch";
 import type { ContentItem } from "@/types/database";
 
 function formatDuration(seconds: number | null): string | null {
@@ -47,6 +48,10 @@ export default async function ContentItemPage({ params }: { params: Promise<{ id
 
   const duration = formatDuration(item.duration_seconds);
 
+  // For video, look up this member's saved resume position (private, own-rows —
+  // see lib/content/progress.ts). Null for non-video or a never-watched item.
+  const resume = item.type === "video" && item.vimeo_id ? await getContentResumeState(item.id) : null;
+
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
       <Link
@@ -58,12 +63,13 @@ export default async function ContentItemPage({ params }: { params: Promise<{ id
 
       {item.type === "video" && item.vimeo_id ? (
         <div className="mt-6 aspect-video w-full overflow-hidden border-2 border-foreground">
-          <iframe
-            src={buildVimeoEmbedUrl(item.vimeo_id, item.vimeo_hash)}
+          <VimeoWatch
+            contentItemId={item.id}
+            vimeoId={item.vimeo_id}
+            vimeoHash={item.vimeo_hash}
             title={item.title}
-            allow="autoplay; fullscreen; picture-in-picture"
-            allowFullScreen
-            className="h-full w-full"
+            initialPositionSeconds={resume?.positionSeconds ?? 0}
+            initialCompleted={resume?.completed ?? false}
           />
         </div>
       ) : item.type === "image" && mediaUrl ? (
