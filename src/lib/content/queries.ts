@@ -9,6 +9,10 @@ import { escapeFilterValue } from "@/lib/supabase/filterEscape";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = SupabaseClient<any, any>;
 
+/** A page of Library results plus the exact total for the same filter, so the
+ *  grid can show "N of M shown" and decide whether a "Load more" is needed. */
+export type ContentPage = { items: ContentItem[]; total: number };
+
 /**
  * The Content Library list. Published items only; channel visibility is
  * enforced by the `content_items` RLS policy for the caller's own session
@@ -19,14 +23,19 @@ type AnyClient = SupabaseClient<any, any>;
  * Text items (quotes / daily prompts, e.g. "Workout Wednesday") are excluded:
  * they're daily-loop content shown on the Today board's day-picks, not
  * browsable Library media. The Library is video / document / image only.
+ *
+ * Returns the exact `total` for the filter (a `count: "exact"` head count that
+ * ignores the range window) alongside the requested page of rows, so the caller
+ * can render "N of M" and a Load-more control without a second query. Pass
+ * `limit` to page; omit it to fetch the whole (RLS-capped) set as before.
  */
 export async function listContentItems(
   supabase: AnyClient,
-  opts: { q?: string; category?: string } = {}
-): Promise<ContentItem[]> {
+  opts: { q?: string; category?: string; limit?: number; offset?: number } = {}
+): Promise<ContentPage> {
   let query = supabase
     .from("content_items")
-    .select("*")
+    .select("*", { count: "exact" })
     .eq("is_published", true)
     .neq("type", "text")
     .order("created_at", { ascending: false });
@@ -38,9 +47,13 @@ export async function listContentItems(
     const escaped = escapeFilterValue(opts.q);
     query = query.or(`title.ilike."%${escaped}%",tags.cs.{"${escaped}"}`);
   }
+  if (typeof opts.limit === "number") {
+    const offset = opts.offset ?? 0;
+    query = query.range(offset, offset + opts.limit - 1);
+  }
 
-  const { data } = await query;
-  return (data as ContentItem[] | null) ?? [];
+  const { data, count } = await query;
+  return { items: (data as ContentItem[] | null) ?? [], total: count ?? 0 };
 }
 
 /** A single item for the watch/read page. RLS applies as for the list. */
