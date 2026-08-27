@@ -1,269 +1,233 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getProfile } from "@/lib/auth/dal";
-import { listContentItems, getDayContent } from "@/lib/content/queries";
-import { rotateForWeek, isoWeekdayFromName, DAY_LABEL } from "@/lib/content/rotation";
-import { weekdayNameOrWeekend, getIsoWeekNumber } from "@/lib/routines/dates";
-import { DayCarousel } from "@/components/content/DayCarousel";
+import { listContentItems } from "@/lib/content/queries";
 import { ContentCard } from "@/components/content/ContentCard";
 import type { ContentItem, VideoCategory } from "@/types/database";
 
 const CATEGORIES: { value: VideoCategory; label: string }[] = [
   { value: "mental_fitness", label: "Mental Fitness" },
-  { value: "tools_tips", label: "Tools & Tips" },
   { value: "physical_fitness", label: "Physical Fitness" },
   { value: "nutrition", label: "Nutrition" },
+  { value: "tools_tips", label: "Tools & Tips" },
 ];
-
-// The brief's own enumerated Mental Fitness topics ("addiction, divorce,
-// grief, redundancy, identity loss, anxiety, relationships, purpose") --
-// quick shortcuts into the same free-text search every item is already
-// searchable by (title or tags), not a separate filter mechanism.
-const TOPICS = ["Addiction", "Divorce", "Grief", "Redundancy", "Identity loss", "Anxiety", "Relationships", "Purpose"];
 
 const CATEGORY_LABEL: Record<VideoCategory, string> = {
   mental_fitness: "Mental Fitness",
-  tools_tips: "Tools & Tips",
   physical_fitness: "Physical Fitness",
   nutrition: "Nutrition",
+  tools_tips: "Tools & Tips",
 };
 
-// Preserve the sibling query param when building a filter link, so choosing a
-// category doesn't drop the active search and vice-versa (a topic chip keeps
-// the chosen category; a category tab keeps the typed search).
-function categoryHref(value: VideoCategory | null, q: string | undefined): string {
+// The grid renders a page at a time (cumulative "Load more"), so a large
+// library never floods a single response. 24 fills the 2/3-up grid evenly.
+const PAGE_SIZE = 24;
+
+/** Build a /content link, keeping the parts that should persist. `page` is
+ *  only emitted past 1, so a fresh filter naturally starts at the first page. */
+function contentHref(next: { q?: string; category?: string; page?: number }): string {
   const params = new URLSearchParams();
-  if (value) params.set("category", value);
-  if (q) params.set("q", q);
+  if (next.q) params.set("q", next.q);
+  if (next.category) params.set("category", next.category);
+  if (next.page && next.page > 1) params.set("page", String(next.page));
   const qs = params.toString();
   return qs ? `/content?${qs}` : "/content";
 }
 
-function topicHref(topic: string, category: string | undefined): string {
-  const params = new URLSearchParams({ q: topic });
-  if (category) params.set("category", category);
-  return `/content?${params.toString()}`;
-}
-
-// Shared active/inactive treatment for the category tab bar -- the same 3px
-// vivid-accent underline the Community sub-nav and the mobile BottomNav use for
-// their active tab (globals.css reserves --brand-accent-vivid for exactly these
-// decorative active-state borders, where no text is read against the red).
-const TAB_BASE =
-  "-mb-px block whitespace-nowrap border-b-[3px] py-3.5 text-xs font-bold uppercase tracking-[0.14em] transition-colors";
-const TAB_ACTIVE = "border-brand-accent-vivid text-foreground";
-const TAB_INACTIVE = "border-transparent text-muted hover:text-foreground";
+// Filter pill — active is a solid red fill, inactive an outlined chip; on the
+// Library's ink surface the outline resolves to the ink hairline and the label
+// to muted-on-ink (see the data-surface="ink" scope in globals.css).
+const PILL_BASE =
+  "block whitespace-nowrap border px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] transition-colors";
+const PILL_ACTIVE = "border-brand-accent bg-brand-accent text-brand-accent-foreground";
+const PILL_INACTIVE = "border-rule-border text-muted hover:border-foreground hover:text-foreground";
 
 /**
  * Content Library -- one shared library, built once, available to every
  * company (see docs/ARCHITECTURE.md "Core platform vs. co-branded portals").
  * Reads the content_items spine (docs/CONTENT_PLATFORM_STRATEGY.md), so it
- * shows videos, documents, and images alike; channel targeting is enforced by
- * the content_items RLS policy for the viewer's own session.
+ * shows videos, documents, and images; channel targeting is enforced by the
+ * content_items RLS policy for the viewer's own session.
  *
- * Search-first: someone in a hard moment should be able to search "divorce"
- * or "addiction" and land directly on relevant content. On the default browse
- * view (no search/filter) a day-of-week carousel leads -- today's rotating
- * pick from the Mon–Sun grid.
+ * The dark "content-OS" layout (Anthony's designers): a near-black board on the
+ * shared data-surface="ink" scope. This slice is the shell -- hero with a live
+ * synced count + search, the category filter, and the paginated all-content
+ * grid. Curated shelves (Series, Under 3 minutes, Read & download) and the
+ * topic/stage facets land in follow-up slices.
  */
 export default async function ContentLibraryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string }>;
+  searchParams: Promise<{ q?: string; category?: string; page?: string }>;
 }) {
-  const { q, category } = await searchParams;
-
-  // The viewer's own timezone decides which weekday "today" is and which ISO
-  // week drives the rotation -- consistent with the rest of the platform's
-  // timezone-correct day/week resolution (Phase 9).
-  const profile = await getProfile();
-  const now = new Date();
-  const tz = profile.timezone;
-  const isoWeekday = isoWeekdayFromName(weekdayNameOrWeekend(now, tz));
-  const isoWeek = getIsoWeekNumber(now, tz);
-  const dayLabel = DAY_LABEL[isoWeekday];
+  const { q, category, page: pageParam } = await searchParams;
+  const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
 
   // Wrapped in try/catch: createClient() throws synchronously if the URL/key
-  // are missing or malformed. Degrading to empty results is the same "Nothing
+  // are missing or malformed. Degrading to an empty result is the same "Nothing
   // here yet" state this page already renders for a genuinely empty library.
   let items: ContentItem[] = [];
-  let dayItems: ContentItem[] = [];
+  let total = 0;
   try {
     const supabase = await createClient();
-    [items, dayItems] = await Promise.all([
-      listContentItems(supabase, { q, category }),
-      getDayContent(supabase, isoWeekday),
-    ]);
+    const result = await listContentItems(supabase, { q, category, limit: PAGE_SIZE * page });
+    items = result.items;
+    total = result.total;
   } catch {
     items = [];
-    dayItems = [];
+    total = 0;
   }
-  // Text items (quotes/prompts) belong to the daily loop on the Today board,
-  // not the browsable Library — keep them out of the Library's day-picks too, so
-  // the whole Library surface is video/document/image only (the grid filters
-  // them in listContentItems; Today keeps showing them via its own carousel).
-  const rotatedDay = rotateForWeek(dayItems, isoWeek).filter((i) => i.type !== "text");
+
+  const filtered = Boolean(q || category);
+  const shown = items.length;
+  const hasMore = shown < total;
+
+  const eyebrow = q ? "Search" : category ? "Category" : "Everything else";
+  const heading = q
+    ? `“${q}”`
+    : category && CATEGORY_LABEL[category as VideoCategory]
+      ? CATEGORY_LABEL[category as VideoCategory]
+      : "All content";
 
   return (
-    <main className="min-h-full">
-      {/* Search-first ink hero -- the deliberate emphasis moment. */}
-      <section className="bg-brand-background text-brand-foreground">
-        <div className="mx-auto max-w-5xl px-6 py-12">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-light-2">
-            Library
-          </p>
-          <h1 className="mt-2 max-w-2xl text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
-            What do you need right now?
-          </h1>
-          <p className="mt-4 max-w-lg text-muted-on-ink-2">
-            Search a topic and go straight there — no browsing required.
-          </p>
+    <main data-surface="ink" className="min-h-full bg-background text-foreground">
+      {/* Hero: identity + the live synced count on the left, search on the
+          right. Collapses to a single column on mobile. */}
+      <section className="border-b-2 border-brand-accent">
+        <div className="mx-auto grid max-w-6xl gap-8 px-6 py-14 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div>
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-brand-accent-light-2">
+              The Library
+            </p>
+            <h1 className="mt-3 max-w-2xl text-5xl font-extrabold leading-[0.95] tracking-tight sm:text-6xl">
+              Every video, in the order you need it.
+            </h1>
+          </div>
 
-          <form className="mt-6 flex gap-2" action="/content" role="search">
-            <label htmlFor="content-search" className="sr-only">
-              Search content by topic
-            </label>
-            <input
-              id="content-search"
-              type="search"
-              name="q"
-              defaultValue={q}
-              placeholder="Search a topic — divorce, grief, sleep, redundancy…"
-              className="min-w-0 flex-1 border-2 border-brand-foreground bg-transparent px-4 py-3.5 text-brand-foreground placeholder:text-muted-on-ink"
-            />
-            {category && <input type="hidden" name="category" value={category} />}
-            <button
-              type="submit"
-              className="shrink-0 bg-brand-foreground px-6 py-3.5 text-sm font-extrabold uppercase tracking-wide text-brand-background transition-colors hover:bg-brand-accent hover:text-brand-accent-foreground"
-            >
-              Search
-            </button>
-          </form>
-
-          <p className="mt-5 text-sm text-muted-on-ink-2">
-            Prefer something guided?{" "}
-            <Link href="/challenges" className="font-bold text-brand-accent-light-2 underline underline-offset-2">
-              Explore challenges →
-            </Link>
-          </p>
+          <div className="lg:w-[22rem]">
+            <p className="text-sm leading-relaxed text-muted-on-ink-2">
+              {total > 0 ? `${total.toLocaleString("en-GB")} pieces of content, ` : ""}synced from your Vimeo
+              library — search a topic and go straight there.
+            </p>
+            <form className="mt-4 flex gap-2" action="/content" role="search">
+              <label htmlFor="content-search" className="sr-only">
+                Search content by topic
+              </label>
+              <input
+                id="content-search"
+                type="search"
+                name="q"
+                defaultValue={q}
+                placeholder="Search titles, topics, series…"
+                className="min-w-0 flex-1 border-2 border-brand-foreground bg-transparent px-4 py-3 text-brand-foreground placeholder:text-muted-on-ink"
+              />
+              {category && <input type="hidden" name="category" value={category} />}
+              <button
+                type="submit"
+                className="shrink-0 bg-brand-accent px-6 py-3 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground transition-opacity hover:opacity-90"
+              >
+                Search
+              </button>
+            </form>
+          </div>
         </div>
       </section>
 
-      {/* Category filter -- the taxonomy tabs (All + the categories), carrying
-          the active search across a category change. */}
+      {/* Category filter row. The topic and "where you are" facets from the
+          design join this rail once the taxonomy is real (follow-up slice). */}
       <nav className="border-b border-rule-hairline" aria-label="Filter by category">
-        <div className="mx-auto max-w-5xl px-6">
-          <ul className="flex gap-7 overflow-x-auto">
-            <li className="shrink-0">
-              <Link
-                href={categoryHref(null, q)}
-                aria-current={!category ? "page" : undefined}
-                className={`${TAB_BASE} ${!category ? TAB_ACTIVE : TAB_INACTIVE}`}
-              >
-                All
-              </Link>
-            </li>
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-3 px-6 py-4">
+          <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-muted">Category</span>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={contentHref({ q })}
+              aria-current={!category ? "page" : undefined}
+              className={`${PILL_BASE} ${!category ? PILL_ACTIVE : PILL_INACTIVE}`}
+            >
+              All
+            </Link>
             {CATEGORIES.map((cat) => {
               const active = category === cat.value;
               return (
-                <li key={cat.value} className="shrink-0">
-                  <Link
-                    href={categoryHref(cat.value, q)}
-                    aria-current={active ? "page" : undefined}
-                    className={`${TAB_BASE} ${active ? TAB_ACTIVE : TAB_INACTIVE}`}
-                  >
-                    {cat.label}
-                  </Link>
-                </li>
+                <Link
+                  key={cat.value}
+                  href={contentHref({ q, category: cat.value })}
+                  aria-current={active ? "page" : undefined}
+                  className={`${PILL_BASE} ${active ? PILL_ACTIVE : PILL_INACTIVE}`}
+                >
+                  {cat.label}
+                </Link>
               );
             })}
-          </ul>
+          </div>
         </div>
       </nav>
 
-      <div className="mx-auto max-w-5xl px-6 py-8">
-        {/* Day-of-week carousel -- only on the default browse view; a search or
-            category filter is a focused intent, so the carousel steps aside. */}
-        {!q && !category && (
-          <div className="mb-8">
-            <DayCarousel dayLabel={dayLabel} items={rotatedDay} />
+      <div className="mx-auto max-w-6xl px-6 py-10">
+        {/* All content grid. */}
+        <div className="flex items-baseline justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-light-2">
+              {eyebrow}
+            </p>
+            <h2 className="mt-1 text-2xl font-extrabold tracking-tight">{heading}</h2>
           </div>
-        )}
-
-        {/* Topic shortcuts -- one tap fills the same free-text search. */}
-        <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">Quick topics</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {TOPICS.map((topic) => {
-            const active = q?.toLowerCase() === topic.toLowerCase();
-            return (
-              <Link
-                key={topic}
-                href={topicHref(topic, category)}
-                aria-current={active ? "true" : undefined}
-                className={
-                  "border px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] transition-colors " +
-                  (active
-                    ? "border-brand-accent bg-brand-accent text-brand-accent-foreground"
-                    : "border-rule-border text-muted hover:border-foreground hover:text-foreground")
-                }
-              >
-                {topic}
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* Results — a poster-led grid. */}
-        <div className="mt-8">
-          <div className="flex items-baseline justify-between gap-3 border-b border-rule-hairline pb-3">
-            <h2 className="text-sm font-extrabold tracking-tight">
-              {q ? (
-                <>
-                  Results for “{q}”
-                </>
-              ) : category && CATEGORY_LABEL[category as VideoCategory] ? (
-                CATEGORY_LABEL[category as VideoCategory]
-              ) : (
-                "All content"
-              )}
-              {items.length > 0 && <span className="text-muted"> · {items.length}</span>}
-            </h2>
-            {(q || category) && (
-              <Link href="/content" className="shrink-0 text-xs font-semibold text-brand-accent-deep hover:underline">
+          <div className="flex shrink-0 items-baseline gap-4">
+            {total > 0 && (
+              <span className="text-xs font-semibold text-muted">
+                {shown.toLocaleString("en-GB")} of {total.toLocaleString("en-GB")} shown
+              </span>
+            )}
+            {filtered && (
+              <Link href="/content" className="text-xs font-extrabold uppercase tracking-wide text-brand-accent-light">
                 Clear
               </Link>
             )}
           </div>
+        </div>
+        <div className="mt-4 border-t border-rule-hairline" />
 
-          {items.length === 0 ? (
-            <div className="py-16 text-center">
-              <p className="text-lg font-extrabold tracking-tight">
-                {q || category ? "No matches here." : "Nothing here yet."}
-              </p>
-              <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-                {q || category
-                  ? "Try a different topic or clear the filters — new content lands here as it’s published."
-                  : "Check back soon — new content lands here as it’s published."}
-              </p>
-              {(q || category) && (
-                <Link
-                  href="/content"
-                  className="mt-5 inline-block border-2 border-foreground px-5 py-2.5 text-sm font-extrabold uppercase tracking-wide transition-colors hover:bg-foreground hover:text-background"
-                >
-                  Browse everything
-                </Link>
-              )}
-            </div>
-          ) : (
-            <ul className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {shown === 0 ? (
+          <div className="py-20 text-center">
+            <p className="text-xl font-extrabold tracking-tight">
+              {filtered ? "No matches here." : "Nothing here yet."}
+            </p>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
+              {filtered
+                ? "Try a different topic or clear the filters — new content lands here as it’s published."
+                : "Check back soon — new content lands here as it’s published."}
+            </p>
+            {filtered && (
+              <Link
+                href="/content"
+                className="mt-6 inline-block border-2 border-foreground px-5 py-2.5 text-sm font-extrabold uppercase tracking-wide transition-colors hover:bg-foreground hover:text-background"
+              >
+                Browse everything
+              </Link>
+            )}
+          </div>
+        ) : (
+          <>
+            <ul className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {items.map((item) => (
                 <li key={item.id}>
                   <ContentCard item={item} />
                 </li>
               ))}
             </ul>
-          )}
-        </div>
+
+            {hasMore && (
+              <div className="mt-10 flex justify-center">
+                <Link
+                  href={contentHref({ q, category, page: page + 1 })}
+                  scroll={false}
+                  className="border-2 border-foreground px-6 py-3 text-sm font-extrabold uppercase tracking-wide transition-colors hover:bg-foreground hover:text-background"
+                >
+                  Load more
+                </Link>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </main>
   );
