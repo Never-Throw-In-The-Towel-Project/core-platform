@@ -1,7 +1,17 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ContentItem } from "@/types/database";
+import type { Challenge, ContentItem } from "@/types/database";
 import { escapeFilterValue } from "@/lib/supabase/filterEscape";
+import { listPublishedChallenges, getChallengeDays } from "@/lib/challenges/queries";
+
+/** A curated shelf's "under 3 minutes" / "read & download" facet. These aren't
+ *  columns -- they're derived: short = a positive duration <= 3 min; reads =
+ *  document-type items. Kept as a small closed set so the grid's "See all N"
+ *  views reuse the same list+count path as search and category. */
+export type ContentFilter = "short" | "reads";
+
+/** Seconds under which a video counts as "quick" for the Under 3 minutes shelf. */
+export const SHORT_MAX_SECONDS = 180;
 
 // createClient() is typed with a schema union; content lives in `public`, but
 // callers pass whichever client instance they already have, same pattern as
@@ -31,7 +41,7 @@ export type ContentPage = { items: ContentItem[]; total: number };
  */
 export async function listContentItems(
   supabase: AnyClient,
-  opts: { q?: string; category?: string; limit?: number; offset?: number } = {}
+  opts: { q?: string; category?: string; filter?: ContentFilter; limit?: number; offset?: number } = {}
 ): Promise<ContentPage> {
   let query = supabase
     .from("content_items")
@@ -42,6 +52,12 @@ export async function listContentItems(
 
   if (opts.category) {
     query = query.eq("category", opts.category);
+  }
+  if (opts.filter === "short") {
+    // A positive duration (nulls are excluded by `.gt`) at or under the cap.
+    query = query.gt("duration_seconds", 0).lte("duration_seconds", SHORT_MAX_SECONDS);
+  } else if (opts.filter === "reads") {
+    query = query.eq("type", "document");
   }
   if (opts.q) {
     const escaped = escapeFilterValue(opts.q);
@@ -54,6 +70,39 @@ export async function listContentItems(
 
   const { data, count } = await query;
   return { items: (data as ContentItem[] | null) ?? [], total: count ?? 0 };
+}
+
+/** One Library "Series" shelf: a published challenge and its content items in
+ *  challenge-day order (days without visible content dropped). */
+export type LibrarySeries = { challenge: Challenge; items: ContentItem[] };
+
+/**
+ * The Series shelves for the Library. A "series" is a published challenge whose
+ * `challenge_days` already impose an order; we surface each as a shelf of its
+ * content items (day_index order, days with no member-visible content skipped).
+ * Both the challenge rows and the embedded content are RLS-scoped to the caller.
+ * Capped so a library with many challenges doesn't fetch every day of each.
+ */
+export async function listLibrarySeries(
+  supabase: AnyClient,
+  opts: { maxSeries?: number; maxItems?: number } = {}
+): Promise<LibrarySeries[]> {
+  const maxSeries = opts.maxSeries ?? 3;
+  const maxItems = opts.maxItems ?? 12;
+
+  const challenges = (await listPublishedChallenges(supabase)).slice(0, maxSeries);
+  const shelves = await Promise.all(
+    challenges.map(async (challenge) => {
+      const days = await getChallengeDays(supabase, challenge.id);
+      const items = days
+        .map((d) => d.content)
+        .filter((c): c is ContentItem => c != null)
+        .slice(0, maxItems);
+      return { challenge, items };
+    })
+  );
+
+  return shelves.filter((s) => s.items.length > 0);
 }
 
 /** A single item for the watch/read page. RLS applies as for the list. */
