@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireNtittAdmin } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { listAllContentForAdmin } from "@/lib/content/queries";
+import { listTopicsWithCounts } from "@/lib/content/topicQueries";
 import { listContentFolders, resolveAssetUrls } from "@/lib/content/brain";
 import { isAiConfigured } from "@/lib/ai/client";
 import { ContentStudioForm } from "@/components/admin/ContentStudioForm";
@@ -13,8 +14,9 @@ import { BrainFolderCreate } from "@/components/admin/BrainFolderCreate";
 import { BrainFolderSettings } from "@/components/admin/BrainFolderSettings";
 import { BrainAutoOrganize } from "@/components/admin/BrainAutoOrganize";
 import { BrainTopicTag } from "@/components/admin/BrainTopicTag";
+import { BrainTopics } from "@/components/admin/BrainTopics";
 import { BrainLibrary } from "@/components/admin/brain/BrainLibrary";
-import type { ContentFolder, ContentItem } from "@/types/database";
+import type { ContentFolder, ContentItem, ContentTopicWithCount } from "@/types/database";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 /**
@@ -40,22 +42,26 @@ export default async function BrainPage({
   let companies: { id: string; name: string }[] = [];
   let items: ContentItem[] = [];
   let folders: ContentFolder[] = [];
+  let topics: ContentTopicWithCount[] = [];
   let assetUrls: Record<string, string> = {};
   try {
     const supabase = await createClient();
-    const [companiesResult, itemsResult, foldersResult] = await Promise.all([
+    const [companiesResult, itemsResult, foldersResult, topicsResult] = await Promise.all([
       supabase.from("companies").select("id, name").order("name"),
       listAllContentForAdmin(supabase),
       listContentFolders(supabase),
+      listTopicsWithCounts(supabase),
     ]);
     companies = (companiesResult.data as { id: string; name: string }[] | null) ?? [];
     items = itemsResult;
     folders = foldersResult;
+    topics = topicsResult;
     assetUrls = resolveAssetUrls(supabase, items);
   } catch {
     companies = [];
     items = [];
     folders = [];
+    topics = [];
     assetUrls = {};
   }
 
@@ -176,6 +182,17 @@ export default async function BrainPage({
               {/* AI: tag the whole library into the member Library's topic rooms. */}
               <BrainTopicTag aiConfigured={aiConfigured} />
             </div>
+          </details>
+
+          {/* ---- Library topics: manage the member "Browse by topic" rooms ---- */}
+          <details className="mt-4 border border-rule-border">
+            <summary className="cursor-pointer list-none px-4 py-3 text-[11px] font-extrabold uppercase tracking-[0.16em] text-brand-accent-deep">
+              Library topics
+              <span className="ml-2 font-semibold normal-case tracking-normal text-muted">
+                — add, rename, reorder or retire the rooms members browse by
+              </span>
+            </summary>
+            <BrainTopics topics={topics} />
           </details>
 
           {/* ---- The library: stats, command bar, selectable grid, bulk bar ---- */}
