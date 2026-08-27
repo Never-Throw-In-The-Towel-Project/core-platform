@@ -227,6 +227,20 @@ export interface ContentItemTopic {
   topic_id: string;
 }
 
+// A member's private video resume position (see
+// supabase/migrations/20260903000000_content_progress.sql). PRIVATE schema,
+// own-rows-only — never aggregated or reported. Drives the Library's "Pick up
+// where you left off" shelf and the per-item progress bar.
+export interface ContentProgress {
+  id: string;
+  user_id: string;
+  content_item_id: string;
+  position_seconds: number;
+  duration_seconds: number | null;
+  completed: boolean;
+  updated_at: string;
+}
+
 // Challenges — the "container" pillar (docs/CONTENT_PLATFORM_STRATEGY.md
 // "Pillar 3", supabase/migrations/20260812020000_challenges.sql). The public
 // definition (challenges + challenge_days) sequences the content spine; a
