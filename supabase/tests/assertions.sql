@@ -21,8 +21,8 @@ begin
     raise exception 'RLS disabled on % public/private table(s)', missing;
   end if;
   select count(*) into total from pg_tables where schemaname in ('public','private');
-  if total <> 43 then
-    raise exception 'expected 43 public+private tables (28+15), found %', total;
+  if total <> 44 then
+    raise exception 'expected 44 public+private tables (28+16), found %', total;
   end if;
   raise notice 'PASS  1  RLS enabled on all % public/private tables', total;
 end
@@ -1722,6 +1722,37 @@ begin
   end if;
 
   raise notice 'PASS  17  content_topics seeded (8) + ntitt_admin-gated; content_item_topics cascade join, admin-gated writes';
+end
+$$;
+
+-- ---- 18. content_progress: private, own-rows-only video resume position ------
+-- (20260903000000) sensitive per-member watch position; must be private + RLS
+-- scoped to auth.uid()=user_id, exactly like the routines/STAND tables.
+do $$
+declare pol text; conf text;
+begin
+  if not exists (
+    select 1 from pg_tables where schemaname = 'private' and tablename = 'content_progress'
+  ) then
+    raise exception 'content_progress must live in the private schema';
+  end if;
+
+  -- Own-rows-only: the single FOR ALL policy binds to auth.uid() = user_id.
+  select pg_get_expr(polqual, polrelid) into pol
+    from pg_policy where polrelid = 'private.content_progress'::regclass and polcmd = '*';
+  if pol is null or pol not like '%auth.uid()%' or pol not like '%user_id%' then
+    raise exception 'content_progress is not own-rows-only (auth.uid()=user_id): %', pol;
+  end if;
+
+  -- Deleting a content item cleans up its progress rows (FK ON DELETE CASCADE).
+  select confdeltype into conf from pg_constraint
+    where conrelid = 'private.content_progress'::regclass and contype = 'f'
+      and confrelid = 'public.content_items'::regclass;
+  if conf is distinct from 'c' then
+    raise exception 'content_progress -> content_items FK must ON DELETE CASCADE, got %', conf;
+  end if;
+
+  raise notice 'PASS  18  content_progress private + own-rows-only; cascades on content delete';
 end
 $$;
 
