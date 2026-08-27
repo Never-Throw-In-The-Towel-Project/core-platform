@@ -227,6 +227,27 @@ export interface ContentItemTopic {
   topic_id: string;
 }
 
+// The Library's "Where you are" journey facet (see
+// supabase/migrations/20260904000000_content_stages.sql). A FIXED, closed set —
+// unlike topics — so it's a string-literal union rather than a taxonomy table.
+// Labels/order live in src/lib/content/stageConfig.ts.
+export type ContentStage = "start_here" | "in_it" | "rebuilding";
+
+// One row of the content_item_stages assignment (a piece can carry 0..N stages).
+export interface ContentItemStage {
+  content_item_id: string;
+  stage: ContentStage;
+}
+
+// A stage decorated with its display label and how many published,
+// viewer-visible items carry it — the "Where you are" filter pills. Counted
+// through content_items' RLS, so drafts/other-channel content are excluded.
+export interface ContentStageWithCount {
+  stage: ContentStage;
+  label: string;
+  count: number;
+}
+
 // A member's private video resume position (see
 // supabase/migrations/20260903000000_content_progress.sql). PRIVATE schema,
 // own-rows-only — never aggregated or reported. Drives the Library's "Pick up
