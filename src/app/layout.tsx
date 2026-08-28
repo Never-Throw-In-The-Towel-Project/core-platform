@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { GeistMono } from "geist/font/mono";
 import { headers } from "next/headers";
@@ -45,6 +45,17 @@ export const metadata: Metadata = {
     title: "Never Throw In The Towel",
     description: "Keep on Living.",
   },
+};
+
+// `viewport-fit=cover` lets the page draw under the notch / home indicator and,
+// crucially, makes `env(safe-area-inset-*)` resolve to real values instead of 0
+// -- without it the safe-area padding on the sticky bottom nav and the support
+// modal would be no-ops. `width=device-width, initial-scale=1` is Next.js's
+// default; we set it here alongside so the whole viewport policy lives in one place.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({

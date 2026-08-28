@@ -202,6 +202,20 @@
   }
 
   /*
+   * Site-wide horizontal-overflow safety net: if any single element is wider
+   * than the viewport, clip it rather than letting the whole page scroll
+   * sideways on mobile. `clip` (not `hidden`) is deliberate -- `overflow:hidden`
+   * turns <html> into a scroll container, which would break the `position:
+   * sticky` bottom nav; `overflow-x:clip` guards the axis without establishing
+   * a scroll container, so sticky positioning and vertical scrolling are
+   * untouched. This is a backstop, not a substitute for fixing overflow at the
+   * source.
+   */
+  html {
+    overflow-x: clip;
+  }
+
+  /*
    * One consistent focus ring for the whole app, per the redesign's rule:
    * "Focus: 2px solid #ec3013, offset 2px. Never leave a default browser
    * focus ring." Scoped to :focus-visible so it only shows for keyboard

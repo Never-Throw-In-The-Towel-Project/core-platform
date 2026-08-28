@@ -34,11 +34,13 @@ export function MarketingNav({ showSignup, skinColor }: { showSignup: boolean; s
     <header className="sticky top-0 z-40 border-b border-rule-hairline bg-background">
       <div className="h-[3px] w-full" style={{ background: skinColor ?? "var(--brand-accent-vivid)" }} aria-hidden />
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
-        <Link href="/" className="flex shrink-0 items-center gap-2" onClick={() => setOpen(false)}>
+        <Link href="/" className="flex min-w-0 items-center gap-2" onClick={() => setOpen(false)}>
           {/* logo-mark.png is a light mark; inverted here to read on the light
               header (it shows as-is on the dark hero/app surfaces). */}
-          <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={32} height={33} className="invert" />
-          <span className="text-sm font-extrabold tracking-wide whitespace-nowrap uppercase">
+          <Image src="/logo-mark.png" alt="Never Throw In The Towel" width={32} height={33} className="shrink-0 invert" />
+          {/* Truncates when space is tight (≤~375px phones) so the fixed logo +
+              Menu button always fit; full wordmark shows from ~390px up. */}
+          <span className="truncate text-sm font-extrabold tracking-wide uppercase">
             Never Throw In The Towel
           </span>
         </Link>

@@ -24,7 +24,7 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="sticky bottom-0 z-10 flex bg-background text-[11px] font-extrabold uppercase tracking-wide lg:hidden">
+    <nav className="sticky bottom-0 z-10 flex bg-background pb-[env(safe-area-inset-bottom)] text-[11px] font-extrabold uppercase tracking-wide lg:hidden">
       {TABS.map((tab) => {
         const isActive = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
         return (
