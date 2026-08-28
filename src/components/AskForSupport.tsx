@@ -162,7 +162,7 @@ export function AskForSupport({
             role="dialog"
             aria-modal="true"
             aria-labelledby={headingId}
-            className="w-full max-w-md border-2 border-foreground bg-background text-foreground"
+            className="max-h-[90dvh] w-full max-w-md overflow-y-auto border-2 border-foreground bg-background text-foreground"
           >
             {state.status !== "success" && (
               <p className="bg-brand-background px-6 py-3 text-sm text-brand-foreground">
@@ -170,7 +170,7 @@ export function AskForSupport({
                 <span className="font-semibold">{helplineNumber ?? "the helpline"}</span>.
               </p>
             )}
-            <div className="p-6">
+            <div className="p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
             {state.status === "success" ? (
               <div className="space-y-4" role="status">
                 <h2
