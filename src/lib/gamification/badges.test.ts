@@ -5,6 +5,7 @@ import {
   newlyEarnedKeys,
   badgeLabel,
   AWARDED_BADGES,
+  BADGE_GROUPS,
   type BadgeStatsInput,
 } from "./badges";
 
@@ -92,6 +93,23 @@ describe("AWARDED_BADGES", () => {
     const catalogue = new Set(evaluateBadges(ZERO).map((b) => b.key));
     for (const a of AWARDED_BADGES) {
       expect(catalogue.has(a.key)).toBe(false);
+    }
+  });
+});
+
+describe("badge shelves (BADGE_GROUPS)", () => {
+  it("assigns every trophy to a declared shelf", () => {
+    const groupKeys = new Set(BADGE_GROUPS.map((g) => g.key));
+    const all = [...evaluateBadges(ZERO), ...AWARDED_BADGES];
+    for (const b of all) {
+      expect(groupKeys.has(b.group)).toBe(true);
+    }
+  });
+
+  it("leaves no shelf empty (every group holds at least one trophy)", () => {
+    const all = [...evaluateBadges(ZERO), ...AWARDED_BADGES];
+    for (const g of BADGE_GROUPS) {
+      expect(all.some((b) => b.group === g.key)).toBe(true);
     }
   });
 });

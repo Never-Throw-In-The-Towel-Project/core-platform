@@ -33,6 +33,18 @@ export interface BadgeStatsInput {
   bestStepStreak: number;
 }
 
+/** The Trophy Room shelves, in display order. Every badge belongs to exactly
+ *  one, so the full catalogue reads as themed shelves rather than one flat grid. */
+export type BadgeGroup = "foundations" | "routines" | "movement" | "community";
+
+/** Shelf headings, in the order they appear in the Trophy Room. */
+export const BADGE_GROUPS: { key: BadgeGroup; label: string }[] = [
+  { key: "foundations", label: "Foundations" },
+  { key: "routines", label: "Habits & Routines" },
+  { key: "movement", label: "Movement" },
+  { key: "community", label: "Community & Team" },
+];
+
 /** A badge's static identity, independent of whether it's been earned. */
 export interface BadgeDef {
   key: string;
@@ -40,6 +52,8 @@ export interface BadgeDef {
   label: string;
   /** One-line meaning, for the title/tooltip and a11y. */
   description: string;
+  /** Which Trophy Room shelf this badge sits on. */
+  group: BadgeGroup;
 }
 
 export interface Badge extends BadgeDef {
@@ -52,42 +66,42 @@ export interface Badge extends BadgeDef {
 // one-place edit (see the file header).
 const CATALOGUE: { def: BadgeDef; isEarned: (s: BadgeStatsInput) => boolean }[] = [
   {
-    def: { key: "first_week", label: "First Week", description: "Seven active days in." },
+    def: { key: "first_week", label: "First Week", description: "Seven active days in.", group: "foundations" },
     isEarned: (s) => s.activeDayCount >= 7,
   },
   {
-    def: { key: "ten_days", label: "10 Days", description: "Ten active days in." },
+    def: { key: "ten_days", label: "10 Days", description: "Ten active days in.", group: "foundations" },
     isEarned: (s) => s.activeDayCount >= 10,
   },
   {
-    def: { key: "first_post", label: "First Post", description: "Shared your first post with the community." },
+    def: { key: "first_post", label: "First Post", description: "Shared your first post with the community.", group: "community" },
     isEarned: (s) => s.postCount >= 1,
   },
   {
-    def: { key: "night_owl", label: "Night Owl", description: "Closed out a night routine." },
+    def: { key: "night_owl", label: "Night Owl", description: "Closed out a night routine.", group: "routines" },
     isEarned: (s) => s.nightCount >= 1,
   },
   {
-    def: { key: "five_wins", label: "5 Wins", description: "Won five rounds — five completed check-ins or routines." },
+    def: { key: "five_wins", label: "5 Wins", description: "Won five rounds — five completed check-ins or routines.", group: "routines" },
     isEarned: (s) => s.winsCount >= 5,
   },
   {
-    def: { key: "thirty_days", label: "30 Days", description: "Reached your 30-day review." },
+    def: { key: "thirty_days", label: "30 Days", description: "Reached your 30-day review.", group: "foundations" },
     isEarned: (s) => s.activeDayCount >= 30,
   },
   // Step milestones (brief §3). Earned from the member's own private steps and,
   // like all badges here, only shown to them -- the brief's "visible to others
   // only if the user shares" is a later, separate opt-in surface, never automatic.
   {
-    def: { key: "steps_10k_club", label: "10K Club", description: "Logged a 10,000-step day." },
+    def: { key: "steps_10k_club", label: "10K Club", description: "Logged a 10,000-step day.", group: "movement" },
     isEarned: (s) => s.maxSingleDaySteps >= 10000,
   },
   {
-    def: { key: "steps_week_streak", label: "Week Streak", description: "Logged steps seven days in a row." },
+    def: { key: "steps_week_streak", label: "Week Streak", description: "Logged steps seven days in a row.", group: "movement" },
     isEarned: (s) => s.bestStepStreak >= 7,
   },
   {
-    def: { key: "steps_30_day_mover", label: "30 Day Mover", description: "Logged steps thirty days in a row." },
+    def: { key: "steps_30_day_mover", label: "30 Day Mover", description: "Logged steps thirty days in a row.", group: "movement" },
     isEarned: (s) => s.bestStepStreak >= 30,
   },
 ];
@@ -118,18 +132,21 @@ export const AWARDED_BADGES: AwardedBadgeDef[] = [
     label: "Challenge Complete",
     description: "Your team hit the target in a company step challenge.",
     earnHint: "Finish a company step challenge",
+    group: "community",
   },
   {
     key: "team_mvp",
     label: "Team MVP",
     description: "Top step contributor when a company challenge ended.",
     earnHint: "Top your team in a step challenge",
+    group: "community",
   },
   {
     key: "habit_complete",
     label: "Clean Streak",
     description: "Reached your own clean-streak goal.",
     earnHint: "Reach your Clean Streak goal",
+    group: "routines",
   },
 ];
 
