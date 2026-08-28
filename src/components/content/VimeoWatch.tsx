@@ -30,6 +30,8 @@ export function VimeoWatch({
   title,
   initialPositionSeconds,
   initialCompleted,
+  autoplay = false,
+  onAspectRatio,
 }: {
   contentItemId: string;
   vimeoId: string;
@@ -37,8 +39,20 @@ export function VimeoWatch({
   title: string;
   initialPositionSeconds: number;
   initialCompleted: boolean;
+  /** Start playing once ready (used by the Library modal, which opens on a
+   *  click). Off on the standalone page, where the member presses play. */
+  autoplay?: boolean;
+  /** Reports the video's real width/height ratio once known, so a caller (the
+   *  modal) can size its frame to the video and avoid letterbox bars. */
+  onAspectRatio?: (ratio: number) => void;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  // Kept in a ref so the player effect never re-runs just because the callback
+  // identity changed (updated in an effect, not during render).
+  const onAspectRef = useRef(onAspectRatio);
+  useEffect(() => {
+    onAspectRef.current = onAspectRatio;
+  }, [onAspectRatio]);
 
   useEffect(() => {
     const iframe = iframeRef.current;
@@ -95,6 +109,14 @@ export function VimeoWatch({
         player.on("pause", onPause);
         player.on("ended", onEnded);
 
+        // Report the video's true aspect ratio so the modal can shape its frame
+        // to the video (portrait fills tall, landscape wide) — no letterbox bars.
+        Promise.all([player.getVideoWidth(), player.getVideoHeight()])
+          .then(([w, h]) => {
+            if (w > 0 && h > 0) onAspectRef.current?.(w / h);
+          })
+          .catch(() => {});
+
         // getDuration() resolves only once the player is ready, so seeking in
         // here can't race initialisation.
         player
@@ -102,6 +124,10 @@ export function VimeoWatch({
           .then((duration) => {
             const target = resumeTarget(initialPositionSeconds, duration, initialCompleted);
             if (target != null && player) void player.setCurrentTime(target).catch(() => {});
+            // Autoplay backup: the `autoplay=1` embed param starts most browsers,
+            // and this covers the rest (best-effort — a blocked play just shows
+            // the poster + play button).
+            if (autoplay && player) void player.play().catch(() => {});
           })
           .catch(() => {});
       })
@@ -121,12 +147,15 @@ export function VimeoWatch({
         void player.destroy().catch(() => {});
       }
     };
-  }, [contentItemId, initialPositionSeconds, initialCompleted]);
+  }, [contentItemId, initialPositionSeconds, initialCompleted, autoplay]);
+
+  const baseSrc = buildVimeoEmbedUrl(vimeoId, vimeoHash);
+  const src = autoplay ? `${baseSrc}${baseSrc.includes("?") ? "&" : "?"}autoplay=1` : baseSrc;
 
   return (
     <iframe
       ref={iframeRef}
-      src={buildVimeoEmbedUrl(vimeoId, vimeoHash)}
+      src={src}
       title={title}
       allow="autoplay; fullscreen; picture-in-picture"
       allowFullScreen
