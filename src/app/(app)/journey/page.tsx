@@ -8,7 +8,7 @@ import { getRecentSteps } from "@/lib/steps/queries";
 import { lastNDates, buildStepsWeek } from "@/lib/steps/week";
 import { getActiveChallengeBrief } from "@/lib/steps/challengeQueries";
 import { StepsCard } from "@/components/journey/StepsCard";
-import { JourneyBadges } from "@/components/journey/JourneyBadges";
+import { TrophyRoom } from "@/components/journey/TrophyRoom";
 import { getEarnedBadges, type EarnedBadge } from "@/lib/gamification/earnedBadges";
 import { gatherEngagement, badgeStatsFrom } from "@/lib/gamification/todayStats";
 import { evaluateBadges } from "@/lib/gamification/badges";
@@ -165,16 +165,13 @@ export default async function JourneyPage() {
   const stats = await getJourneyStats(profile.id, activeDayCount);
 
   // Full badge catalogue (earned + locked, in display order) evaluated against
-  // the same engagement the Today screen uses, plus the earned-at dates and any
-  // challenge badges awarded outside the catalogue -- everything the grid needs.
+  // the same engagement the Today screen uses, plus the earned-at dates for every
+  // persisted badge -- including the awarded ones (Team MVP / Challenge Complete /
+  // Clean Streak), which the Trophy Room shows as earned when a date is present.
   const engagement = await gatherEngagement(profile.id);
   const badgeStats = badgeStatsFrom(engagement);
   const allBadges = evaluateBadges(badgeStats);
-  const catalogueKeys = new Set(allBadges.map((b) => b.key));
   const earnedAt = new Map(earnedBadges.map((b) => [b.badge_key, b.earned_at]));
-  const challengeBadges = earnedBadges
-    .filter((b) => !catalogueKeys.has(b.badge_key))
-    .map((b) => ({ key: b.badge_key, earnedAt: b.earned_at }));
 
   // The member's company's active step challenge, if any -- a lightweight entry
   // point to the full challenge screen. Best-effort: any failure just hides it.
@@ -226,6 +223,16 @@ export default async function JourneyPage() {
           <Stat value={stats.nights} label="Nights" />
           <Stat value={stats.weeklyReviews} label="Reviews" />
         </div>
+      </div>
+
+      <div className="mt-8 border-t border-rule-hairline pt-8">
+        <TrophyRoom
+          badges={allBadges}
+          statsInput={badgeStats}
+          earnedAt={earnedAt}
+          sharedKeys={sharedBadgeKeys}
+          canShare={profile.community_opt_in}
+        />
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-10 border-t border-rule-hairline pt-8 lg:grid-cols-[1fr_300px]">
@@ -312,15 +319,6 @@ export default async function JourneyPage() {
           {/* Clean Streak: the member's own habit-quit progress (private,
               own-rows only) with the entry point to /clean-streak. */}
           <CleanStreakEntryCard summary={habitSummary} />
-
-          <JourneyBadges
-            badges={allBadges}
-            statsInput={badgeStats}
-            earnedAt={earnedAt}
-            sharedKeys={sharedBadgeKeys}
-            canShare={profile.community_opt_in}
-            challengeBadges={challengeBadges}
-          />
 
           <div>
             <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Milestones</h2>
