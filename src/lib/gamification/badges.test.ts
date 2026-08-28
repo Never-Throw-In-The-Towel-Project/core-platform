@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { evaluateBadges, countEarned, newlyEarnedKeys, badgeLabel, type BadgeStatsInput } from "./badges";
+import {
+  evaluateBadges,
+  countEarned,
+  newlyEarnedKeys,
+  badgeLabel,
+  AWARDED_BADGES,
+  type BadgeStatsInput,
+} from "./badges";
 
 const ZERO: BadgeStatsInput = {
   activeDayCount: 0,
@@ -63,6 +70,29 @@ describe("badgeLabel", () => {
   });
   it("falls back to the key for an unknown badge", () => {
     expect(badgeLabel("mystery")).toBe("mystery");
+  });
+
+  it("resolves each awarded badge key to its label", () => {
+    for (const a of AWARDED_BADGES) {
+      expect(badgeLabel(a.key)).toBe(a.label);
+    }
+  });
+});
+
+describe("AWARDED_BADGES", () => {
+  it("covers the three awarded keys with an earn hint each", () => {
+    expect(AWARDED_BADGES.map((a) => a.key)).toEqual(["challenge_complete", "team_mvp", "habit_complete"]);
+    for (const a of AWARDED_BADGES) {
+      expect(a.earnHint.length).toBeGreaterThan(0);
+      expect(a.description.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("is disjoint from the stat-derived catalogue (no key can be both)", () => {
+    const catalogue = new Set(evaluateBadges(ZERO).map((b) => b.key));
+    for (const a of AWARDED_BADGES) {
+      expect(catalogue.has(a.key)).toBe(false);
+    }
   });
 });
 

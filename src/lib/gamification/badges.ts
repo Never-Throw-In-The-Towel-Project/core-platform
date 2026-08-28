@@ -68,7 +68,7 @@ const CATALOGUE: { def: BadgeDef; isEarned: (s: BadgeStatsInput) => boolean }[] 
     isEarned: (s) => s.nightCount >= 1,
   },
   {
-    def: { key: "five_wins", label: "5 Wins", description: "Won five rounds -- five completed check-ins or routines." },
+    def: { key: "five_wins", label: "5 Wins", description: "Won five rounds — five completed check-ins or routines." },
     isEarned: (s) => s.winsCount >= 5,
   },
   {
@@ -95,20 +95,49 @@ const CATALOGUE: { def: BadgeDef; isEarned: (s: BadgeStatsInput) => boolean }[] 
 /** Every badge's static definition, in display order. */
 export const BADGE_DEFS: BadgeDef[] = CATALOGUE.map((c) => c.def);
 
-// Challenge-outcome badges (brief §3). These are NOT derived from personal
-// stats (evaluateBadges) -- they're awarded by the service-role aggregation job
-// at a challenge's end and written straight into earned_badges, so they only
-// need a label here for the Journey's earned-badge list. Team MVP is private to
-// the single top contributor; Challenge Complete goes to every contributor when
-// the team hits the target.
-const CHALLENGE_BADGE_LABELS: Record<string, string> = {
-  team_mvp: "Team MVP",
-  challenge_complete: "Challenge Complete",
-  // Clean Streak (private): earned the first time a member reaches their own
-  // habit-quit goal. Written straight into earned_badges from markHabitDayAction
-  // (own-rows only, idempotent); like the others it just needs a label here.
-  habit_complete: "Clean Streak",
-};
+/** A badge granted at a moment by a job/action (never derived from live stats),
+ *  so a full-catalogue view can show it locked with an honest "how you earn it"
+ *  line instead of a numeric target. */
+export interface AwardedBadgeDef extends BadgeDef {
+  /** Shown on a LOCKED awarded tile -- how it's earned (no numeric progress). */
+  earnHint: string;
+}
+
+// Challenge-outcome + habit badges (brief §3). NOT derived from personal stats
+// (evaluateBadges) -- they're written straight into earned_badges by the
+// service-role aggregation job (Team MVP / Challenge Complete) or by
+// markHabitDayAction (Clean Streak), so they carry no live earn rule here, just a
+// static definition for the catalogue views (the Journey Trophy Room shows each
+// earned, or locked with its earnHint). Team MVP is private to the single top
+// contributor; Challenge Complete goes to every contributor when the team hits
+// the target; Clean Streak is earned the first time a member reaches their own
+// habit-quit goal (and never names the habit).
+export const AWARDED_BADGES: AwardedBadgeDef[] = [
+  {
+    key: "challenge_complete",
+    label: "Challenge Complete",
+    description: "Your team hit the target in a company step challenge.",
+    earnHint: "Finish a company step challenge",
+  },
+  {
+    key: "team_mvp",
+    label: "Team MVP",
+    description: "Top step contributor when a company challenge ended.",
+    earnHint: "Top your team in a step challenge",
+  },
+  {
+    key: "habit_complete",
+    label: "Clean Streak",
+    description: "Reached your own clean-streak goal.",
+    earnHint: "Reach your Clean Streak goal",
+  },
+];
+
+// Label lookup for a persisted awarded badge_key, derived from the one list above
+// so the label lives in a single place.
+const CHALLENGE_BADGE_LABELS: Record<string, string> = Object.fromEntries(
+  AWARDED_BADGES.map((b) => [b.key, b.label])
+);
 
 /** Human label for a persisted badge_key (falls back to the key itself). */
 export function badgeLabel(key: string): string {
