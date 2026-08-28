@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getProfile } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { getPosts, countWinsPosts } from "@/lib/community/queries";
@@ -74,6 +75,14 @@ export default async function WinsBoardPage() {
                 ? "Be the first to share a win this week."
                 : `${winsThisWeek} win${winsThisWeek === 1 ? "" : "s"} shared this week.`}
             </p>
+            {/* Wayfinding back to the member's private Trophy Room, where every
+                badge lives and Share posts one here. */}
+            <Link
+              href="/journey"
+              className="mt-4 inline-block text-[11px] font-extrabold uppercase tracking-[0.16em] text-brand-accent-light-2 transition-opacity hover:opacity-80"
+            >
+              Your Trophy Room →
+            </Link>
           </div>
           <div className="shrink-0 sm:min-w-[14rem]">
             <WinsScoreboard thisWeek={winsThisWeek} allTime={winsAllTime} />

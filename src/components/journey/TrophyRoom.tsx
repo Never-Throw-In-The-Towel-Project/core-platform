@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Badge, BadgeGroup, BadgeStatsInput } from "@/lib/gamification/badges";
 import { AWARDED_BADGES, BADGE_GROUPS, badgeProgressHint } from "@/lib/gamification/badges";
 import { ShareBadgeButton } from "./ShareBadgeButton";
@@ -140,11 +141,21 @@ export function TrophyRoom({
         })}
       </div>
 
-      <p className="mt-6 text-[11px] text-muted">
-        {canShare
-          ? "Your trophies are private. Share one to put it on the community wins board."
-          : "Your trophies are private to you."}
-      </p>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p className="text-[11px] text-muted">
+          {canShare
+            ? "Your trophies are private. Share one to put it on the community wins board."
+            : "Your trophies are private to you."}
+        </p>
+        {canShare && (
+          <Link
+            href="/community/wins"
+            className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-brand-accent-deep transition-opacity hover:opacity-80"
+          >
+            See the Wins Board →
+          </Link>
+        )}
+      </div>
     </section>
   );
 }
