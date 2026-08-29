@@ -76,7 +76,10 @@ export async function sendGuestEventCancelledEmail(input: GuestEventNotice): Pro
     heading: "An event you booked has been cancelled",
     paragraphs: [
       greeting(input.guestName),
-      `Unfortunately “${input.eventTitle}” (${input.eventWhen}) has been cancelled. There’s nothing you need to do — your place has been released.`,
+      // Reaches both confirmed and waitlisted guests, so it must NOT assert a
+      // held place (a waitlisted guest never had one) -- "nothing you need to do"
+      // covers a confirmed booking's release without overstating a waitlist spot.
+      `Unfortunately “${input.eventTitle}” (${input.eventWhen}) has been cancelled and won’t be going ahead. There’s nothing you need to do.`,
     ],
     details: [
       { label: "Event", value: input.eventTitle },

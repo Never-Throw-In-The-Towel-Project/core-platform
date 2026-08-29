@@ -18,6 +18,17 @@ export type EventChangeNotice = {
   what: "time" | "location" | "time and location";
 };
 
+/** Same instant, in epoch ms, or null for an absent time -- so two spellings of
+ *  the SAME moment compare equal. `starts_at`/`ends_at` come back from PostgREST
+ *  as `2026-09-05T08:00:00+00:00`, but `Date.toISOString()` (what the save writes)
+ *  produces `2026-09-05T08:00:00.000Z`; a raw string `!==` would call every edit a
+ *  time change and spam every attendee. Compare the instants, not the spellings. */
+function instantMs(v: string | null): number | null {
+  if (!v) return null;
+  const t = new Date(v).getTime();
+  return Number.isNaN(t) ? null : t;
+}
+
 /** The attendee notice for an edit, or null when neither the time nor the place
  *  moved. `null`/empty location fields are treated as equal, so clearing an
  *  already-empty field isn't a "change". */
@@ -27,7 +38,8 @@ export function eventChangeNotice(
   after: EventSnapshot
 ): EventChangeNotice | null {
   const timeChanged =
-    before.starts_at !== after.starts_at || (before.ends_at ?? null) !== (after.ends_at ?? null);
+    instantMs(before.starts_at) !== instantMs(after.starts_at) ||
+    instantMs(before.ends_at) !== instantMs(after.ends_at);
   const locationChanged =
     (before.location_name ?? "") !== (after.location_name ?? "") ||
     (before.location_url ?? "") !== (after.location_url ?? "");

@@ -402,37 +402,39 @@ export async function updateEvent(
     // The capacity may have risen: promote waitlisters into any freed seats.
     // Best-effort -- the edit is already saved, so a reconcile hiccup must not
     // surface as a save failure. reconcile_event_capacity is service_role-only,
-    // hence the admin client (this edit was already RLS-authorised above).
-    // Raising capacity may promote waitlisters. reconcile promotes but returns
-    // void, so snapshot the waitlist around it to learn who moved up, and notify
-    // them. Best-effort; the save already succeeded.
+    // hence the admin client (this edit was already RLS-authorised above). It
+    // RETURNS the ids it promoted, so we notify exactly those bookings -- no
+    // before/after diff, no mis-attribution under concurrency.
     let promotedIds: string[] = [];
     try {
-      const adminClient = createAdminClient();
-      const { data: beforeWait } = await adminClient
-        .from("event_bookings")
-        .select("id")
-        .eq("event_id", eventId)
-        .eq("status", "waitlisted");
-      const beforeIds = ((beforeWait ?? []) as { id: string }[]).map((r) => r.id);
-      await adminClient.rpc("reconcile_event_capacity", { p_event_id: eventId });
-      if (beforeIds.length > 0) {
-        const { data: nowConfirmed } = await adminClient
-          .from("event_bookings")
-          .select("id")
-          .in("id", beforeIds)
-          .eq("status", "confirmed");
-        promotedIds = ((nowConfirmed ?? []) as { id: string }[]).map((r) => r.id);
-      }
+      const { data } = await createAdminClient().rpc("reconcile_event_capacity", { p_event_id: eventId });
+      promotedIds = ((data ?? []) as { booking_id: string }[]).map((r) => r.booking_id);
     } catch {
       /* non-fatal: the save succeeded */
     }
-    for (const id of promotedIds) await notifyPromotedBooking(id);
 
-    // Tell booked attendees if the TIME or PLACE moved on a live, upcoming event
-    // -- members by push, guests by email. A description or image tweak notifies
-    // no one (eventChangeNotice returns null). Best-effort; neither helper throws.
-    if (existingRow && existingRow.is_published && !existingRow.cancelled_at) {
+    // Only tell attendees when there's actually an event to attend: one that was
+    // live (published, not cancelled) and is still upcoming AFTER this edit.
+    // reconcile above always runs (it keeps confirmed_count correct regardless),
+    // but a "you're off the waitlist -- see you there" or "the time changed"
+    // notice for a past or cancelled event would be wrong. `d.startsAt` is the
+    // NEW start, so rescheduling a past event into the future still notifies.
+    const notifyUpcoming =
+      !!existingRow &&
+      existingRow.is_published &&
+      !existingRow.cancelled_at &&
+      d.startsAt.getTime() > Date.now();
+
+    if (notifyUpcoming) {
+      // Whoever reconcile just promoted -- members by push, guests by email.
+      for (const id of promotedIds) await notifyPromotedBooking(id);
+
+      // Tell booked attendees if the TIME or PLACE moved. A description or image
+      // tweak notifies no one (eventChangeNotice returns null). Best-effort;
+      // neither helper throws. (Known minor: an edit that BOTH promotes someone
+      // AND moves the time sends that one person two truthful notices -- the
+      // promotion notice already carries the new details. Rare combined edit; not
+      // worth cross-channel dedup plumbing.)
       const notice = eventChangeNotice(
         d.title,
         {
@@ -448,7 +450,7 @@ export async function updateEvent(
           location_url: d.locationUrl ?? null,
         }
       );
-      if (notice && d.startsAt.getTime() > Date.now()) {
+      if (notice) {
         await notifyEventBookers(eventId, { title: notice.title, body: notice.body, url: `/events/${existingRow.slug}` });
         await notifyEventGuests(eventId, "updated", notice.what);
       }
