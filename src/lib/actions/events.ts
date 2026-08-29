@@ -19,6 +19,8 @@ import {
   eventImageUrlFromPath,
   isEventImagePath,
 } from "@/lib/events/imageUpload";
+import { notifyEventBookers } from "@/lib/events/notify";
+import { eventChangeNotice } from "@/lib/events/changeNotice";
 
 const uuid = z.string().uuid();
 
@@ -341,10 +343,21 @@ export async function updateEvent(
     // up afterwards.
     const { data: existing } = await supabase
       .from("events")
-      .select("image_url")
+      .select("image_url, title, slug, starts_at, ends_at, location_name, location_url, is_published, cancelled_at")
       .eq("id", eventId)
       .maybeSingle();
-    const oldImageUrl = (existing as { image_url: string | null } | null)?.image_url ?? null;
+    const existingRow = existing as {
+      image_url: string | null;
+      title: string;
+      slug: string;
+      starts_at: string;
+      ends_at: string | null;
+      location_name: string | null;
+      location_url: string | null;
+      is_published: boolean;
+      cancelled_at: string | null;
+    } | null;
+    const oldImageUrl = existingRow?.image_url ?? null;
 
     let nextImageUrl: string | null = oldImageUrl;
     const fresh = submittedEventImageUrl(supabase, session.userId, formData);
@@ -390,6 +403,30 @@ export async function updateEvent(
       await createAdminClient().rpc("reconcile_event_capacity", { p_event_id: eventId });
     } catch {
       /* non-fatal: the save succeeded */
+    }
+
+    // Tell booked members if the TIME or PLACE moved on a live, upcoming event --
+    // a description or image tweak notifies no one (eventChangeNotice returns
+    // null). Best-effort, after the save; notifyEventBookers never throws.
+    if (existingRow && existingRow.is_published && !existingRow.cancelled_at) {
+      const notice = eventChangeNotice(
+        d.title,
+        {
+          starts_at: existingRow.starts_at,
+          ends_at: existingRow.ends_at,
+          location_name: existingRow.location_name,
+          location_url: existingRow.location_url,
+        },
+        {
+          starts_at: d.startsAt.toISOString(),
+          ends_at: d.endsAt ? d.endsAt.toISOString() : null,
+          location_name: d.locationName ?? null,
+          location_url: d.locationUrl ?? null,
+        }
+      );
+      if (notice && d.startsAt.getTime() > Date.now()) {
+        await notifyEventBookers(eventId, { ...notice, url: `/events/${existingRow.slug}` });
+      }
     }
   } catch {
     return { status: "error", message: "Couldn’t save your changes. Please try again." };
@@ -461,9 +498,20 @@ export async function setEventCancelled(
         updated_at: new Date().toISOString(),
       })
       .eq("id", parsed.data.eventId)
-      .select("id");
+      .select("id, title, slug");
     if (error) return { status: "error", message: "Couldn’t update that. Please try again." };
     if (!data || data.length === 0) return { status: "error", message: "You can’t change this event." };
+
+    // Calling an event off is exactly the case booked members must not miss.
+    // Best-effort, after the save; reinstating (cancel === "false") stays quiet.
+    if (parsed.data.cancel === "true") {
+      const ev = data[0] as { id: string; title: string; slug: string };
+      await notifyEventBookers(ev.id, {
+        title: "Event cancelled",
+        body: `“${ev.title}” has been cancelled.`,
+        url: `/events/${ev.slug}`,
+      });
+    }
   } catch {
     return { status: "error", message: "Couldn’t update that. Please try again." };
   }
