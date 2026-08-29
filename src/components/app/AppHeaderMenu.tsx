@@ -69,8 +69,8 @@ export function AppHeaderMenu({
         aria-expanded={open}
         className={
           trigger === "avatar"
-            ? "grid h-8 w-8 place-items-center border border-ink-hairline text-xs font-extrabold text-brand-foreground hover:bg-white/5"
-            : "grid h-8 w-8 place-items-center text-brand-foreground/80 hover:text-brand-foreground"
+            ? "grid h-10 w-10 place-items-center border border-ink-hairline text-xs font-extrabold text-brand-foreground hover:bg-white/5"
+            : "grid h-10 w-10 place-items-center text-brand-foreground/80 hover:text-brand-foreground"
         }
       >
         {trigger === "avatar" ? (

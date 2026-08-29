@@ -378,7 +378,7 @@ function NavButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="flex h-8 w-8 items-center justify-center border-2 border-foreground text-sm font-extrabold hover:bg-foreground/[0.05]"
+      className="flex h-10 w-10 items-center justify-center border-2 border-foreground text-sm font-extrabold hover:bg-foreground/[0.05]"
     >
       {children}
     </button>

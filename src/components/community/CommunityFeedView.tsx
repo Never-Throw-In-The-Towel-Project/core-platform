@@ -124,7 +124,7 @@ export async function CommunityFeedView({
                 key={tab.key}
                 href={tab.key === "new" ? basePath : `${basePath}?sort=${tab.key}`}
                 aria-current={active ? "page" : undefined}
-                className={`-mb-px border-b-2 pb-2 text-xs font-extrabold uppercase tracking-[0.14em] transition-colors ${
+                className={`-mb-px border-b-2 py-3 text-xs font-extrabold uppercase tracking-[0.14em] transition-colors ${
                   active
                     ? "border-brand-accent text-foreground"
                     : "border-transparent text-muted hover:text-foreground"

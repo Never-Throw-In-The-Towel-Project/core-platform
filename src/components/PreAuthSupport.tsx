@@ -38,7 +38,7 @@ export function PreAuthSupport() {
       </p>
       <a
         href={`tel:${tel}`}
-        className="mt-1 inline-block font-semibold text-brand-accent underline underline-offset-2"
+        className="mt-1 inline-flex min-h-[44px] items-center font-semibold text-brand-accent underline underline-offset-2"
       >
         Call {label}
       </a>
