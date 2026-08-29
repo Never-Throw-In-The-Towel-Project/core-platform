@@ -20,7 +20,7 @@ export function AdminMobileHeader({ counts }: { counts: AdminCounts }) {
           <BrandMark tone="onDark" size={20} />
           <span className="text-xs font-extrabold uppercase tracking-[0.14em]">Admin Centre</span>
         </Link>
-        <Link href="/home" className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-on-ink hover:text-brand-foreground">
+        <Link href="/home" className="-m-2 inline-flex items-center p-2 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-on-ink hover:text-brand-foreground">
           Exit →
         </Link>
       </div>
@@ -33,7 +33,7 @@ export function AdminMobileHeader({ counts }: { counts: AdminCounts }) {
               key={s.href}
               href={s.href}
               aria-current={active ? "page" : undefined}
-              className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-semibold ${
+              className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-3 text-xs font-semibold ${
                 active ? "border-brand-accent text-brand-foreground" : "border-transparent text-muted-on-ink"
               }`}
             >

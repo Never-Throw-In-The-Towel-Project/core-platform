@@ -37,7 +37,7 @@ export function CalendarDayControl({ itemId, day }: { itemId: string; day: numbe
         defaultValue={day == null ? "" : String(day)}
         disabled={pending}
         onChange={() => formRef.current?.requestSubmit()}
-        className="w-full border border-rule-border bg-transparent px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted hover:text-foreground disabled:opacity-50"
+        className="w-full border border-rule-border bg-transparent px-2 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-muted hover:text-foreground disabled:opacity-50"
       >
         {DAYS.map((d) => (
           <option key={d.value} value={d.value}>

@@ -201,11 +201,12 @@ export function AskForSupport({
 
                 <input type="hidden" name="stayAnonymous" value={String(stayAnonymous)} />
 
-                <label className="flex items-center gap-2 text-sm">
+                <label className="flex items-center gap-2 py-1 text-sm">
                   <input
                     type="checkbox"
                     checked={stayAnonymous}
                     onChange={(e) => setStayAnonymous(e.target.checked)}
+                    className="h-5 w-5 accent-brand-accent"
                   />
                   Stay anonymous to the person who contacts me
                 </label>
@@ -229,8 +230,8 @@ export function AskForSupport({
                     { value: "talk_today", label: "I'd like to talk today" },
                     { value: "urgent", label: "This is urgent" },
                   ].map((opt) => (
-                    <label key={opt.value} className="flex items-center gap-2">
-                      <input type="radio" name="urgency" value={opt.value} required />
+                    <label key={opt.value} className="flex items-center gap-2 py-1">
+                      <input type="radio" name="urgency" value={opt.value} required className="h-5 w-5 accent-brand-accent" />
                       {opt.label}
                     </label>
                   ))}

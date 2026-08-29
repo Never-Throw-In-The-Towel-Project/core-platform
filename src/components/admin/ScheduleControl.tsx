@@ -34,7 +34,7 @@ export function ScheduleControl({
           disabled={pending}
           aria-label="Unschedule"
           title="Unschedule"
-          className="px-1 text-[11px] font-bold leading-none opacity-70 hover:opacity-100 disabled:opacity-50"
+          className="inline-flex min-h-[28px] min-w-[28px] items-center justify-center text-sm font-bold leading-none opacity-70 hover:opacity-100 disabled:opacity-50"
         >
           ×
         </button>
@@ -56,7 +56,7 @@ export function ScheduleControl({
         defaultValue={scheduledFor ?? ""}
         disabled={pending}
         onChange={() => formRef.current?.requestSubmit()}
-        className="border border-rule-border bg-transparent px-1.5 py-0.5 text-[11px] text-foreground disabled:opacity-50"
+        className="border border-rule-border bg-transparent px-2 py-1.5 text-xs text-foreground disabled:opacity-50"
       />
       {scheduledFor && (
         <button

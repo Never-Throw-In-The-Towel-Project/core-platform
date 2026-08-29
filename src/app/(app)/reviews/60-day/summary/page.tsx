@@ -81,7 +81,7 @@ export default async function SixtyDaySummaryPage() {
         {r.self_assessment && (
           <div>
             <dt className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Self assessment</dt>
-            <dd className="mt-1 grid grid-cols-2 gap-x-4 gap-y-1">
+            <dd className="mt-1 grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
               {(Object.keys(r.self_assessment) as (keyof typeof r.self_assessment)[]).map((key) => (
                 <span key={key}>
                   {key}: {r.self_assessment![key]}
