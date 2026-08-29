@@ -23,7 +23,7 @@ export function WinTile({ post }: { post: PostWithMeta }) {
             </span>
           ) : null}
         </div>
-        <p className="mt-2 text-[15px] font-semibold leading-snug">
+        <p className="mt-2 [overflow-wrap:anywhere] text-[15px] font-semibold leading-snug">
           <span aria-hidden className="mr-1 align-[-0.35em] text-3xl leading-none text-brand-accent-vivid">
             &ldquo;
           </span>

@@ -83,7 +83,7 @@ export function PostCard({
 
       {/* Body */}
       <div className="px-4 pb-3 pt-3">
-        <p className="whitespace-pre-wrap text-[15px] leading-relaxed">{post.body}</p>
+        <p className="whitespace-pre-wrap [overflow-wrap:anywhere] text-[15px] leading-relaxed">{post.body}</p>
       </div>
 
       {/* Image -- full-bleed within the card, like a social post */}
@@ -165,7 +165,7 @@ export function PostCard({
                 <div className="min-w-0 flex-1">
                   <div className="inline-block max-w-full bg-foreground/[0.04] px-3 py-1.5 text-xs">
                     <span className="font-semibold">{thread.authorDisplayName}</span>{" "}
-                    <span className="whitespace-pre-wrap">{thread.body}</span>
+                    <span className="whitespace-pre-wrap [overflow-wrap:anywhere]">{thread.body}</span>
                   </div>
                 </div>
               </div>
@@ -177,7 +177,7 @@ export function PostCard({
                       <Avatar name={reply.authorDisplayName} className="h-6 w-6 text-[10px]" />
                       <div className="inline-block max-w-full bg-foreground/[0.04] px-3 py-1.5 text-xs">
                         <span className="font-semibold">{reply.authorDisplayName}</span>{" "}
-                        <span className="whitespace-pre-wrap">{reply.body}</span>
+                        <span className="whitespace-pre-wrap [overflow-wrap:anywhere]">{reply.body}</span>
                       </div>
                     </div>
                   ))}
