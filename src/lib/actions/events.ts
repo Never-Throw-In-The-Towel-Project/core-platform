@@ -19,7 +19,7 @@ import {
   eventImageUrlFromPath,
   isEventImagePath,
 } from "@/lib/events/imageUpload";
-import { notifyEventBookers } from "@/lib/events/notify";
+import { notifyEventBookers, notifyPromotedBooking, notifyEventGuests } from "@/lib/events/notify";
 import { eventChangeNotice } from "@/lib/events/changeNotice";
 import { buildRosterCsv, rosterCsvFilename, type RosterCsvRow } from "@/lib/events/rosterCsv";
 
@@ -93,8 +93,11 @@ export async function cancelBooking(
 
   try {
     const supabase = await createClient();
-    const { error } = await supabase.rpc("cancel_my_booking", { p_event_id: eventId });
+    const { data, error } = await supabase.rpc("cancel_my_booking", { p_event_id: eventId });
     if (error) return { status: "error", message: "Couldn’t cancel just now. Please try again." };
+    // A freed confirmed seat promotes the oldest waitlister -- tell them (never
+    // throws, never blocks the cancel).
+    if (data) await notifyPromotedBooking(String(data));
   } catch {
     return { status: "error", message: "Couldn’t cancel just now. Please try again." };
   }
@@ -400,15 +403,35 @@ export async function updateEvent(
     // Best-effort -- the edit is already saved, so a reconcile hiccup must not
     // surface as a save failure. reconcile_event_capacity is service_role-only,
     // hence the admin client (this edit was already RLS-authorised above).
+    // Raising capacity may promote waitlisters. reconcile promotes but returns
+    // void, so snapshot the waitlist around it to learn who moved up, and notify
+    // them. Best-effort; the save already succeeded.
+    let promotedIds: string[] = [];
     try {
-      await createAdminClient().rpc("reconcile_event_capacity", { p_event_id: eventId });
+      const adminClient = createAdminClient();
+      const { data: beforeWait } = await adminClient
+        .from("event_bookings")
+        .select("id")
+        .eq("event_id", eventId)
+        .eq("status", "waitlisted");
+      const beforeIds = ((beforeWait ?? []) as { id: string }[]).map((r) => r.id);
+      await adminClient.rpc("reconcile_event_capacity", { p_event_id: eventId });
+      if (beforeIds.length > 0) {
+        const { data: nowConfirmed } = await adminClient
+          .from("event_bookings")
+          .select("id")
+          .in("id", beforeIds)
+          .eq("status", "confirmed");
+        promotedIds = ((nowConfirmed ?? []) as { id: string }[]).map((r) => r.id);
+      }
     } catch {
       /* non-fatal: the save succeeded */
     }
+    for (const id of promotedIds) await notifyPromotedBooking(id);
 
-    // Tell booked members if the TIME or PLACE moved on a live, upcoming event --
-    // a description or image tweak notifies no one (eventChangeNotice returns
-    // null). Best-effort, after the save; notifyEventBookers never throws.
+    // Tell booked attendees if the TIME or PLACE moved on a live, upcoming event
+    // -- members by push, guests by email. A description or image tweak notifies
+    // no one (eventChangeNotice returns null). Best-effort; neither helper throws.
     if (existingRow && existingRow.is_published && !existingRow.cancelled_at) {
       const notice = eventChangeNotice(
         d.title,
@@ -426,7 +449,8 @@ export async function updateEvent(
         }
       );
       if (notice && d.startsAt.getTime() > Date.now()) {
-        await notifyEventBookers(eventId, { ...notice, url: `/events/${existingRow.slug}` });
+        await notifyEventBookers(eventId, { title: notice.title, body: notice.body, url: `/events/${existingRow.slug}` });
+        await notifyEventGuests(eventId, "updated", notice.what);
       }
     }
   } catch {
@@ -512,6 +536,7 @@ export async function setEventCancelled(
         body: `“${ev.title}” has been cancelled.`,
         url: `/events/${ev.slug}`,
       });
+      await notifyEventGuests(ev.id, "cancelled");
     }
   } catch {
     return { status: "error", message: "Couldn’t update that. Please try again." };
@@ -693,8 +718,10 @@ export async function adminCancelBooking(input: { bookingId: string }): Promise<
 
   try {
     const admin = createAdminClient();
-    const { error } = await admin.rpc("admin_cancel_booking", { p_booking_id: parsed.data });
+    const { data, error } = await admin.rpc("admin_cancel_booking", { p_booking_id: parsed.data });
     if (error) return { status: "error", message: "Couldn’t remove that booking. Please try again." };
+    // A freed confirmed seat promoted the oldest waitlister -- tell them.
+    if (data) await notifyPromotedBooking(String(data));
   } catch {
     return { status: "error", message: "Couldn’t remove that booking. Please try again." };
   }
@@ -716,6 +743,8 @@ export async function adminPromoteBooking(input: { bookingId: string }): Promise
     const admin = createAdminClient();
     const { error } = await admin.rpc("admin_promote_booking", { p_booking_id: parsed.data });
     if (error) return { status: "error", message: "Couldn’t promote that booking. Please try again." };
+    // The organiser pulled this specific person up -- tell them they're in.
+    await notifyPromotedBooking(parsed.data);
   } catch {
     return { status: "error", message: "Couldn’t promote that booking. Please try again." };
   }
@@ -981,7 +1010,9 @@ export async function cancelGuestBooking(formData: FormData): Promise<void> {
     try {
       const admin = createAdminClient();
       const base = await guestBookingBasePath(admin, bookingId);
-      const { error } = await admin.rpc("cancel_guest_booking", { p_booking_id: bookingId });
+      const { data, error } = await admin.rpc("cancel_guest_booking", { p_booking_id: bookingId });
+      // A freed confirmed seat promoted the oldest waitlister -- tell them.
+      if (!error && data) await notifyPromotedBooking(String(data));
       target = error ? `${base}?guest=error` : `${base}?guest=cancelled`;
     } catch {
       target = "/events?guest=error";

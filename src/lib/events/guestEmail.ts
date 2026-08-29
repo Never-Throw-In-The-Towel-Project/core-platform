@@ -51,3 +51,92 @@ export async function sendGuestBookingConfirmEmail(
   });
   return { ok: res.ok, error: res.error };
 }
+
+/** Lifecycle notices for a GUEST (no account, so no push): the event they booked
+ *  was cancelled, its time/place changed, or they've been moved off the waitlist.
+ *  Each mirrors the member push in G1b. Best-effort -- returns { ok:false } when
+ *  Brevo isn't configured rather than throwing. */
+export interface GuestEventNotice {
+  toEmail: string;
+  guestName: string | null;
+  eventTitle: string;
+  eventWhen: string;
+  /** Public /events/<slug> URL, when NEXT_PUBLIC_SITE_URL is set. */
+  eventUrl?: string;
+}
+
+function greeting(name: string | null): string {
+  const n = name?.trim();
+  return n ? `Hi ${n},` : "Hi,";
+}
+
+export async function sendGuestEventCancelledEmail(input: GuestEventNotice): Promise<{ ok: boolean }> {
+  const { html, text } = renderBrandedEmail({
+    preheader: `${input.eventTitle} has been cancelled.`,
+    heading: "An event you booked has been cancelled",
+    paragraphs: [
+      greeting(input.guestName),
+      `Unfortunately “${input.eventTitle}” (${input.eventWhen}) has been cancelled. There’s nothing you need to do — your place has been released.`,
+    ],
+    details: [
+      { label: "Event", value: input.eventTitle },
+      { label: "When", value: input.eventWhen },
+    ],
+    button: input.eventUrl ? { label: "View event", url: input.eventUrl } : undefined,
+  });
+  const res = await sendBrandedEmail({
+    to: [{ email: input.toEmail, name: input.guestName ?? undefined }],
+    subject: `Cancelled — ${input.eventTitle}`,
+    html,
+    text,
+  });
+  return { ok: res.ok };
+}
+
+export async function sendGuestEventUpdatedEmail(
+  input: GuestEventNotice & { what: string }
+): Promise<{ ok: boolean }> {
+  const { html, text } = renderBrandedEmail({
+    preheader: `The ${input.what} for ${input.eventTitle} has changed.`,
+    heading: "An event you booked has changed",
+    paragraphs: [
+      greeting(input.guestName),
+      `The ${input.what} for “${input.eventTitle}” has changed. Here are the latest details — please check they still work for you.`,
+    ],
+    details: [
+      { label: "Event", value: input.eventTitle },
+      { label: "When", value: input.eventWhen },
+    ],
+    button: input.eventUrl ? { label: "View event", url: input.eventUrl } : undefined,
+  });
+  const res = await sendBrandedEmail({
+    to: [{ email: input.toEmail, name: input.guestName ?? undefined }],
+    subject: `Updated — ${input.eventTitle}`,
+    html,
+    text,
+  });
+  return { ok: res.ok };
+}
+
+export async function sendGuestPromotedEmail(input: GuestEventNotice): Promise<{ ok: boolean }> {
+  const { html, text } = renderBrandedEmail({
+    preheader: `A place opened up — you’re in for ${input.eventTitle}.`,
+    heading: "You’re off the waitlist",
+    paragraphs: [
+      greeting(input.guestName),
+      `Good news — a place opened up and you’re now booked in for “${input.eventTitle}” (${input.eventWhen}). We look forward to seeing you there.`,
+    ],
+    details: [
+      { label: "Event", value: input.eventTitle },
+      { label: "When", value: input.eventWhen },
+    ],
+    button: input.eventUrl ? { label: "View event", url: input.eventUrl } : undefined,
+  });
+  const res = await sendBrandedEmail({
+    to: [{ email: input.toEmail, name: input.guestName ?? undefined }],
+    subject: `You’re in — ${input.eventTitle}`,
+    html,
+    text,
+  });
+  return { ok: res.ok };
+}
