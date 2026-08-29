@@ -134,7 +134,7 @@ export function PeriodicReviewForm({
                   name={`win_${n}`}
                   type="text"
                   placeholder="Add a win"
-                  className="flex-1 bg-transparent py-1 text-sm outline-none placeholder:text-muted"
+                  className="flex-1 bg-transparent py-2.5 text-sm outline-none placeholder:text-muted"
                 />
               </div>
             ))}
@@ -168,7 +168,7 @@ export function PeriodicReviewForm({
                         type="button"
                         onClick={() => setRatings((prev) => ({ ...prev, [dimension.key]: n }))}
                         className={
-                          "h-8 flex-1 sm:h-6 " +
+                          "h-11 flex-1 sm:h-6 " +
                           ((ratings[dimension.key] ?? 0) >= n ? "bg-brand-accent" : "bg-foreground/10")
                         }
                         aria-label={`${dimension.label}: ${n}`}
@@ -202,7 +202,7 @@ export function PeriodicReviewForm({
                 name="commitmentSignedName"
                 type="text"
                 required
-                className="mt-1 w-full border-b border-rule-border bg-transparent py-1"
+                className="mt-1 w-full border-b border-rule-border bg-transparent py-2.5"
               />
             </label>
             <div>

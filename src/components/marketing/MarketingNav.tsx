@@ -89,7 +89,7 @@ export function MarketingNav({ showSignup, skinColor }: { showSignup: boolean; s
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
           aria-controls="marketing-mobile-nav"
-          className="shrink-0 border border-rule-border px-4 py-2 text-xs font-extrabold tracking-wide uppercase lg:hidden"
+          className="shrink-0 border border-rule-border px-4 py-3 text-xs font-extrabold tracking-wide uppercase lg:hidden"
         >
           {open ? "Close" : "Menu"}
         </button>

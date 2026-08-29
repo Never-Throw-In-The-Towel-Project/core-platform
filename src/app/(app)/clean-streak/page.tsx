@@ -130,7 +130,7 @@ export default async function CleanStreakPage() {
           )}
 
           {/* Calendar */}
-          <section className="border-2 border-foreground p-6">
+          <section className="border-2 border-foreground p-3 sm:p-6">
             <HabitCalendar
               challengeId={current.id}
               startedOn={current.started_on}

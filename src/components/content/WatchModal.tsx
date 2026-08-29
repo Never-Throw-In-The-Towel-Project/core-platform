@@ -64,7 +64,7 @@ export function WatchModal({
           type="button"
           onClick={() => router.back()}
           aria-label="Close"
-          className="mb-3 self-end text-[11px] font-extrabold uppercase tracking-[0.16em] text-white/80 transition-colors hover:text-white"
+          className="mb-2 -mr-2 inline-flex min-h-[40px] items-center self-end px-2 text-[11px] font-extrabold uppercase tracking-[0.16em] text-white/80 transition-colors hover:text-white"
         >
           Close ✕
         </button>
