@@ -48,6 +48,9 @@ export async function uploadContentAsset(
   const path = `content/${randomUUID()}.${extension}`;
   const { error } = await supabase.storage.from("content-assets").upload(path, file, { contentType: file.type });
   if (error) {
+    // Log the real Storage cause (e.g. "Bucket not found", an RLS denial) --
+    // the friendly message alone left operators with no signal to debug from.
+    console.error("[uploadContentAsset] storage upload failed", error);
     return { error: "Something went wrong uploading that file. Please try again." };
   }
   return { path };
