@@ -41,6 +41,9 @@ export async function uploadNoticeImage(supabase: AnyClient, file: File): Promis
   const path = `notice/${randomUUID()}.${extension}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type });
   if (error) {
+    // Log the real Storage cause (e.g. "Bucket not found", an RLS denial) --
+    // the friendly message alone left operators with no signal to debug from.
+    console.error("[uploadNoticeImage] storage upload failed", error);
     return { error: "Something went wrong uploading that image. Please try again." };
   }
   return { path };

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyCronRequest } from "@/lib/auth/cron";
 import { summarizeConfig } from "@/lib/health/config";
 import { checkSchemaReadiness, type SchemaSentinel } from "@/lib/health/schema";
+import { checkStorageReadiness, type StorageBucket } from "@/lib/health/storage";
 
 /**
  * Readiness probe for uptime monitoring and operator go-live checks.
@@ -48,6 +49,23 @@ async function sentinelExists(sentinel: SchemaSentinel): Promise<boolean> {
   }
 }
 
+/** Does a storage bucket exist in this project? Uses the SERVICE-ROLE admin
+ *  client for the same reason sentinelExists does: /api/health has no Supabase
+ *  session (it authenticates via CRON_SECRET), so the request client would be
+ *  `anon`. `getBucket` returns an error for a missing bucket, so `!error && data`
+ *  == the bucket exists. This catches a bucket-only migration that was merged but
+ *  not `supabase db push`-ed -- invisible to the table probe -- exactly the
+ *  event-images gap that broke every event image upload. */
+async function bucketExists(bucket: StorageBucket): Promise<boolean> {
+  try {
+    const client = createAdminClient();
+    const { data, error } = await client.storage.getBucket(bucket.bucket);
+    return !error && !!data;
+  } catch {
+    return false;
+  }
+}
+
 async function isDatabaseReachable(): Promise<boolean> {
   try {
     // createClient() throws synchronously if the Supabase URL/key are missing or
@@ -77,12 +95,17 @@ export async function GET(request: NextRequest) {
     if (!(await verifyCronRequest(request))) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
-    // Schema readiness catches a migration that's merged but not `db push`-ed to
-    // this database. Best-effort: it never changes the liveness status/httpStatus
-    // (a behind schema isn't downtime) -- it's an operator signal in the report.
-    const schema = await checkSchemaReadiness(sentinelExists);
+    // Schema + storage readiness catch a migration that's merged but not `db
+    // push`-ed to this database -- a missing table OR a missing storage bucket
+    // (the event-images case). Best-effort: neither changes the liveness
+    // status/httpStatus (a behind schema isn't downtime) -- they're operator
+    // signals in the report.
+    const [schema, storage] = await Promise.all([
+      checkSchemaReadiness(sentinelExists),
+      checkStorageReadiness(bucketExists),
+    ]);
     return NextResponse.json(
-      { ...base, config: summarizeConfig(process.env), schema },
+      { ...base, config: summarizeConfig(process.env), schema, storage },
       { status: httpStatus }
     );
   }

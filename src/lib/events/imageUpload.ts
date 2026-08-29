@@ -48,6 +48,10 @@ export async function uploadEventImage(
     contentType: file.type,
   });
   if (uploadError) {
+    // Log the real Storage cause (e.g. "Bucket not found" when the event-images
+    // migration hasn't been db-pushed, or an RLS denial) -- the friendly message
+    // alone left operators with no signal to debug from.
+    console.error("[uploadEventImage] storage upload failed", uploadError);
     return { error: "Something went wrong uploading that image. Please try again." };
   }
 

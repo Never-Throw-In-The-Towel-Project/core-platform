@@ -48,6 +48,9 @@ export async function uploadCommunityImage(
     .upload(path, file, { contentType: file.type });
 
   if (uploadError) {
+    // Log the real Storage cause (e.g. "Bucket not found", an RLS denial) --
+    // the friendly message alone left operators with no signal to debug from.
+    console.error("[uploadCommunityImage] storage upload failed", uploadError);
     return { error: "Something went wrong uploading that photo. Please try again." };
   }
 
