@@ -77,7 +77,7 @@ export function StandFundamentals({ initial }: { initial: StandState }) {
               onClick={() => toggle(f.key)}
               aria-pressed={on}
               className={
-                "flex items-center gap-1.5 border px-3 py-1.5 text-sm font-semibold transition-colors " +
+                "flex min-h-[40px] items-center gap-1.5 border px-3 py-2 text-sm font-semibold transition-colors " +
                 (on
                   ? "border-brand-accent bg-brand-accent text-brand-accent-foreground"
                   : "border-rule-border text-foreground hover:border-foreground")

@@ -51,7 +51,7 @@ export function PodcastOptIn({
         <button
           type="submit"
           disabled={isPending}
-          className="border border-rule-border px-3 py-1.5 text-xs font-bold uppercase tracking-wide"
+          className="border border-rule-border px-3 py-2.5 text-xs font-bold uppercase tracking-wide"
         >
           {isPending ? "…" : "Withdraw"}
         </button>
@@ -68,7 +68,7 @@ export function PodcastOptIn({
         <button
           type="button"
           onClick={() => setShowConsent(true)}
-          className="border border-rule-border px-3 py-1.5 text-xs font-bold uppercase tracking-wide"
+          className="border border-rule-border px-3 py-2.5 text-xs font-bold uppercase tracking-wide"
         >
           I&apos;m interested
         </button>
@@ -93,7 +93,7 @@ export function PodcastOptIn({
         </legend>
         {(Object.entries(ANONYMITY_LABEL) as [PodcastGuestAnonymityPreference, string][]).map(
           ([value, label]) => (
-            <label key={value} className="flex items-center gap-2 text-xs">
+            <label key={value} className="flex items-center gap-2 py-1 text-xs">
               <input
                 type="radio"
                 name="anonymityPreference"
@@ -101,6 +101,7 @@ export function PodcastOptIn({
                 checked={choice === value}
                 onChange={() => setChoice(value)}
                 required
+                className="h-5 w-5 accent-brand-accent"
               />
               {label}
             </label>
@@ -114,14 +115,14 @@ export function PodcastOptIn({
         <button
           type="submit"
           disabled={isPending || !choice}
-          className="border border-rule-border px-3 py-1.5 text-xs font-bold uppercase tracking-wide disabled:opacity-50"
+          className="border border-rule-border px-3 py-2.5 text-xs font-bold uppercase tracking-wide disabled:opacity-50"
         >
           {isPending ? "…" : "I understand -- opt in"}
         </button>
         <button
           type="button"
           onClick={() => setShowConsent(false)}
-          className="px-3 py-1.5 text-xs text-muted underline"
+          className="px-3 py-2.5 text-xs text-muted underline"
         >
           Cancel
         </button>

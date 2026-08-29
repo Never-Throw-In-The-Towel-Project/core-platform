@@ -25,7 +25,7 @@ export function WorkspaceNav() {
             key={l.href}
             href={l.href}
             aria-current={active ? "page" : undefined}
-            className={`whitespace-nowrap border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
+            className={`whitespace-nowrap border-b-2 px-3 py-2.5 text-xs font-semibold transition-colors ${
               active
                 ? "border-brand-accent text-brand-foreground"
                 : "border-transparent text-brand-foreground/60 hover:text-brand-foreground"

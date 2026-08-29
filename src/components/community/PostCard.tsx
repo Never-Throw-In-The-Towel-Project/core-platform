@@ -75,7 +75,7 @@ export function PostCard({
         <button
           type="button"
           onClick={() => setShowReport((v) => !v)}
-          className="-m-2 shrink-0 p-2 text-[11px] font-semibold uppercase tracking-wide text-muted transition-colors hover:text-foreground"
+          className="-m-2 shrink-0 p-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted transition-colors hover:text-foreground"
         >
           Report
         </button>
@@ -195,7 +195,7 @@ export function PostCard({
                     onChange={(e) => setReplyBody(e.target.value)}
                     placeholder={`Reply to ${thread.authorDisplayName}…`}
                     aria-label={`Reply to ${thread.authorDisplayName}`}
-                    className="flex-1 rounded-full border border-rule-border bg-transparent px-3 py-1.5 text-xs"
+                    className="flex-1 rounded-full border border-rule-border bg-transparent px-3 py-2.5 text-sm"
                   />
                   <button
                     type="submit"
@@ -212,7 +212,7 @@ export function PostCard({
                     setReplyingTo(thread.id);
                     setReplyBody("");
                   }}
-                  className="ml-9 text-[11px] font-semibold uppercase tracking-wide text-muted transition-colors hover:text-foreground"
+                  className="ml-9 inline-flex min-h-[36px] items-center text-[11px] font-semibold uppercase tracking-wide text-muted transition-colors hover:text-foreground"
                 >
                   Reply
                 </button>
@@ -229,7 +229,7 @@ export function PostCard({
               onChange={(e) => setCommentBody(e.target.value)}
               placeholder="Write a comment…"
               aria-label="Write a comment"
-              className="flex-1 rounded-full border border-rule-border bg-transparent px-3 py-2 text-xs"
+              className="flex-1 rounded-full border border-rule-border bg-transparent px-3 py-2.5 text-sm"
             />
             <button
               type="submit"

@@ -40,8 +40,8 @@ export default async function MarketingLayout({ children }: { children: React.Re
       <footer className="border-t border-rule-hairline px-6 py-8">
         <PreAuthSupport />
         <nav className="mt-6 flex justify-center gap-5 text-xs font-semibold text-muted" aria-label="Legal">
-          <a href="/privacy" className="hover:text-foreground">Privacy Policy</a>
-          <a href="/terms" className="hover:text-foreground">Terms of Service</a>
+          <a href="/privacy" className="inline-flex min-h-[40px] items-center hover:text-foreground">Privacy Policy</a>
+          <a href="/terms" className="inline-flex min-h-[40px] items-center hover:text-foreground">Terms of Service</a>
         </nav>
       </footer>
     </div>
