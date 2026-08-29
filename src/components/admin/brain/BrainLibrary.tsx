@@ -245,12 +245,14 @@ export function BrainLibrary({
         </ul>
       )}
 
-      {/* spacer so the sticky bar never hides the last row */}
-      {selected.size > 0 && <div className="h-24" />}
+      {/* spacer so the sticky bar never hides the last row (only when sticky, i.e. sm+) */}
+      {selected.size > 0 && <div className="hidden h-24 sm:block" />}
 
-      {/* ---- Sticky bulk action bar ---- */}
+      {/* ---- Bulk action bar. In-flow on mobile (the ~10 wrapping controls would
+           otherwise stack tall as a sticky overlay and cover the small viewport);
+           sticky above the fold from sm up. ---- */}
       {selected.size > 0 && (
-        <div className="sticky bottom-4 z-10 mt-4">
+        <div className="mt-4 sm:sticky sm:bottom-4 sm:z-10">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-2 border-foreground bg-background p-3 shadow-[4px_4px_0_0_var(--color-foreground)]">
             <span className="text-sm font-extrabold">{selected.size} selected</span>
             <button type="button" onClick={clear} className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted hover:text-foreground">
