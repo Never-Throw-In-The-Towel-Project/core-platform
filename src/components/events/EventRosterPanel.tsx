@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { exportEventRoster } from "@/lib/actions/events";
+import { adminCancelBooking, adminPromoteBooking, exportEventRoster } from "@/lib/actions/events";
+import type { RoutineActionState } from "@/lib/actions/routineState";
 import { CapacityMeter } from "./CapacityMeter";
 import { EventRosterList } from "./EventRoster";
 import type { EventBookingWithIdentity } from "@/types/database";
@@ -54,6 +55,27 @@ export function EventRosterPanel({
   const [query, setQuery] = useState("");
   const [exporting, startExport] = useTransition();
   const [exportError, setExportError] = useState<string | null>(null);
+  const [pendingBookingId, setPendingBookingId] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<string | null>(null);
+  const [, startRowAction] = useTransition();
+
+  // Remove-a-booking / promote-a-waitlister. On success the action revalidates,
+  // so the roster re-renders with fresh confirmed/waitlist props (no local
+  // splice). The row being acted on is disabled via pendingBookingId.
+  function runRowAction(
+    bookingId: string,
+    action: (input: { bookingId: string }) => Promise<RoutineActionState>
+  ) {
+    setRowError(null);
+    setPendingBookingId(bookingId);
+    startRowAction(async () => {
+      const res = await action({ bookingId });
+      setPendingBookingId(null);
+      if (res.status === "error") setRowError(res.message ?? "Something went wrong. Please try again.");
+    });
+  }
+  const onRemoveBooking = (id: string) => runRowAction(id, adminCancelBooking);
+  const onPromoteBooking = (id: string) => runRowAction(id, adminPromoteBooking);
 
   const shownConfirmed = useMemo(() => confirmed.filter((b) => matches(b, query)), [confirmed, query]);
   const shownWaitlisted = useMemo(() => waitlisted.filter((b) => matches(b, query)), [waitlisted, query]);
@@ -98,6 +120,11 @@ export function EventRosterPanel({
           {exportError}
         </p>
       )}
+      {rowError && (
+        <p role="alert" className="mt-2 text-xs font-semibold text-brand-accent-deep">
+          {rowError}
+        </p>
+      )}
 
       {total > 0 && (
         <input
@@ -115,7 +142,7 @@ export function EventRosterPanel({
         {query && shownConfirmed.length === 0 && confirmed.length > 0 ? (
           <p className="mt-2 text-sm text-muted">No confirmed bookings match “{query}”.</p>
         ) : (
-          <EventRosterList rows={shownConfirmed} />
+          <EventRosterList rows={shownConfirmed} onRemove={onRemoveBooking} pendingId={pendingBookingId} />
         )}
       </div>
 
@@ -125,7 +152,12 @@ export function EventRosterPanel({
           {query && shownWaitlisted.length === 0 ? (
             <p className="mt-2 text-sm text-muted">No waitlisters match “{query}”.</p>
           ) : (
-            <EventRosterList rows={shownWaitlisted} />
+            <EventRosterList
+              rows={shownWaitlisted}
+              onRemove={onRemoveBooking}
+              onPromote={onPromoteBooking}
+              pendingId={pendingBookingId}
+            />
           )}
         </div>
       )}

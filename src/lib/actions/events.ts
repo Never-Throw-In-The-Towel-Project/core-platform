@@ -641,6 +641,90 @@ export async function exportEventRoster(
 }
 
 // ============================================================================
+// ADMIN roster actions (G2): remove a booking / promote a waitlister. Both
+// authors -- ntitt_admin (any event) and hr_admin (their own company's only).
+// Authorisation keys off the BOOKING's own event (loaded server-side), never a
+// client-supplied event id, so a caller can't act on a booking outside their
+// scope. The capacity/waitlist bookkeeping lives in the SECURITY DEFINER
+// functions (admin_cancel_booking / admin_promote_booking), invoked through the
+// service-role client after this check -- same pattern as reconcile.
+// ============================================================================
+
+/** Resolve + authorise the event a booking belongs to. Returns the event's id +
+ *  slug (for revalidation) or a ready error state. */
+async function authorizeBookingAction(
+  bookingId: string
+): Promise<{ eventId: string; slug: string } | { error: RoutineActionState }> {
+  const profile = await getProfile();
+  if (profile.role !== "ntitt_admin" && profile.role !== "hr_admin") {
+    return { error: { status: "error", message: "You don’t have access to events." } };
+  }
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("event_bookings")
+    .select("event:events(id, slug, company_id)")
+    .eq("id", bookingId)
+    .maybeSingle();
+  const ev = (data as { event?: { id: string; slug: string; company_id: string | null } } | null)?.event ?? null;
+  if (!ev) return { error: { status: "error", message: "That booking could not be found." } };
+  if (profile.role === "hr_admin" && ev.company_id !== profile.company_id) {
+    return { error: { status: "error", message: "You don’t have access to this event." } };
+  }
+  return { eventId: ev.id, slug: ev.slug };
+}
+
+function revalidateEventEverywhere(eventId: string, slug: string): void {
+  revalidatePath("/admin/events");
+  revalidatePath(`/admin/events/${eventId}`);
+  revalidatePath("/workspace/events");
+  revalidatePath(`/workspace/events/${eventId}`);
+  revalidatePath("/events");
+  revalidatePath(`/events/${slug}`);
+}
+
+/** Remove one booking from an event's roster; frees the seat and auto-promotes
+ *  the oldest waitlister on a capped event. */
+export async function adminCancelBooking(input: { bookingId: string }): Promise<RoutineActionState> {
+  await verifySession();
+  const parsed = uuid.safeParse(input.bookingId);
+  if (!parsed.success) return { status: "error", message: "That booking could not be found." };
+  const auth = await authorizeBookingAction(parsed.data);
+  if ("error" in auth) return auth.error;
+
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin.rpc("admin_cancel_booking", { p_booking_id: parsed.data });
+    if (error) return { status: "error", message: "Couldn’t remove that booking. Please try again." };
+  } catch {
+    return { status: "error", message: "Couldn’t remove that booking. Please try again." };
+  }
+
+  revalidateEventEverywhere(auth.eventId, auth.slug);
+  return { status: "success", message: "Booking removed." };
+}
+
+/** Promote a specific waitlisted booking to confirmed (an organiser pulling
+ *  someone up out of order; may take the event over capacity by choice). */
+export async function adminPromoteBooking(input: { bookingId: string }): Promise<RoutineActionState> {
+  await verifySession();
+  const parsed = uuid.safeParse(input.bookingId);
+  if (!parsed.success) return { status: "error", message: "That booking could not be found." };
+  const auth = await authorizeBookingAction(parsed.data);
+  if ("error" in auth) return auth.error;
+
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin.rpc("admin_promote_booking", { p_booking_id: parsed.data });
+    if (error) return { status: "error", message: "Couldn’t promote that booking. Please try again." };
+  } catch {
+    return { status: "error", message: "Couldn’t promote that booking. Please try again." };
+  }
+
+  revalidateEventEverywhere(auth.eventId, auth.slug);
+  return { status: "success", message: "Waitlister promoted." };
+}
+
+// ============================================================================
 // HR-admin (company) event authoring. Same fields as the ntitt create, but the
 // event is scoped to the admin's OWN company (company_id = their profile). The
 // events INSERT RLS policy is the real gate (verified live by the harness);
