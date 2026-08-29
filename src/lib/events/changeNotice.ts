@@ -11,7 +11,12 @@ export type EventSnapshot = {
   location_url: string | null;
 };
 
-export type EventChangeNotice = { title: string; body: string };
+export type EventChangeNotice = {
+  title: string;
+  body: string;
+  /** Which dimension moved -- reused verbatim in the guest email copy. */
+  what: "time" | "location" | "time and location";
+};
 
 /** The attendee notice for an edit, or null when neither the time nor the place
  *  moved. `null`/empty location fields are treated as equal, so clearing an
@@ -33,5 +38,6 @@ export function eventChangeNotice(
   return {
     title: "Event updated",
     body: `The ${what} for “${eventTitle}” has changed — tap to see the details.`,
+    what,
   };
 }
