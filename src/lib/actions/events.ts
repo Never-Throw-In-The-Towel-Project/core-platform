@@ -12,7 +12,13 @@ import { formatEventWhen } from "@/lib/events/format";
 import { type RoutineActionState } from "./routineState";
 import { type EventFormState } from "./eventFormState";
 import { type EventFieldErrors } from "@/lib/events/validation";
-import { uploadEventImage, deleteEventImageByUrl } from "@/lib/events/imageUpload";
+import {
+  createEventImageUploadTarget,
+  deleteEventImageByUrl,
+  deleteEventImageByPath,
+  eventImageUrlFromPath,
+  isEventImagePath,
+} from "@/lib/events/imageUpload";
 
 const uuid = z.string().uuid();
 
@@ -185,23 +191,61 @@ function readEventForm(formData: FormData) {
 }
 
 /**
- * If the form carries a new image File, upload it and return its public URL.
- * `{ upload: false }` means no file was sent (keep/none). A validation/upload
- * failure comes back as a ready-to-return error state highlighting the image
- * field. The image column is populated from uploads now, not a pasted URL.
+ * The public URL for an image the form is submitting, or null if it submitted
+ * none. The browser uploads the (downscaled) file direct to Storage and sends us
+ * only its object PATH (see createEventImageUpload); here we validate that path
+ * is our own shape and in the caller's own folder, then derive the public URL
+ * stored in events.image_url. A missing/invalid path is simply "no image" -- the
+ * image can no longer fail the save, so there is no error branch to abort on.
  */
-async function uploadEventImageFromForm(
+function submittedEventImageUrl(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   formData: FormData
-): Promise<{ upload: true; url: string } | { upload: false } | { error: EventFormState }> {
-  const file = formData.get("imageFile");
-  if (!(file instanceof File) || file.size === 0) return { upload: false };
-  const result = await uploadEventImage(supabase, userId, file);
-  if ("error" in result) {
-    return { error: { status: "error", message: result.error, fieldErrors: { imageUrl: result.error } } };
+): string | null {
+  const raw = formData.get("imagePath");
+  if (typeof raw !== "string" || raw === "" || !isEventImagePath(userId, raw)) return null;
+  return eventImageUrlFromPath(supabase, raw);
+}
+
+/**
+ * Mint a signed upload URL for an event image so the browser can PUT it straight
+ * to Storage (see createEventImageUploadTarget). Both authors -- ntitt_admin
+ * (global) and hr_admin (own company) -- may add event images; the event-images
+ * INSERT RLS is the real gate, and running as the author's own session scopes
+ * the mint to their own folder.
+ */
+export async function createEventImageUpload(input: {
+  contentType: string;
+}): Promise<{ path: string; token: string } | { error: string }> {
+  const session = await verifySession();
+  const denied = await ensureEventEditor();
+  if (denied) return { error: "You don’t have access to events." };
+  try {
+    const supabase = await createClient();
+    return await createEventImageUploadTarget(supabase, session.userId, input.contentType);
+  } catch {
+    return { error: "Couldn’t start the image upload. Please try again." };
   }
-  return { upload: true, url: result.url };
+}
+
+/**
+ * Best-effort delete of a just-uploaded event image that never got saved -- the
+ * Studio calls this when an admin replaces or removes a pick (images upload the
+ * moment they're chosen, before the row is saved, so a discarded pick would
+ * otherwise orphan the object). Only ever deletes within the caller's own folder.
+ */
+export async function discardEventImageUpload(input: { path: string }): Promise<void> {
+  const session = await verifySession();
+  const denied = await ensureEventEditor();
+  if (denied) return;
+  if (!isEventImagePath(session.userId, input.path)) return;
+  try {
+    const supabase = await createClient();
+    await deleteEventImageByPath(supabase, input.path);
+  } catch {
+    /* non-fatal: an orphan is harmless */
+  }
 }
 
 export async function createEvent(
@@ -231,9 +275,7 @@ export async function createEvent(
 
   try {
     const supabase = await createClient();
-    const img = await uploadEventImageFromForm(supabase, session.userId, formData);
-    if ("error" in img) return img.error;
-    const imageUrl = img.upload ? img.url : null;
+    const imageUrl = submittedEventImageUrl(supabase, session.userId, formData);
 
     const slug = await uniqueEventSlug(d.title);
     const { error } = await supabase.from("events").insert({
@@ -305,9 +347,8 @@ export async function updateEvent(
     const oldImageUrl = (existing as { image_url: string | null } | null)?.image_url ?? null;
 
     let nextImageUrl: string | null = oldImageUrl;
-    const img = await uploadEventImageFromForm(supabase, session.userId, formData);
-    if ("error" in img) return img.error;
-    if (img.upload) nextImageUrl = img.url;
+    const fresh = submittedEventImageUrl(supabase, session.userId, formData);
+    if (fresh) nextImageUrl = fresh;
     else if (formData.get("removeImage") === "true") nextImageUrl = null;
 
     // The slug is deliberately NOT regenerated on edit: it's the public
@@ -502,9 +543,7 @@ export async function createCompanyEvent(
 
   try {
     const supabase = await createClient();
-    const img = await uploadEventImageFromForm(supabase, session.userId, formData);
-    if ("error" in img) return img.error;
-    const imageUrl = img.upload ? img.url : null;
+    const imageUrl = submittedEventImageUrl(supabase, session.userId, formData);
 
     const slug = await uniqueEventSlug(d.title);
     const { error } = await supabase.from("events").insert({

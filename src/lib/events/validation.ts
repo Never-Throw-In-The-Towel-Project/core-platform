@@ -106,14 +106,24 @@ export function validateEventFields(v: EventFieldValues): EventFieldErrors {
   return errors;
 }
 
-/** Client-side image pre-check, mirroring the server (uploadEventImage) so a bad
- *  pick is rejected instantly with the same message instead of round-tripping. */
-export const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
-const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+// Client-side image INPUT check. The image is downscaled in the browser and
+// uploaded direct to Storage (see EventStudioForm + lib/images/downscale), so
+// this guards the *original* the admin picks -- a generous size, since we shrink
+// it before it goes anywhere -- rather than the ~5MB bucket limit the old
+// stream-through-the-action path had to enforce up front.
+export const EVENT_IMAGE_INPUT_MAX_BYTES = 40 * 1024 * 1024;
+const EVENT_IMAGE_INPUT_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
-export function validateImageFile(file: File): string | null {
-  if (!IMAGE_TYPES.has(file.type)) return "Images must be JPEG, PNG, WebP, or GIF.";
-  if (file.size > IMAGE_MAX_BYTES) return "Images must be under 5MB.";
+export function validateEventImageInput(file: File): string | null {
+  if (!EVENT_IMAGE_INPUT_TYPES.has(file.type)) {
+    // HEIC (iPhone default) lands here: iOS usually hands over a JPEG when the
+    // picker is filtered to images, but a raw .heic (e.g. on desktop) can't be
+    // decoded in-browser, so name the fix rather than a bare "wrong type".
+    return "Choose a JPEG, PNG, WebP, or GIF. (iPhone HEIC photos: set your camera to “Most Compatible”, or export as JPEG.)";
+  }
+  if (file.size > EVENT_IMAGE_INPUT_MAX_BYTES) {
+    return "That image is enormous — please pick one under 40MB.";
+  }
   return null;
 }
 
