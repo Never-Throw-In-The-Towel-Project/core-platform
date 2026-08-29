@@ -1,7 +1,12 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { createEvent, updateEvent } from "@/lib/actions/events";
+import {
+  createEvent,
+  updateEvent,
+  createEventImageUpload,
+  discardEventImageUpload,
+} from "@/lib/actions/events";
 import { initialEventFormState, type EventFormState } from "@/lib/actions/eventFormState";
 import {
   addMinutesToLocalInput,
@@ -14,14 +19,21 @@ import {
   EVENT_LIMITS,
   firstErrorField,
   validateEventFields,
-  validateImageFile,
+  validateEventImageInput,
   type EventFieldErrors,
   type EventFieldKey,
   type EventFieldValues,
 } from "@/lib/events/validation";
+import { downscaleImageToJpeg } from "@/lib/images/downscale";
+import { getBrowserSupabase } from "@/lib/supabase/browserUpload";
 import { FormSection, Switch, TextAreaField, TextField } from "@/components/ui/form";
 import { ImageUploadField } from "@/components/ui/ImageUploadField";
 import type { EventRow } from "@/types/database";
+
+const EVENT_IMAGE_BUCKET = "event-images";
+/** The event-images bucket's own size limit; a GIF (kept as-is to preserve
+ *  animation, unlike a downscaled JPEG) must fit under it. */
+const EVENT_IMAGE_BUCKET_MAX_BYTES = 5 * 1024 * 1024;
 
 type EventFormAction = (prev: EventFormState, formData: FormData) => Promise<EventFormState>;
 
@@ -130,12 +142,15 @@ export function EventStudioForm({
   // auto-filling it from the start so we never fight a deliberate choice.
   const [endTouched, setEndTouched] = useState<boolean>(() => Boolean(event?.ends_at));
 
-  // Image state: a freshly-picked File, and whether the existing (edit-mode)
-  // image has been removed. The object URL for the picked File is created once
-  // here (client-only -- `imageFile` is only ever set by a user action) and
-  // shared by the uploader thumbnail AND the live preview card, revoked on
-  // change/unmount.
+  // Image state. `imageFile` is the picked File that drives the local preview;
+  // the (downscaled) image is uploaded DIRECT to Storage the moment it's chosen,
+  // so `imagePath` is the resulting object path submitted to the action and
+  // `imageUploading` gates submit while the prepare+PUT is in flight. Isolating
+  // the upload here means a failed image never blocks the event save, and a big
+  // phone photo is shrunk before it moves anywhere. Mirrors the notice-video flow.
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePath, setImagePath] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
   const [removeImage, setRemoveImage] = useState(false);
   const existingImageUrl = event?.image_url ?? null;
   const imageObjectUrl = useMemo(() => (imageFile ? URL.createObjectURL(imageFile) : null), [imageFile]);
@@ -151,28 +166,79 @@ export function EventStudioForm({
       ? "Current image"
       : null;
 
-  function clearImageError() {
+  function setImageError(msg: string | null) {
     setErrors((prev) => {
+      if (msg) return { ...prev, imageUrl: msg };
       if (!prev.imageUrl) return prev;
       const next = { ...prev };
       delete next.imageUrl;
       return next;
     });
   }
-  function onImageSelect(file: File) {
-    const err = validateImageFile(file);
-    if (err) {
-      setErrors((prev) => ({ ...prev, imageUrl: err }));
-      return; // reject the bad file; keep whatever was there
+
+  // Validate the pick, downscale it in the browser (a straight-from-camera photo
+  // becomes a small web JPEG), mint a signed URL (event-editor only), then PUT
+  // straight to the event-images bucket. setState after each await is fine in an
+  // event handler (the lint rule only forbids it inside effects).
+  async function onImageSelect(file: File) {
+    const bad = validateEventImageInput(file);
+    if (bad) {
+      setImageError(bad);
+      return; // reject the bad pick; keep whatever was there
     }
-    setImageFile(file);
+    // Replacing an earlier pick? Bin the object it already uploaded so it doesn't
+    // orphan -- only ever the fresh-upload path; updateEvent cleans the saved one.
+    const superseded = imagePath;
+    if (superseded) void discardEventImageUpload({ path: superseded }).catch(() => {});
+    setImageFile(file); // show the local preview immediately
     setRemoveImage(false);
-    clearImageError();
+    setImagePath(null);
+    setImageError(null);
+    setImageUploading(true);
+    try {
+      // GIFs keep their animation (uploaded as-is, within the bucket limit);
+      // everything else is downscaled + re-encoded to a compact JPEG.
+      let uploadFile = file;
+      let contentType = file.type;
+      if (file.type === "image/gif") {
+        if (file.size > EVENT_IMAGE_BUCKET_MAX_BYTES) {
+          setImageError("That GIF is over 5MB — pick a smaller one, or use a JPEG or PNG.");
+          return;
+        }
+      } else {
+        uploadFile = await downscaleImageToJpeg(file, { maxEdge: 1600, quality: 0.82 });
+        contentType = "image/jpeg";
+      }
+      const target = await createEventImageUpload({ contentType });
+      if ("error" in target) {
+        setImageError(target.error);
+        return;
+      }
+      const { error } = await getBrowserSupabase()
+        .storage.from(EVENT_IMAGE_BUCKET)
+        .uploadToSignedUrl(target.path, target.token, uploadFile);
+      if (error) {
+        setImageError("Something went wrong uploading that image. Please try again.");
+        return;
+      }
+      setImagePath(target.path);
+    } catch {
+      setImageError(
+        "We couldn’t process that image. If it’s an iPhone HEIC photo, set your camera to “Most Compatible”, or upload a JPEG or PNG."
+      );
+    } finally {
+      setImageUploading(false);
+    }
   }
+
   function onImageRemove() {
+    // Bin a fresh (unsaved) upload so it doesn't orphan; leave a saved existing
+    // image for updateEvent to clean on save.
+    if (imagePath) void discardEventImageUpload({ path: imagePath }).catch(() => {});
     setImageFile(null);
+    setImagePath(null);
     setRemoveImage(true);
-    clearImageError();
+    setImageError(null);
   }
 
   // Clear the form on a fresh CREATE success. Done by adjusting state DURING
@@ -190,6 +256,8 @@ export function EventStudioForm({
       setPublish(false);
       setEndTouched(false);
       setImageFile(null);
+      setImagePath(null);
+      setImageUploading(false);
       setRemoveImage(false);
     } else if (state.status === "error" && state.fieldErrors) {
       // Defence in depth: if the server ever rejects a field the client passed,
@@ -227,6 +295,12 @@ export function EventStudioForm({
 
   function handleSubmit() {
     setSubmitAttempted(true);
+    // Don't submit mid-upload -- the image path isn't known yet.
+    if (imageUploading) {
+      setImageError("Hang on — the image is still uploading.");
+      document.getElementById(FIELD_IDS.imageUrl)?.focus();
+      return;
+    }
     const found = validateEventFields(values);
     setErrors(found);
     const firstKey = firstErrorField(found);
@@ -244,7 +318,7 @@ export function EventStudioForm({
     fd.set("capacity", values.capacity.trim());
     fd.set("startsAt", localInputToIso(values.startsLocal) ?? "");
     fd.set("endsAt", localInputToIso(values.endsLocal) ?? "");
-    if (imageFile) fd.set("imageFile", imageFile);
+    if (imagePath) fd.set("imagePath", imagePath);
     if (removeImage) fd.set("removeImage", "true");
     if (isEdit && event) fd.set("eventId", event.id);
     if (!isEdit && publish) fd.set("publish", "true");
@@ -355,8 +429,9 @@ export function EventStudioForm({
               optional
               previewUrl={imagePreviewUrl}
               fileLabel={imageFileLabel}
+              uploading={imageUploading}
               error={errors.imageUrl}
-              hint="A hero image shown on the event card and detail page."
+              hint="A hero image shown on the event card and detail page. Big photos are shrunk for you."
               onSelect={onImageSelect}
               onRemove={onImageRemove}
             />
@@ -393,10 +468,18 @@ export function EventStudioForm({
         <div className="flex flex-wrap items-center gap-3 border-t border-rule-hairline bg-background/60 px-5 py-4 sm:px-6">
           <button
             type="submit"
-            disabled={isPending}
+            disabled={isPending || imageUploading}
             className="bg-brand-accent px-5 py-2.5 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            {isPending ? "Saving…" : isEdit ? "Save changes" : publish ? "Publish event" : "Create draft"}
+            {isPending
+              ? "Saving…"
+              : imageUploading
+                ? "Uploading image…"
+                : isEdit
+                  ? "Save changes"
+                  : publish
+                    ? "Publish event"
+                    : "Create draft"}
           </button>
           {serverMessage && (
             <p role="alert" className="text-sm font-semibold text-brand-accent-deep">

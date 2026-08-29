@@ -23,6 +23,7 @@ export function ImageUploadField({
   hint,
   previewUrl,
   fileLabel,
+  uploading,
   onSelect,
   onRemove,
 }: {
@@ -35,6 +36,8 @@ export function ImageUploadField({
   previewUrl: string | null;
   /** Caption under the thumbnail (e.g. "photo.jpg · 1.2 MB", or "Current image"). */
   fileLabel: string | null;
+  /** True while the picked file is being prepared + uploaded to Storage. */
+  uploading?: boolean;
   onSelect: (file: File) => void;
   onRemove: () => void;
 }) {
@@ -53,7 +56,7 @@ export function ImageUploadField({
         <span id={`${id}-label`} className={LABEL_CLASS}>
           {label} {optional ? OptionalTag : null}
         </span>
-        {previewUrl ? (
+        {previewUrl && !uploading ? (
           <button
             type="button"
             onClick={onRemove}
@@ -73,7 +76,7 @@ export function ImageUploadField({
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
-          pick(e.dataTransfer.files);
+          if (!uploading) pick(e.dataTransfer.files);
         }}
         className={
           "mt-1 border transition-colors " +
@@ -92,10 +95,13 @@ export function ImageUploadField({
             </div>
             <label
               htmlFor={id}
-              className="flex cursor-pointer items-center justify-between gap-3 border-t border-rule-hairline px-3 py-2 text-xs font-semibold text-muted hover:text-foreground"
+              className={
+                "flex items-center justify-between gap-3 border-t border-rule-hairline px-3 py-2 text-xs font-semibold text-muted " +
+                (uploading ? "cursor-default" : "cursor-pointer hover:text-foreground")
+              }
             >
               <span className="truncate">{fileLabel ?? "Image"}</span>
-              <span className="shrink-0 uppercase tracking-wide">Replace</span>
+              <span className="shrink-0 uppercase tracking-wide">{uploading ? "Uploading…" : "Replace"}</span>
             </label>
           </div>
         ) : (
@@ -108,8 +114,10 @@ export function ImageUploadField({
               <circle cx="8.5" cy="9.5" r="1.75" fill="currentColor" />
               <path d="M4 18l5-5 4 4 3.5-3.5L20 16" stroke="currentColor" strokeWidth="1.5" fill="none" />
             </svg>
-            <span className="text-sm font-semibold text-foreground">Click to upload or drag an image here</span>
-            <span className="text-xs text-muted">JPEG, PNG, WebP or GIF · up to 5MB</span>
+            <span className="text-sm font-semibold text-foreground">
+              {uploading ? "Uploading…" : "Click to upload or drag an image here"}
+            </span>
+            <span className="text-xs text-muted">JPEG, PNG, WebP or GIF</span>
           </label>
         )}
       </div>
@@ -121,6 +129,7 @@ export function ImageUploadField({
         aria-labelledby={`${id}-label`}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : hintId}
+        disabled={uploading}
         className="sr-only"
         onChange={(e) => {
           pick(e.target.files);
