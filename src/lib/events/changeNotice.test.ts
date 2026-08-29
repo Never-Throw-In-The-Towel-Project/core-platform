@@ -19,6 +19,21 @@ describe("eventChangeNotice", () => {
     expect(eventChangeNotice("Cold Plunge", before, after)).toBeNull();
   });
 
+  it("treats two spellings of the same instant as unchanged", () => {
+    // The saved row comes back from PostgREST with a +00:00 offset and no
+    // millis; the just-submitted value is a Date.toISOString() with .000Z.
+    // Same moment -> must NOT notify (the spurious-spam bug).
+    const before = { ...base, starts_at: "2026-09-05T08:00:00+00:00", ends_at: "2026-09-05T11:00:00+00:00" };
+    const after = { ...base, starts_at: "2026-09-05T08:00:00.000Z", ends_at: "2026-09-05T11:00:00.000Z" };
+    expect(eventChangeNotice("Cold Plunge", before, after)).toBeNull();
+  });
+
+  it("still flags a real move even across offset/Z spellings", () => {
+    const before = { ...base, starts_at: "2026-09-05T08:00:00+00:00" };
+    const after = { ...base, starts_at: "2026-09-05T09:00:00.000Z" };
+    expect(eventChangeNotice("Cold Plunge", before, after)?.body).toContain("time");
+  });
+
   it("flags a start-time change as a time change", () => {
     const after = { ...base, starts_at: "2026-09-05T09:00:00.000Z" };
     const n = eventChangeNotice("Cold Plunge", base, after);

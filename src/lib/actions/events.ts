@@ -402,28 +402,13 @@ export async function updateEvent(
     // The capacity may have risen: promote waitlisters into any freed seats.
     // Best-effort -- the edit is already saved, so a reconcile hiccup must not
     // surface as a save failure. reconcile_event_capacity is service_role-only,
-    // hence the admin client (this edit was already RLS-authorised above).
-    // Raising capacity may promote waitlisters. reconcile promotes but returns
-    // void, so snapshot the waitlist around it to learn who moved up, and notify
-    // them. Best-effort; the save already succeeded.
+    // hence the admin client (this edit was already RLS-authorised above). It
+    // RETURNS the ids it promoted, so we notify exactly those bookings -- no
+    // before/after diff, no mis-attribution under concurrency.
     let promotedIds: string[] = [];
     try {
-      const adminClient = createAdminClient();
-      const { data: beforeWait } = await adminClient
-        .from("event_bookings")
-        .select("id")
-        .eq("event_id", eventId)
-        .eq("status", "waitlisted");
-      const beforeIds = ((beforeWait ?? []) as { id: string }[]).map((r) => r.id);
-      await adminClient.rpc("reconcile_event_capacity", { p_event_id: eventId });
-      if (beforeIds.length > 0) {
-        const { data: nowConfirmed } = await adminClient
-          .from("event_bookings")
-          .select("id")
-          .in("id", beforeIds)
-          .eq("status", "confirmed");
-        promotedIds = ((nowConfirmed ?? []) as { id: string }[]).map((r) => r.id);
-      }
+      const { data } = await createAdminClient().rpc("reconcile_event_capacity", { p_event_id: eventId });
+      promotedIds = ((data ?? []) as { booking_id: string }[]).map((r) => r.booking_id);
     } catch {
       /* non-fatal: the save succeeded */
     }

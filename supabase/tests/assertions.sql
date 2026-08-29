@@ -1196,7 +1196,7 @@ select set_config('request.jwt.claim.sub', '', false);
 select set_config('request.jwt.claim.role', '', false);
 
 do $$
-declare bstatus text; cc int;
+declare bstatus text; cc int; promoted uuid[]; b_booking uuid;
 begin
   -- reconcile is service_role-only: anon/authenticated must NOT hold EXECUTE.
   if has_function_privilege('anon', 'public.reconcile_event_capacity(uuid)', 'execute') then
@@ -1207,7 +1207,18 @@ begin
   end if;
 
   update public.events set capacity = 2 where id = 'ea000000-0000-0000-0000-0000000000ea';
-  perform public.reconcile_event_capacity('ea000000-0000-0000-0000-0000000000ea');
+  -- reconcile now RETURNS the ids it promoted (review round 3): capture the set
+  -- (calling it once, so the promotion still happens here) and assert the
+  -- waitlister we set up is in it -- the contract updateEvent relies on to notify
+  -- exactly who moved up without a before/after diff.
+  select array_agg(booking_id) into promoted
+    from public.reconcile_event_capacity('ea000000-0000-0000-0000-0000000000ea');
+
+  select id into b_booking from public.event_bookings
+    where event_id = 'ea000000-0000-0000-0000-0000000000ea' and user_id = 'b0000000-0000-0000-0000-00000000000b';
+  if promoted is null or not (b_booking = any(promoted)) then
+    raise exception 'FAIL reconcile: returned promoted set % did not include the waitlister %', promoted, b_booking;
+  end if;
 
   select status into bstatus from public.event_bookings
     where event_id = 'ea000000-0000-0000-0000-0000000000ea' and user_id = 'b0000000-0000-0000-0000-00000000000b';
@@ -1216,7 +1227,7 @@ begin
   end if;
   select confirmed_count into cc from public.events where id = 'ea000000-0000-0000-0000-0000000000ea';
   if cc <> 2 then raise exception 'FAIL reconcile: confirmed_count wrong after promote (got %)', cc; end if;
-  raise notice 'PASS  8h* live: reconcile_event_capacity promotes waitlisters when the cap rises (service_role-only)';
+  raise notice 'PASS  8h* live: reconcile_event_capacity promotes waitlisters and returns their ids (service_role-only)';
 end
 $$;
 

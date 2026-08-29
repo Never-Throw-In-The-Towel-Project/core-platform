@@ -186,6 +186,16 @@ export function EventStudioForm({
       setImageError(bad);
       return; // reject the bad pick; keep whatever was there
     }
+    // A failure AFTER we've shown the local preview must also DROP that preview:
+    // otherwise the form keeps showing an image whose upload never landed
+    // (imagePath stays null), and the event saves with NO image -- a silent drop.
+    // Clearing imageFile reverts the preview to the existing saved image, if any
+    // (removeImage stays false), so an edit's current hero survives a failed swap.
+    const failUpload = (msg: string) => {
+      setImageFile(null);
+      setImagePath(null);
+      setImageError(msg);
+    };
     // Replacing an earlier pick? Bin the object it already uploaded so it doesn't
     // orphan -- only ever the fresh-upload path; updateEvent cleans the saved one.
     const superseded = imagePath;
@@ -202,7 +212,7 @@ export function EventStudioForm({
       let contentType = file.type;
       if (file.type === "image/gif") {
         if (file.size > EVENT_IMAGE_BUCKET_MAX_BYTES) {
-          setImageError("That GIF is over 5MB — pick a smaller one, or use a JPEG or PNG.");
+          failUpload("That GIF is over 5MB — pick a smaller one, or use a JPEG or PNG.");
           return;
         }
       } else {
@@ -211,19 +221,19 @@ export function EventStudioForm({
       }
       const target = await createEventImageUpload({ contentType });
       if ("error" in target) {
-        setImageError(target.error);
+        failUpload(target.error);
         return;
       }
       const { error } = await getBrowserSupabase()
         .storage.from(EVENT_IMAGE_BUCKET)
         .uploadToSignedUrl(target.path, target.token, uploadFile);
       if (error) {
-        setImageError("Something went wrong uploading that image. Please try again.");
+        failUpload("Something went wrong uploading that image. Please try again.");
         return;
       }
       setImagePath(target.path);
     } catch {
-      setImageError(
+      failUpload(
         "We couldn’t process that image. If it’s an iPhone HEIC photo, set your camera to “Most Compatible”, or upload a JPEG or PNG."
       );
     } finally {

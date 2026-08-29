@@ -124,9 +124,11 @@ export async function notifyPromotedBooking(bookingId: string): Promise<void> {
 }
 
 /**
- * Email every confirmed GUEST on an event when it's cancelled or its time/place
- * changes -- the guest counterpart of notifyEventBookers (members get push).
- * Guests have no account, so email is the only channel. Best-effort; never throws.
+ * Email every GUEST holding an active (confirmed or waitlisted) booking on an
+ * event when it's cancelled or its time/place changes -- the guest counterpart of
+ * notifyEventBookers (members get push), and matching its confirmed+waitlisted
+ * reach so a waitlisted guest isn't left in the dark. Guests have no account, so
+ * email is the only channel. Best-effort; never throws.
  */
 export async function notifyEventGuests(
   eventId: string,
@@ -147,7 +149,7 @@ export async function notifyEventGuests(
       .from("event_bookings")
       .select("guest_name, guest_email")
       .eq("event_id", eventId)
-      .eq("status", "confirmed")
+      .in("status", ["confirmed", "waitlisted"])
       .is("user_id", null)
       .not("guest_email", "is", null);
     const guests = (bookings ?? []) as { guest_name: string | null; guest_email: string | null }[];
