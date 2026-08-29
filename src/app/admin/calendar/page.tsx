@@ -392,8 +392,11 @@ function MonthView({
         </div>
       )}
 
-      {/* Weekday header row */}
-      <div className="mt-4 grid grid-cols-7 border-l border-t border-rule-hairline">
+      {/* Weekday header row. The 7-column month grid scrolls horizontally on
+          narrow screens (min-w) so cells keep a usable width instead of crushing
+          to ~49px — same approach as the Week board. */}
+      <div className="mt-4 overflow-x-auto">
+      <div className="grid min-w-[44rem] grid-cols-7 border-l border-t border-rule-hairline">
         {WEEKDAY_HEADERS.map((d) => (
           <div
             key={d}
@@ -453,6 +456,7 @@ function MonthView({
             </CalendarDropZone>
           );
         })}
+      </div>
       </div>
 
       {/* Unscheduled drafts — also a drop target: drop a scheduled item here to unschedule it. */}
@@ -526,7 +530,7 @@ function NavLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="border border-rule-border px-2 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted hover:text-foreground"
+      className="border border-rule-border px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted hover:text-foreground"
     >
       {label}
     </Link>
@@ -548,7 +552,7 @@ function AddLink({ href, label }: { href: string; label: string }) {
       href={href}
       aria-label={label}
       title={label}
-      className="flex h-4 w-4 shrink-0 items-center justify-center border border-rule-border text-[11px] font-bold leading-none text-brand-accent-deep transition-colors hover:bg-brand-accent hover:text-brand-accent-foreground"
+      className="flex h-8 w-8 shrink-0 items-center justify-center border border-rule-border text-[11px] font-bold leading-none text-brand-accent-deep transition-colors hover:bg-brand-accent hover:text-brand-accent-foreground"
     >
       +
     </Link>
