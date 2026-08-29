@@ -21,6 +21,7 @@ import {
 } from "@/lib/events/imageUpload";
 import { notifyEventBookers } from "@/lib/events/notify";
 import { eventChangeNotice } from "@/lib/events/changeNotice";
+import { buildRosterCsv, rosterCsvFilename, type RosterCsvRow } from "@/lib/events/rosterCsv";
 
 const uuid = z.string().uuid();
 
@@ -553,6 +554,90 @@ export async function deleteEvent(
   revalidatePath("/workspace/events");
   revalidatePath("/events");
   return { status: "success", message: "Event deleted." };
+}
+
+/**
+ * Build the attendee register (confirmed + waitlist) as a CSV, for the roster
+ * panel's "Export CSV". Assembled SERVER-SIDE, on demand: member emails live on
+ * auth.users (getUserById, service-role) -- fetching them only when an organiser
+ * actually exports keeps them off every roster page's payload and avoids an
+ * auth-API call per attendee on each render. Both authors: ntitt_admin (any
+ * event) and hr_admin (their own company's only). The old client-side export
+ * left every member's Email column blank; this fills it.
+ */
+export async function exportEventRoster(
+  eventId: string
+): Promise<{ csv: string; filename: string } | { error: string }> {
+  await verifySession();
+  const profile = await getProfile();
+  if (profile.role !== "ntitt_admin" && profile.role !== "hr_admin") {
+    return { error: "You don’t have access to events." };
+  }
+  const parsed = uuid.safeParse(eventId);
+  if (!parsed.success) return { error: "That event could not be found." };
+
+  try {
+    const admin = createAdminClient();
+    const { data: ev } = await admin
+      .from("events")
+      .select("title, company_id")
+      .eq("id", parsed.data)
+      .maybeSingle();
+    const event = ev as { title: string; company_id: string | null } | null;
+    if (!event) return { error: "That event could not be found." };
+    // An hr_admin may only export their own company's event rosters.
+    if (profile.role === "hr_admin" && event.company_id !== profile.company_id) {
+      return { error: "You don’t have access to this event." };
+    }
+
+    const { data: bookingData } = await admin
+      .from("event_bookings")
+      .select("status, user_id, guest_name, guest_email, created_at")
+      .eq("event_id", parsed.data)
+      .in("status", ["confirmed", "waitlisted"])
+      // "confirmed" sorts before "waitlisted", so the register reads confirmed
+      // first, then the waitlist -- each in booking order.
+      .order("status", { ascending: true })
+      .order("created_at", { ascending: true });
+    const bookings =
+      (bookingData as {
+        status: string;
+        user_id: string | null;
+        guest_name: string | null;
+        guest_email: string | null;
+        created_at: string;
+      }[] | null) ?? [];
+
+    const memberIds = Array.from(new Set(bookings.filter((b) => b.user_id).map((b) => b.user_id as string)));
+    const nameById = new Map<string, string>();
+    const emailById = new Map<string, string>();
+    if (memberIds.length > 0) {
+      const { data: profs } = await admin.from("profiles").select("id, display_name").in("id", memberIds);
+      for (const p of profs ?? []) {
+        const row = p as { id: string; display_name: string };
+        nameById.set(row.id, row.display_name);
+      }
+      // Member emails are on auth.users, one lookup each (rosters are small).
+      await Promise.all(
+        memberIds.map(async (mid) => {
+          const { data } = await admin.auth.admin.getUserById(mid);
+          if (data?.user?.email) emailById.set(mid, data.user.email);
+        })
+      );
+    }
+
+    const rows: RosterCsvRow[] = bookings.map((b) => ({
+      status: b.status === "confirmed" ? "Confirmed" : "Waitlist",
+      name: b.user_id ? nameById.get(b.user_id) ?? "Member" : b.guest_name ?? b.guest_email ?? "Guest",
+      email: b.user_id ? emailById.get(b.user_id) ?? "" : b.guest_email ?? "",
+      type: b.user_id ? "Member" : "Guest",
+      bookedAt: b.created_at,
+    }));
+
+    return { csv: buildRosterCsv(rows), filename: rosterCsvFilename(event.title) };
+  } catch {
+    return { error: "Couldn’t build the roster export. Please try again." };
+  }
 }
 
 // ============================================================================

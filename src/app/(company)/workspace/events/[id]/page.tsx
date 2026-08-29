@@ -77,7 +77,7 @@ export default async function WorkspaceEventEditorPage({ params }: { params: Pro
         <h2 className={SECTION_HEADING}>Bookings</h2>
         <div className="mt-4">
           <EventRosterPanel
-            eventTitle={event.title}
+            eventId={event.id}
             confirmed={confirmed}
             waitlisted={waitlisted}
             capacity={event.capacity}

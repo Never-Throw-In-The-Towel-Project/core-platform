@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { exportEventRoster } from "@/lib/actions/events";
 import { CapacityMeter } from "./CapacityMeter";
 import { EventRosterList } from "./EventRoster";
 import type { EventBookingWithIdentity } from "@/types/database";
@@ -20,26 +21,17 @@ function matches(b: EventBookingWithIdentity, q: string): boolean {
   return hay.includes(q.toLowerCase());
 }
 
-function csvSlug(title: string): string {
-  return (
-    title
-      .toLowerCase()
-      .normalize("NFKD")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 60) || "event"
-  );
-}
-
-function toCsv(rows: EventBookingWithIdentity[], statusOf: (b: EventBookingWithIdentity) => string): string {
-  const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
-  const header = ["Status", "Name", "Email", "Type", "Booked at"].map(esc).join(",");
-  const lines = rows.map((b) =>
-    [statusOf(b), rowName(b), rowEmail(b), b.user_id ? "Member" : "Guest", b.created_at]
-      .map((v) => esc(String(v)))
-      .join(",")
-  );
-  return [header, ...lines].join("\r\n");
+/** Trigger a browser download of a CSV string the server assembled. */
+function downloadCsv(csv: string, filename: string) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 /**
@@ -49,34 +41,36 @@ function toCsv(rows: EventBookingWithIdentity[], statusOf: (b: EventBookingWithI
  * roster (confirmed first, then waitlist) so an organiser can take a register.
  */
 export function EventRosterPanel({
-  eventTitle,
+  eventId,
   confirmed,
   waitlisted,
   capacity,
 }: {
-  eventTitle: string;
+  eventId: string;
   confirmed: EventBookingWithIdentity[];
   waitlisted: EventBookingWithIdentity[];
   capacity: number | null;
 }) {
   const [query, setQuery] = useState("");
+  const [exporting, startExport] = useTransition();
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const shownConfirmed = useMemo(() => confirmed.filter((b) => matches(b, query)), [confirmed, query]);
   const shownWaitlisted = useMemo(() => waitlisted.filter((b) => matches(b, query)), [waitlisted, query]);
   const total = confirmed.length + waitlisted.length;
 
+  // The CSV is assembled server-side (exportEventRoster) so it can fill in member
+  // emails, which live on auth.users and never reach this client component.
   function exportCsv() {
-    const rows = [...confirmed, ...waitlisted];
-    const csv = toCsv(rows, (b) => (waitlisted.includes(b) ? "Waitlist" : "Confirmed"));
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${csvSlug(eventTitle)}-roster.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    setExportError(null);
+    startExport(async () => {
+      const res = await exportEventRoster(eventId);
+      if ("error" in res) {
+        setExportError(res.error);
+        return;
+      }
+      downloadCsv(res.csv, res.filename);
+    });
   }
 
   return (
@@ -93,12 +87,17 @@ export function EventRosterPanel({
         <button
           type="button"
           onClick={exportCsv}
-          disabled={total === 0}
+          disabled={total === 0 || exporting}
           className="border border-rule-border px-4 py-2 text-xs font-extrabold uppercase tracking-wide transition-colors hover:bg-foreground/[0.04] disabled:opacity-40"
         >
-          Export CSV
+          {exporting ? "Exporting…" : "Export CSV"}
         </button>
       </div>
+      {exportError && (
+        <p role="alert" className="mt-2 text-xs font-semibold text-brand-accent-deep">
+          {exportError}
+        </p>
+      )}
 
       {total > 0 && (
         <input
