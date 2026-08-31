@@ -8,6 +8,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveCompanyForHost } from "@/lib/tenant/resolve";
 import { DIRECT_COMPANY_ID } from "@/lib/tenant/constants";
 import { isSafeRedirectPath } from "@/lib/auth/redirect";
+import { generateAnonHandle } from "@/lib/identity/preference";
+import { CURRENT_TERMS_VERSION } from "@/lib/legal/consent";
 import { type RoutineActionState } from "./routineState";
 
 const SignupSchema = z
@@ -15,7 +17,15 @@ const SignupSchema = z
     email: z.email(),
     password: z.string().min(8, "Use at least 8 characters."),
     confirmPassword: z.string(),
-    displayName: z.string().trim().min(1, "Enter a name.").max(80),
+    fullName: z.string().trim().min(1, "Enter your full name.").max(120),
+    // DOB is collected but NOT age-gated (product decision; the Terms' "16 or
+    // over" line is left for solicitor review). Reject only the impossible.
+    dateOfBirth: z
+      .string()
+      .refine((v) => !Number.isNaN(Date.parse(v)), "Enter a valid date of birth.")
+      .refine((v) => new Date(v) <= new Date(), "Your date of birth can't be in the future.")
+      .refine((v) => new Date(v).getUTCFullYear() >= 1900, "Enter a valid date of birth."),
+    identityPreference: z.enum(["full_name", "first_name_only", "anonymous"]),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match.",
@@ -61,7 +71,9 @@ export async function signUp(
     email: formData.get("email"),
     password: formData.get("password"),
     confirmPassword: formData.get("confirmPassword"),
-    displayName: formData.get("displayName"),
+    fullName: formData.get("fullName"),
+    dateOfBirth: formData.get("dateOfBirth"),
+    identityPreference: formData.get("identityPreference"),
   });
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0].message };
@@ -88,7 +100,10 @@ export async function signUp(
         data: {
           company_id: DIRECT_COMPANY_ID,
           role: "employee",
-          display_name: parsed.data.displayName,
+          // Transient: the hardened handle_new_user trigger uses this for its
+          // pre-insert; the service-role upsert below immediately overwrites
+          // display_name with the generated public handle and sets full_name.
+          display_name: parsed.data.fullName,
         },
       },
     });
@@ -122,7 +137,17 @@ export async function signUp(
         id: data.user.id,
         company_id: DIRECT_COMPANY_ID,
         role: "employee",
-        display_name: parsed.data.displayName,
+        // The REAL name (admin-visible identity) comes from the form; the public
+        // handle other members see when this person is anonymous defaults to a
+        // stable, non-identifying nickname they can change in settings.
+        full_name: parsed.data.fullName,
+        display_name: generateAnonHandle(data.user.id),
+        date_of_birth: parsed.data.dateOfBirth,
+        community_identity_preference: parsed.data.identityPreference,
+        // Durable proof-of-consent for the Terms & Privacy tick (service-role
+        // write only -- a record the member could rewrite wouldn't be proof).
+        tc_agreed_at: new Date().toISOString(),
+        tc_version: CURRENT_TERMS_VERSION,
       },
       { onConflict: "id" }
     );

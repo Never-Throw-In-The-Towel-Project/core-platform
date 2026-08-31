@@ -1,4 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { generateAnonHandle } from "@/lib/identity/preference";
+import { CURRENT_TERMS_VERSION } from "@/lib/legal/consent";
 
 vi.mock("server-only", () => ({}));
 
@@ -44,7 +46,9 @@ const validFields = {
   email: "new.user@example.com",
   password: "password123",
   confirmPassword: "password123",
-  displayName: "New User",
+  fullName: "New User",
+  dateOfBirth: "1990-05-01",
+  identityPreference: "anonymous",
   consent: "yes",
 };
 
@@ -73,7 +77,9 @@ describe("signUp", () => {
         email: validFields.email,
         password: validFields.password,
         confirmPassword: validFields.confirmPassword,
-        displayName: validFields.displayName,
+        fullName: validFields.fullName,
+        dateOfBirth: validFields.dateOfBirth,
+        identityPreference: validFields.identityPreference,
       })
     );
 
@@ -85,6 +91,23 @@ describe("signUp", () => {
     const state = await signUp(
       initialRoutineState,
       formData({ ...validFields, confirmPassword: "different" })
+    );
+
+    expect(state.status).toBe("error");
+    expect(signUpMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a missing date of birth before calling auth.signUp", async () => {
+    const state = await signUp(
+      initialRoutineState,
+      formData({
+        email: validFields.email,
+        password: validFields.password,
+        confirmPassword: validFields.confirmPassword,
+        fullName: validFields.fullName,
+        identityPreference: validFields.identityPreference,
+        consent: "yes",
+      })
     );
 
     expect(state.status).toBe("error");
@@ -107,17 +130,25 @@ describe("signUp", () => {
           data: {
             company_id: DIRECT_COMPANY_ID,
             role: "employee",
-            display_name: validFields.displayName,
+            display_name: validFields.fullName,
           },
         }),
       })
     );
+    // The REAL name goes to full_name; the public handle is a generated
+    // non-identifying nickname; DOB + anonymity preference + recorded consent
+    // are all written server-side via the service-role upsert.
     expect(profilesUpsertMock).toHaveBeenCalledWith(
       expect.objectContaining({
         id: "new-user-id",
         company_id: DIRECT_COMPANY_ID,
         role: "employee",
-        display_name: validFields.displayName,
+        full_name: validFields.fullName,
+        display_name: generateAnonHandle("new-user-id"),
+        date_of_birth: validFields.dateOfBirth,
+        community_identity_preference: "anonymous",
+        tc_version: CURRENT_TERMS_VERSION,
+        tc_agreed_at: expect.any(String),
       }),
       { onConflict: "id" }
     );
