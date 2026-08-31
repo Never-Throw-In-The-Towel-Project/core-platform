@@ -1806,5 +1806,71 @@ begin
 end
 $$;
 
+-- ============================================================================
+-- Signup identity & recorded consent (20260908000000): the new profiles
+-- identity/consent columns, the community_posts per-post override, the
+-- three-level CHECKs, and the self-service grant -- with the consent columns
+-- kept OUT of that grant (a consent record a user can rewrite isn't proof).
+-- ============================================================================
+do $$
+declare pref_def text; ov_def text;
+begin
+  if not exists (select 1 from information_schema.columns
+      where table_schema='public' and table_name='profiles' and column_name='full_name' and data_type='text') then
+    raise exception 'FAIL identity: profiles.full_name (text) missing';
+  end if;
+  if not exists (select 1 from information_schema.columns
+      where table_schema='public' and table_name='profiles' and column_name='date_of_birth' and data_type='date') then
+    raise exception 'FAIL identity: profiles.date_of_birth (date) missing';
+  end if;
+  if not exists (select 1 from information_schema.columns
+      where table_schema='public' and table_name='profiles' and column_name='tc_agreed_at' and data_type='timestamp with time zone') then
+    raise exception 'FAIL identity: profiles.tc_agreed_at (timestamptz) missing';
+  end if;
+  if not exists (select 1 from information_schema.columns
+      where table_schema='public' and table_name='profiles' and column_name='tc_version' and data_type='text') then
+    raise exception 'FAIL identity: profiles.tc_version (text) missing';
+  end if;
+
+  -- Preference: NOT NULL, defaults to 'full_name', CHECK covers all three levels.
+  if not exists (select 1 from information_schema.columns
+      where table_schema='public' and table_name='profiles' and column_name='community_identity_preference'
+        and is_nullable='NO' and column_default like '%full_name%') then
+    raise exception 'FAIL identity: community_identity_preference must be NOT NULL default full_name';
+  end if;
+  select pg_get_constraintdef(oid) into pref_def from pg_constraint
+    where conrelid='public.profiles'::regclass and contype='c'
+      and pg_get_constraintdef(oid) ilike '%community_identity_preference%';
+  if pref_def is null or pref_def not ilike '%first_name_only%' or pref_def not ilike '%anonymous%' then
+    raise exception 'FAIL identity: community_identity_preference CHECK missing a level: %', pref_def;
+  end if;
+
+  -- Per-post override on community_posts, nullable, same three-level CHECK.
+  if not exists (select 1 from information_schema.columns
+      where table_schema='public' and table_name='community_posts' and column_name='identity_override' and data_type='text') then
+    raise exception 'FAIL identity: community_posts.identity_override (text) missing';
+  end if;
+  select pg_get_constraintdef(oid) into ov_def from pg_constraint
+    where conrelid='public.community_posts'::regclass and contype='c'
+      and pg_get_constraintdef(oid) ilike '%identity_override%';
+  if ov_def is null or ov_def not ilike '%first_name_only%' then
+    raise exception 'FAIL identity: identity_override CHECK missing: %', ov_def;
+  end if;
+
+  -- Self-service grant: member can edit these three, NEVER the consent columns.
+  if not has_column_privilege('authenticated','public.profiles','full_name','update')
+     or not has_column_privilege('authenticated','public.profiles','date_of_birth','update')
+     or not has_column_privilege('authenticated','public.profiles','community_identity_preference','update') then
+    raise exception 'FAIL identity: authenticated must UPDATE full_name / date_of_birth / community_identity_preference';
+  end if;
+  if has_column_privilege('authenticated','public.profiles','tc_agreed_at','update')
+     or has_column_privilege('authenticated','public.profiles','tc_version','update') then
+    raise exception 'FAIL identity: consent columns (tc_agreed_at/tc_version) must NOT be user-writable';
+  end if;
+
+  raise notice 'PASS  20  signup identity + consent columns; 3-level prefs; per-post override; consent service-role-only';
+end
+$$;
+
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'
