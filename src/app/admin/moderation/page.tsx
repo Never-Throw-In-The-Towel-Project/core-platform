@@ -1,6 +1,6 @@
 import { requireNtittAdmin } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
-import { getDisplayNames } from "@/lib/community/queries";
+import { getRealNames } from "@/lib/community/queries";
 import { ModerationQueueItem } from "@/components/community/ModerationQueueItem";
 import type { CommunityPost, CommunityReport } from "@/types/database";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -36,14 +36,18 @@ export default async function CommunityModerationPage() {
 
     if (reports && reports.length > 0) {
       const postIds = Array.from(new Set(reports.map((r) => r.post_id as string)));
-      const reporterIds = Array.from(new Set(reports.map((r) => r.reporter_user_id as string)));
+      const { data: postsData } = await supabase.from("community_posts").select("*").in("id", postIds);
+      posts = postsData as CommunityPost[] | null;
 
-      const [postsResult, nameByUserResult] = await Promise.all([
-        supabase.from("community_posts").select("*").in("id", postIds),
-        getDisplayNames(supabase, reporterIds),
-      ]);
-      posts = postsResult.data as CommunityPost[] | null;
-      nameByUser = nameByUserResult;
+      // Admins always see the REAL name -- behind the reporter AND behind the
+      // reported post's author, whatever community anonymity either one chose.
+      const identityIds = Array.from(
+        new Set([
+          ...reports.map((r) => r.reporter_user_id as string),
+          ...(posts ?? []).map((p) => p.user_id),
+        ])
+      );
+      nameByUser = await getRealNames(supabase, identityIds);
     }
   } catch {
     reports = null;
@@ -69,16 +73,20 @@ export default async function CommunityModerationPage() {
         description={`${reports.length} open report${reports.length === 1 ? "" : "s"} to review.`}
       />
       <div className="mt-6 space-y-4">
-        {reports.map((report) => (
-          <ModerationQueueItem
-            key={report.id}
-            report={{
-              ...report,
-              reporterDisplayName: nameByUser.get(report.reporter_user_id as string) ?? "Someone",
-            }}
-            post={postById.get(report.post_id as string) ?? null}
-          />
-        ))}
+        {reports.map((report) => {
+          const post = postById.get(report.post_id as string) ?? null;
+          return (
+            <ModerationQueueItem
+              key={report.id}
+              report={{
+                ...report,
+                reporterDisplayName: nameByUser.get(report.reporter_user_id as string) ?? "Someone",
+              }}
+              post={post}
+              authorRealName={post ? nameByUser.get(post.user_id) ?? "Someone" : null}
+            />
+          );
+        })}
       </div>
     </main>
   );
