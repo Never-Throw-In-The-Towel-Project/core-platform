@@ -8,9 +8,14 @@ import type { CommunityPost, CommunityReport } from "@/types/database";
 export function ModerationQueueItem({
   report,
   post,
+  authorRealName,
 }: {
   report: CommunityReport & { reporterDisplayName: string };
   post: CommunityPost | null;
+  /** The post author's REAL name -- admins always see who wrote flagged
+   *  content, whatever community anonymity the author chose. Null if the post
+   *  no longer exists. */
+  authorRealName?: string | null;
 }) {
   const [removeState, removeAction, removePending] = useActionState(removeCommunityPost, initialRoutineState);
   const [dismissState, dismissAction, dismissPending] = useActionState(
@@ -32,6 +37,7 @@ export function ModerationQueueItem({
       <div className="mt-2 border border-rule-hairline p-3 text-sm">
         {post ? (
           <>
+            {authorRealName && <p className="mb-1 text-xs font-semibold text-muted">Posted by {authorRealName}</p>}
             {post.is_removed && <p className="text-xs text-muted">(already removed)</p>}
             <p className="whitespace-pre-wrap">{post.body}</p>
           </>

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { verifySession, getProfile } from "@/lib/auth/dal";
 import { uploadCommunityImage } from "@/lib/community/imageUpload";
 import { badgeLabel } from "@/lib/gamification/badges";
+import { isIdentityPreference } from "@/lib/identity/preference";
 import { type RoutineActionState } from "./routineState";
 
 const PostSchema = z.object({
@@ -64,6 +65,11 @@ export async function submitCommunityPost(
       imageUrl = result.url;
     }
 
+    // Per-post identity override: null = post under the account default. Any
+    // non-enum value (incl. the "" default option) collapses to null.
+    const overrideRaw = formData.get("identityOverride");
+    const identityOverride = isIdentityPreference(overrideRaw) ? overrideRaw : null;
+
     const { error } = await supabase.from("community_posts").insert({
       user_id: session.userId,
       company_id: profile.company_id,
@@ -71,6 +77,7 @@ export async function submitCommunityPost(
       board: parsed.data.board,
       body: parsed.data.body,
       image_url: imageUrl,
+      identity_override: identityOverride,
     });
 
     if (error) {

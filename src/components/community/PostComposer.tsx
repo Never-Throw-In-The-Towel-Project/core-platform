@@ -52,22 +52,37 @@ export function PostComposer({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule-hairline px-3 py-2">
-        <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-muted transition-colors hover:text-foreground">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-            <rect x="2.5" y="3.5" width="15" height="13" stroke="currentColor" strokeWidth="1.5" />
-            <circle cx="7" cy="8" r="1.5" fill="currentColor" />
-            <path d="M3 15l4.5-4.5 3.5 3.5 3-3 3 3" stroke="currentColor" strokeWidth="1.5" fill="none" />
-          </svg>
-          <span className="max-w-[12rem] truncate">{fileName ?? "Add a photo"}</span>
-          <input
-            name="image"
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            aria-label="Add an optional photo to your post"
-            className="sr-only"
-            onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
-          />
-        </label>
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-muted transition-colors hover:text-foreground">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <rect x="2.5" y="3.5" width="15" height="13" stroke="currentColor" strokeWidth="1.5" />
+              <circle cx="7" cy="8" r="1.5" fill="currentColor" />
+              <path d="M3 15l4.5-4.5 3.5 3.5 3-3 3 3" stroke="currentColor" strokeWidth="1.5" fill="none" />
+            </svg>
+            <span className="max-w-[12rem] truncate">{fileName ?? "Add a photo"}</span>
+            <input
+              name="image"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              aria-label="Add an optional photo to your post"
+              className="sr-only"
+              onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)}
+            />
+          </label>
+          {/* Per-post identity override -- defaults to the member's account
+              setting; they can post a single item under a different name. */}
+          <select
+            name="identityOverride"
+            defaultValue=""
+            aria-label="Choose how your name shows on this post"
+            className="border border-rule-hairline bg-transparent px-1.5 py-1 text-xs font-semibold text-muted"
+          >
+            <option value="">Post as usual</option>
+            <option value="full_name">My full name</option>
+            <option value="first_name_only">First name only</option>
+            <option value="anonymous">Anonymously</option>
+          </select>
+        </div>
         <button
           type="submit"
           disabled={isPending}

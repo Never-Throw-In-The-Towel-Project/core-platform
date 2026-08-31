@@ -1,8 +1,15 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { CommunityBoard, CommunityComment, CommunityPost, CommunityScope } from "@/types/database";
+import type {
+  CommunityBoard,
+  CommunityComment,
+  CommunityPost,
+  CommunityScope,
+  CommunityIdentityPreference,
+} from "@/types/database";
 import { sortPosts, type FeedSort } from "@/lib/community/sort";
+import { peerCommunityName, realName } from "@/lib/identity/resolve";
 
 // The feed pulls a recent candidate window and ranks it in application code
 // (lib/community/sort.ts) rather than ordering by a likes aggregate in the DB --
@@ -32,7 +39,12 @@ export interface CommentWithAuthor extends CommunityComment {
 }
 
 export interface AuthorInfo {
+  /** The public handle -- what peers see when the author is anonymous. */
   displayName: string;
+  /** The real name (admin-visible). Null only for legacy rows not yet backfilled. */
+  fullName: string | null;
+  /** The author's account-level community identity default. */
+  preference: CommunityIdentityPreference;
   companyName: string | null;
 }
 
@@ -40,31 +52,28 @@ export interface AuthorInfo {
  * `profiles` only has a self-read RLS policy (Phase 1: "no policy grants
  * an hr_admin row-level access to other profiles" -- deliberately, and
  * nothing added since grants any other role broader access either). That's
- * exactly right for private data, but display_name is the one column the
- * brief explicitly means to be community-facing -- every post/comment
- * needs to show its author's name to every other viewer who can already
- * see the post/comment itself (per community_posts'/community_comments' own
- * RLS). Resolving it through the caller's own RLS-scoped session would
- * silently return nothing for anyone else's row.
+ * exactly right for private data, but a member's community-facing name is
+ * meant to be visible to every other viewer who can already see the
+ * post/comment itself (per community_posts'/community_comments' own RLS).
+ * Resolving it through the caller's own RLS-scoped session would silently
+ * return nothing for anyone else's row.
  *
- * This uses the service-role admin client instead, but only ever selects
- * `id, display_name, company_id` -- never any other column -- and only
- * ever runs server-side. It doesn't widen what a browser can query; it's
- * the server rendering the one field the RLS model already intends to be
- * visible to any authenticated viewer, for content that same viewer is
- * already independently authorized (via community_posts/_comments RLS) to
- * see. `company_id` isn't itself sensitive (every post already carries
- * scope/company_id, and `companies` is publicly readable -- see
- * src/lib/tenant/resolve.ts) -- it's resolved here purely to attach a
- * company *name* tag next to the author's display name, matching the
- * design reference's feed cards.
+ * This uses the service-role admin client instead, selecting ONLY the
+ * identity fields the display model needs -- id, display_name (the handle),
+ * full_name (the real name), community_identity_preference, company_id --
+ * and only ever runs server-side. full_name never reaches a peer client: the
+ * caller reduces it through peerCommunityName (which for anonymous /
+ * first-name preferences never emits the full name), and only ADMIN surfaces
+ * read it in full via realName(). `company_id` isn't sensitive (every post
+ * carries it and `companies` is publicly readable) -- it's resolved purely to
+ * attach a company *name* tag next to the author.
  */
 async function getAuthorInfo(supabase: AnySupabaseClient, userIds: string[]): Promise<Map<string, AuthorInfo>> {
   if (userIds.length === 0) return new Map();
   const admin = createAdminClient();
   const { data: profileRows } = await admin
     .from("profiles")
-    .select("id, display_name, company_id")
+    .select("id, display_name, full_name, community_identity_preference, company_id")
     .in("id", userIds);
 
   const companyIds = Array.from(new Set((profileRows ?? []).map((p: { company_id: string }) => p.company_id)));
@@ -72,16 +81,31 @@ async function getAuthorInfo(supabase: AnySupabaseClient, userIds: string[]): Pr
   const companyNameById = new Map((companyRows ?? []).map((c: { id: string; name: string }) => [c.id, c.name]));
 
   return new Map(
-    (profileRows ?? []).map((p: { id: string; display_name: string; company_id: string }) => [
-      p.id,
-      { displayName: p.display_name, companyName: companyNameById.get(p.company_id) ?? null },
-    ])
+    (profileRows ?? []).map(
+      (p: {
+        id: string;
+        display_name: string;
+        full_name: string | null;
+        community_identity_preference: CommunityIdentityPreference;
+        company_id: string;
+      }) => [
+        p.id,
+        {
+          displayName: p.display_name,
+          fullName: p.full_name,
+          preference: p.community_identity_preference,
+          companyName: companyNameById.get(p.company_id) ?? null,
+        },
+      ]
+    )
   );
 }
 
-async function getDisplayNames(supabase: AnySupabaseClient, userIds: string[]): Promise<Map<string, string>> {
+/** The AUTHORS' REAL names, for ADMIN surfaces only (the moderation queue).
+ *  Peers never see this -- their view always goes through peerCommunityName. */
+async function getRealNames(supabase: AnySupabaseClient, userIds: string[]): Promise<Map<string, string>> {
   const authorInfo = await getAuthorInfo(supabase, userIds);
-  return new Map(Array.from(authorInfo.entries()).map(([id, info]) => [id, info.displayName]));
+  return new Map(Array.from(authorInfo.entries()).map(([id, info]) => [id, realName(info)]));
 }
 
 /**
@@ -166,14 +190,19 @@ export async function getPosts(
     commentCounts.set(comment.post_id, (commentCounts.get(comment.post_id) ?? 0) + 1);
   }
 
-  const withMeta: PostWithMeta[] = (posts as CommunityPost[]).map((post) => ({
-    ...post,
-    authorDisplayName: authorInfo.get(post.user_id)?.displayName ?? "Someone",
-    authorCompanyName: authorInfo.get(post.user_id)?.companyName ?? null,
-    likeCount: likeCounts.get(post.id) ?? 0,
-    likedByViewer: likedByViewer.has(post.id),
-    commentCount: commentCounts.get(post.id) ?? 0,
-  }));
+  const withMeta: PostWithMeta[] = (posts as CommunityPost[]).map((post) => {
+    const info = authorInfo.get(post.user_id);
+    return {
+      ...post,
+      // Peer-facing name: the author's account default, overridden per-post when
+      // they chose to (identity_override). Admins never render through this.
+      authorDisplayName: info ? peerCommunityName(info, post.identity_override) : "Someone",
+      authorCompanyName: info?.companyName ?? null,
+      likeCount: likeCounts.get(post.id) ?? 0,
+      likedByViewer: likedByViewer.has(post.id),
+      commentCount: commentCounts.get(post.id) ?? 0,
+    };
+  });
 
   // Rank the candidate window by the requested sort, then take the page. "new"
   // is a no-op on the already-newest-first fetch; "top"/"hot" reorder by likes
@@ -195,13 +224,19 @@ export async function getComments(
   if (!comments || comments.length === 0) return [];
 
   const userIds = Array.from(new Set(comments.map((c: CommunityComment) => c.user_id)));
-  const nameByUser = await getDisplayNames(supabase, userIds);
+  const authorInfo = await getAuthorInfo(supabase, userIds);
 
-  return (comments as CommunityComment[]).map((comment) => ({
-    ...comment,
-    authorDisplayName: nameByUser.get(comment.user_id) ?? "Someone",
-  }));
+  // Comments carry no per-post override -- they follow the author's account
+  // default (peer-facing, same resolver as the feed).
+  return (comments as CommunityComment[]).map((comment) => {
+    const info = authorInfo.get(comment.user_id);
+    return {
+      ...comment,
+      authorDisplayName: info ? peerCommunityName(info) : "Someone",
+    };
+  });
 }
 
-/** Used by the ntitt_admin moderation queue to show who reported a post. */
-export { getDisplayNames };
+/** Used by the ntitt_admin moderation queue to show the REAL name behind
+ *  reported content and its reporter -- admins always see the real person. */
+export { getRealNames };
