@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { validateSignupFields, type SignupFields } from "./validation";
+import { validateSignupFields, validateDateOfBirth, type SignupFields } from "./validation";
 
 const valid: SignupFields = {
-  displayName: "Ada Lovelace",
+  fullName: "Ada Lovelace",
+  dateOfBirth: "1990-12-10",
+  identityPreference: "full_name",
   email: "ada@example.com",
   password: "correcthorse",
   confirmPassword: "correcthorse",
@@ -14,8 +16,28 @@ describe("validateSignupFields", () => {
     expect(validateSignupFields(valid)).toBeNull();
   });
 
-  it("requires a name (whitespace doesn't count)", () => {
-    expect(validateSignupFields({ ...valid, displayName: "   " })).toBe("Enter your name.");
+  it("requires a full name (whitespace doesn't count)", () => {
+    expect(validateSignupFields({ ...valid, fullName: "   " })).toBe("Enter your full name.");
+  });
+
+  it("requires a date of birth", () => {
+    expect(validateSignupFields({ ...valid, dateOfBirth: "" })).toBe("Enter your date of birth.");
+  });
+
+  it("rejects a future date of birth but does NOT age-gate", () => {
+    expect(validateSignupFields({ ...valid, dateOfBirth: "2999-01-01" })).toBe(
+      "Your date of birth can't be in the future."
+    );
+    // A 12-year-old is accepted -- collection without an age gate is intentional.
+    const twelve = new Date();
+    twelve.setUTCFullYear(twelve.getUTCFullYear() - 12);
+    expect(validateSignupFields({ ...valid, dateOfBirth: twelve.toISOString().slice(0, 10) })).toBeNull();
+  });
+
+  it("requires a valid identity preference", () => {
+    expect(validateSignupFields({ ...valid, identityPreference: "bogus" })).toBe(
+      "Choose how you'd like to appear in the community."
+    );
   });
 
   it("rejects an obviously malformed email before a round-trip", () => {
@@ -31,7 +53,7 @@ describe("validateSignupFields", () => {
     );
   });
 
-  it("catches a password/confirmation mismatch -- the actual bug that looked like a no-op", () => {
+  it("catches a password/confirmation mismatch", () => {
     expect(validateSignupFields({ ...valid, confirmPassword: "different" })).toBe(
       "Passwords don't match."
     );
@@ -44,14 +66,26 @@ describe("validateSignupFields", () => {
   });
 
   it("surfaces the topmost unresolved field first", () => {
-    // Name is blank AND passwords mismatch AND no consent -> name wins.
+    // Full name is blank AND passwords mismatch AND no consent -> name wins.
     expect(
       validateSignupFields({
         ...valid,
-        displayName: "",
+        fullName: "",
         confirmPassword: "different",
         consent: false,
       })
-    ).toBe("Enter your name.");
+    ).toBe("Enter your full name.");
+  });
+});
+
+describe("validateDateOfBirth", () => {
+  it("accepts a plausible past date", () => {
+    expect(validateDateOfBirth("1985-06-15")).toBeNull();
+  });
+  it("rejects empty, unparseable, future and pre-1900 dates", () => {
+    expect(validateDateOfBirth("")).toBe("Enter your date of birth.");
+    expect(validateDateOfBirth("not-a-date")).toBe("Enter a valid date of birth.");
+    expect(validateDateOfBirth("2999-01-01")).toBe("Your date of birth can't be in the future.");
+    expect(validateDateOfBirth("1850-01-01")).toBe("Enter a valid date of birth.");
   });
 });

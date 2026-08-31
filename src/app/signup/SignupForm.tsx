@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { signUp } from "@/lib/actions/signup";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import { IDENTITY_PREFERENCES } from "@/lib/identity/preference";
 import { validateSignupFields } from "./validation";
 
 export function SignupForm({ next }: { next?: string }) {
@@ -25,7 +26,9 @@ export function SignupForm({ next }: { next?: string }) {
 
   function handleSubmit(formData: FormData) {
     const error = validateSignupFields({
-      displayName: String(formData.get("displayName") ?? ""),
+      fullName: String(formData.get("fullName") ?? ""),
+      dateOfBirth: String(formData.get("dateOfBirth") ?? ""),
+      identityPreference: String(formData.get("identityPreference") ?? ""),
       email: String(formData.get("email") ?? ""),
       password: String(formData.get("password") ?? ""),
       confirmPassword: String(formData.get("confirmPassword") ?? ""),
@@ -43,46 +46,43 @@ export function SignupForm({ next }: { next?: string }) {
   // message (e.g. a Supabase failure the client can't foresee).
   const message = clientError ?? (state.status === "error" ? state.message : null);
 
+  const inputClass = "mt-1 w-full border border-rule-border bg-transparent px-3 py-2.5";
+
   return (
     <form action={handleSubmit} noValidate className="flex w-full max-w-sm flex-col gap-3">
       {next && <input type="hidden" name="next" value={next} />}
       <label className="text-sm">
-        Name
-        <input
-          name="displayName"
-          type="text"
-          required
-          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2.5"
-        />
+        Full name
+        <input name="fullName" type="text" required autoComplete="name" className={inputClass} />
+      </label>
+      <label className="text-sm">
+        Date of birth
+        <input name="dateOfBirth" type="date" required autoComplete="bday" className={inputClass} />
+      </label>
+      <label className="text-sm">
+        How you’ll appear in the community
+        <select name="identityPreference" defaultValue="full_name" className={inputClass}>
+          {IDENTITY_PREFERENCES.map((p) => (
+            <option key={p.value} value={p.value}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+        <span className="mt-1 block text-xs text-muted">
+          You can change this any time. Admins always see your real name.
+        </span>
       </label>
       <label className="text-sm">
         Email
-        <input
-          name="email"
-          type="email"
-          required
-          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2.5"
-        />
+        <input name="email" type="email" required autoComplete="email" className={inputClass} />
       </label>
       <label className="text-sm">
         Password
-        <input
-          name="password"
-          type="password"
-          required
-          minLength={8}
-          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2.5"
-        />
+        <input name="password" type="password" required minLength={8} autoComplete="new-password" className={inputClass} />
       </label>
       <label className="text-sm">
         Confirm password
-        <input
-          name="confirmPassword"
-          type="password"
-          required
-          minLength={8}
-          className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2.5"
-        />
+        <input name="confirmPassword" type="password" required minLength={8} autoComplete="new-password" className={inputClass} />
       </label>
       <label className="flex items-start gap-2 text-sm">
         <input name="consent" type="checkbox" required value="yes" className="mt-1 shrink-0" />

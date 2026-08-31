@@ -32,11 +32,28 @@ export interface Company {
 
 export type PodcastGuestAnonymityPreference = "full_name" | "first_name_only" | "anonymous";
 
+/** How a member appears to OTHER members by default (admins always see the real
+ *  full name). Same three levels as the podcast credit preference. A per-post
+ *  override (community_posts.identity_override) can change it for one post. */
+export type CommunityIdentityPreference = "full_name" | "first_name_only" | "anonymous";
+
 export interface Profile {
   id: string;
   company_id: string;
   role: UserRole;
+  /** The public handle shown in the community. Need not be a real name; when a
+   *  member appears anonymously this is what other members see. */
   display_name: string;
+  /** The member's REAL name -- the admin-visible identity, gathered at signup.
+   *  Null for accounts created before this landed, until they're re-prompted. */
+  full_name: string | null;
+  date_of_birth: string | null;
+  /** Default community identity (full_name | first_name_only | anonymous). */
+  community_identity_preference: CommunityIdentityPreference;
+  /** Proof-of-consent for the Terms & Privacy agreed at signup. Service-role
+   *  write only -- a record the member could rewrite wouldn't be proof. */
+  tc_agreed_at: string | null;
+  tc_version: string | null;
   onboarding_completed: boolean;
   community_opt_in: boolean;
   podcast_guest_opt_in: boolean;
