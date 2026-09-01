@@ -57,6 +57,10 @@ export default async function ThirtyDaySummaryPage() {
   }
 
   return (
+    // Dark "ink" surface on screen, matching the Today board (print stays on
+    // white paper via the print: overrides). Full-width wrapper carries the
+    // scope + ground paint; the <main> stays the centered column.
+    <div data-surface="ink" className="min-h-full bg-background text-foreground print:bg-transparent">
     <main className="mx-auto max-w-xl px-6 py-12 print:text-black">
       <Link href="/journey" className="mb-4 inline-block text-sm text-muted hover:text-foreground print:hidden">
         ← My Journey
@@ -108,6 +112,7 @@ export default async function ThirtyDaySummaryPage() {
         )}
       </dl>
     </main>
+    </div>
   );
 }
 

@@ -51,6 +51,9 @@ export default async function CleanStreakPage() {
   const progress = current ? computeHabitProgress(current.target_days, activeCheckIns, todayIso) : null;
 
   return (
+    // Dark "ink" surface, matching the Today board (full-width wrapper carries
+    // the scope + ground paint; the <main> stays the centered column).
+    <div data-surface="ink" className="min-h-full bg-background text-foreground">
     <main className="mx-auto max-w-3xl px-6 py-10">
       <header>
         <h1 className="text-4xl font-extrabold tracking-tight">Clean streak</h1>
@@ -186,6 +189,7 @@ export default async function CleanStreakPage() {
         </section>
       )}
     </main>
+    </div>
   );
 }
 
