@@ -1,6 +1,7 @@
 import { getProfile, verifySession } from "@/lib/auth/dal";
 import { getPushSubscriptionStatus } from "@/lib/actions/pushSubscription";
 import { AccountSettingsCard } from "@/components/settings/AccountSettingsCard";
+import { IdentityForm } from "@/components/settings/IdentityForm";
 import { TimezoneForm } from "@/components/settings/TimezoneForm";
 import { NotificationTimesForm } from "@/components/settings/NotificationTimesForm";
 import { PushNotificationToggle } from "@/components/settings/PushNotificationToggle";
@@ -21,6 +22,20 @@ export default async function SettingsPage() {
 
       <div className="mt-8">
         <AccountSettingsCard heading="Account" displayName={profile.display_name} email={session.email} />
+      </div>
+
+      <div className="mt-10 space-y-4">
+        <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Your identity</h2>
+        {profile.date_of_birth === null && (
+          <p className="border border-brand-accent bg-brand-accent/[0.06] p-4 text-sm">
+            Finish setting up your profile — add your date of birth below so your account details are complete.
+          </p>
+        )}
+        <IdentityForm
+          currentFullName={profile.full_name}
+          currentDateOfBirth={profile.date_of_birth}
+          currentPreference={profile.community_identity_preference}
+        />
       </div>
 
       <div className="mt-10 space-y-4">
