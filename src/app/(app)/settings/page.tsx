@@ -17,6 +17,9 @@ export default async function SettingsPage() {
   ]);
 
   return (
+    // Dark "ink" surface, matching the Today board (full-width wrapper carries
+    // the scope + ground paint; the <main> stays the centered column).
+    <div data-surface="ink" className="min-h-full bg-background text-foreground">
     <main className="mx-auto max-w-xl px-6 py-12">
       <h1 className="text-3xl font-extrabold tracking-tight">Settings</h1>
 
@@ -66,5 +69,6 @@ export default async function SettingsPage() {
         <DeleteAccountForm />
       </div>
     </main>
+    </div>
   );
 }

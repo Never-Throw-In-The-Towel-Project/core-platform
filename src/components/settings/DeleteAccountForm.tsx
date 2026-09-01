@@ -13,8 +13,8 @@ export function DeleteAccountForm() {
   const [state, formAction, isPending] = useActionState(deleteAccount, initialRoutineState);
 
   return (
-    <details className="border border-red-300/60 p-4">
-      <summary className="cursor-pointer text-sm font-semibold text-red-700">Delete my account</summary>
+    <details className="border border-brand-accent/40 p-4">
+      <summary className="cursor-pointer text-sm font-semibold text-brand-accent-deep">Delete my account</summary>
       <p className="mt-2 text-xs text-muted">
         This permanently erases your account and all your private data (routines, reviews, scores, steps,
         badges and your community posts). It can&apos;t be undone.
@@ -29,11 +29,11 @@ export function DeleteAccountForm() {
             className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2.5"
           />
         </label>
-        {state.status === "error" && <p className="text-xs text-red-700">{state.message}</p>}
+        {state.status === "error" && <p className="text-xs text-brand-accent-deep">{state.message}</p>}
         <button
           type="submit"
           disabled={isPending}
-          className="bg-red-700 px-4 py-2.5 text-sm font-extrabold uppercase tracking-wide text-white disabled:opacity-50"
+          className="bg-brand-accent px-4 py-2.5 text-sm font-extrabold uppercase tracking-wide text-brand-accent-foreground disabled:opacity-50"
         >
           {isPending ? "Deleting…" : "Delete my account permanently"}
         </button>

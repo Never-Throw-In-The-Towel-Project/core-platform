@@ -79,7 +79,10 @@ export function ChallengeView({ view, todayIso }: { view: StaffChallengeView; to
         </div>
       </dl>
 
-      <section className="bg-brand-background p-5 text-brand-foreground">
+      {/* Reward highlight. On the ink step-challenge board bg-brand-background
+          equals the ground, so a red border defines it (and reads as the
+          celebratory "unlock" accent). */}
+      <section className="border border-brand-accent bg-brand-background p-5 text-brand-foreground">
         <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] opacity-70">
           {reached ? "You unlocked" : "Hit the target and unlock"}
         </p>
