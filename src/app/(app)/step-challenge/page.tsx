@@ -26,6 +26,9 @@ export default async function ChallengePage() {
   const todayIso = todayISODate(new Date(), profile.timezone);
 
   return (
+    // Dark "ink" surface, matching the Today board (full-width wrapper carries
+    // the scope + ground paint; the <main> stays the centered column).
+    <div data-surface="ink" className="min-h-full bg-background text-foreground">
     <main className="mx-auto max-w-xl px-6 py-10">
       <Link href="/home" className="mb-6 inline-block text-sm opacity-70 hover:opacity-100">
         ← Today
@@ -48,5 +51,6 @@ export default async function ChallengePage() {
         </div>
       )}
     </main>
+    </div>
   );
 }

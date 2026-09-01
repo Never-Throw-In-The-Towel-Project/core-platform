@@ -33,7 +33,10 @@ export default async function ChallengesPage() {
   }
 
   return (
-    <main className="min-h-full">
+    // Dark "ink" surface, matching the Today board. The dark hero band merges
+    // seamlessly into the ink body (like the Wins/Events heroes); the body
+    // below adapts via the ground tokens the scope remaps.
+    <main data-surface="ink" className="min-h-full bg-background text-foreground">
       <section className="bg-brand-background text-brand-foreground">
         <div className="mx-auto max-w-4xl px-6 py-12">
           <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-light-2">
