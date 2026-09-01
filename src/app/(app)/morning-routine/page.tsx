@@ -12,6 +12,9 @@ export default async function MorningRoutinePage() {
   const activeDayCount = await getActiveDayCount(profile.id);
 
   return (
+    // Dark "ink" surface, matching the Today board. Full-width wrapper carries
+    // the scope + ground paint; the <main> stays the centered column.
+    <div data-surface="ink" className="min-h-full bg-background text-foreground">
     <main className="mx-auto max-w-xl px-6 py-12">
       <div className="mb-6 flex items-center justify-between text-sm">
         <Link href="/home" className="text-muted hover:text-foreground">
@@ -21,5 +24,6 @@ export default async function MorningRoutinePage() {
       </div>
       <MorningRoutineForm />
     </main>
+    </div>
   );
 }

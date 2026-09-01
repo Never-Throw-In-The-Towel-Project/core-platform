@@ -15,11 +15,15 @@ export default async function WeeklyReviewPage() {
   }
 
   return (
+    // Dark "ink" surface, matching the Today board (full-width wrapper carries
+    // the scope + ground paint; the <main> stays the centered column).
+    <div data-surface="ink" className="min-h-full bg-background text-foreground">
     <main className="mx-auto max-w-xl px-6 py-12">
       <Link href="/home" className="mb-6 inline-block text-sm text-muted hover:text-foreground">
         ← Today
       </Link>
       <WeeklyReviewForm />
     </main>
+    </div>
   );
 }

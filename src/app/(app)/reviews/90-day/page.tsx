@@ -36,7 +36,9 @@ export default async function NinetyDayReviewPage() {
   }
 
   return (
-    <main>
+    // Dark "ink" surface, matching the Today board. The form controls its own
+    // full-width layout (incl. its red hero band, which stays red on ink).
+    <main data-surface="ink" className="min-h-full bg-background text-foreground">
       <PeriodicReviewForm
         reviewType="90_day"
         comparisonSelfAssessment={(thirtyDayReview?.self_assessment as SelfAssessment | null) ?? null}
