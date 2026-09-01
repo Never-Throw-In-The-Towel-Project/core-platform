@@ -208,6 +208,12 @@ export default async function JourneyPage() {
   const daysLogged = dailyRatings.filter((d) => d.sleep != null || d.dayRating != null).length;
 
   return (
+    // The Journey board is a dark "ink" surface, matching the Today board. The
+    // page's own <main> is a centered max-w column, so the ink scope + ground
+    // sit on a full-width wrapper (otherwise the side gutters would stay light);
+    // min-h-full fills the (app) shell's flex-1 content slot. Every child adapts
+    // via the ground tokens the scope remaps (see globals.css).
+    <div data-surface="ink" className="min-h-full bg-background text-foreground">
     <main className="mx-auto max-w-5xl px-6 py-10">
       <div className="flex flex-wrap items-start justify-between gap-6">
         <div>
@@ -355,6 +361,7 @@ export default async function JourneyPage() {
         </div>
       </div>
     </main>
+    </div>
   );
 }
 
@@ -409,7 +416,11 @@ function MilestoneCard({
   const remaining = Math.max(threshold - activeDayCount, 0);
 
   return (
-    <div className="bg-brand-background p-4 text-sm text-brand-foreground">
+    // The active target: on the ink board a red border makes it the card that
+    // pops (completed/locked milestones keep the neutral hairline outline),
+    // mirroring the Today hero. bg-brand-background == the ink ground, so the
+    // border does the defining work.
+    <div className="border-2 border-brand-accent bg-brand-background p-4 text-sm text-brand-foreground">
       <p className="text-lg font-extrabold leading-tight tracking-tight">{REVIEW_LABEL[type]}</p>
       {remaining === 0 ? (
         <Link href={REVIEW_START_ROUTES[type]} className="mt-1 inline-block font-semibold text-brand-accent-light underline">
