@@ -17,10 +17,10 @@ export function DisplayNameForm({ currentName }: { currentName: string }) {
     <form action={formAction} className="space-y-3 border border-rule-hairline p-4">
       <div>
         <label htmlFor="displayName" className="text-sm font-medium">
-          Display name
+          Public handle
         </label>
         <p className="mt-1 text-xs text-muted">
-          How you appear to others in the community. It doesn&apos;t have to be your real name.
+          The nickname other members see when you post anonymously. It doesn&apos;t have to be your real name.
         </p>
       </div>
       <input

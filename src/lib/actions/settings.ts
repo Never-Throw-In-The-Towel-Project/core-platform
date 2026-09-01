@@ -156,3 +156,74 @@ export async function updateDisplayName(
   revalidatePath("/admin", "layout");
   return { status: "success" };
 }
+
+/**
+ * A member's own identity details: their REAL name (admin-visible), optionally
+ * their date of birth, and their community appearance preference. All three are
+ * gathered at signup; this is the only way to change them afterwards -- and how
+ * a member created before signup started collecting them fills them in.
+ *
+ * full_name and community_identity_preference are always written; date_of_birth
+ * is written only when a value is supplied, so changing your preference never
+ * forces you to enter a DOB and a blank field never clears an already-set one.
+ * The public handle (display_name, shown only when anonymous) is edited
+ * separately via updateDisplayName. All three columns here are in the
+ * per-column self-service UPDATE grant (20260908000000).
+ */
+const IdentitySchema = z.object({
+  fullName: z.string().trim().min(1, "Enter your full name.").max(120),
+  identityPreference: z.enum(["full_name", "first_name_only", "anonymous"]),
+});
+
+export async function updateIdentity(
+  _prevState: RoutineActionState,
+  formData: FormData
+): Promise<RoutineActionState> {
+  const session = await verifySession();
+
+  const parsed = IdentitySchema.safeParse({
+    fullName: formData.get("fullName"),
+    identityPreference: formData.get("identityPreference"),
+  });
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0].message };
+  }
+
+  // DOB optional here (unlike signup): validate only when supplied. No age gate,
+  // same as signup -- reject only the impossible (unparseable / future / pre-1900).
+  const dobRaw = formData.get("dateOfBirth");
+  let dateOfBirth: string | undefined;
+  if (typeof dobRaw === "string" && dobRaw.trim()) {
+    const t = Date.parse(dobRaw);
+    if (Number.isNaN(t) || new Date(t) > new Date() || new Date(t).getUTCFullYear() < 1900) {
+      return { status: "error", message: "Enter a valid date of birth." };
+    }
+    dateOfBirth = dobRaw;
+  }
+
+  // Wrapped in try/catch: createClient() throws synchronously if the
+  // URL/key are missing or malformed -- same gap already closed elsewhere.
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: parsed.data.fullName,
+        community_identity_preference: parsed.data.identityPreference,
+        ...(dateOfBirth ? { date_of_birth: dateOfBirth } : {}),
+      })
+      .eq("id", session.userId);
+
+    if (error) {
+      return { status: "error", message: "Something went wrong saving this. Please try again." };
+    }
+  } catch {
+    return { status: "error", message: "Something went wrong saving this. Please try again." };
+  }
+
+  // Name/preference changes affect how the member appears in the community.
+  revalidatePath("/settings");
+  revalidatePath("/community", "layout");
+  revalidatePath("/home", "layout");
+  return { status: "success" };
+}
