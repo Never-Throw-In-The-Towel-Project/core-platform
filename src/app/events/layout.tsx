@@ -27,7 +27,14 @@ export default async function EventsLayout({ children }: { children: React.React
     return (
       <div className="flex min-h-full flex-1 flex-col">
         <AppHeader profile={profile} skinColor={skinColor} helplineNumber={helplineNumber} />
-        <div className="flex-1">{children}</div>
+        {/* Signed-in members see Events on the dark "ink" surface, matching the
+            Today board and the rest of the member app. The ink scope wraps the
+            page body only -- the AppHeader is already ink chrome and the
+            BottomNav stays light paper, same as every other member screen. The
+            logged-out marketing branch below is deliberately left light. */}
+        <div data-surface="ink" className="flex-1 bg-background text-foreground">
+          {children}
+        </div>
         <div className="sticky bottom-0 z-10 bg-background lg:hidden">
           <BottomNav />
         </div>
