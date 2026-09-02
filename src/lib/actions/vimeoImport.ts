@@ -131,34 +131,55 @@ const BACKFILL_LIMIT = 40;
 export type VimeoBackfillResult =
   | { status: "not_configured" }
   | { status: "error"; message: string }
-  | { status: "success"; updated: number; failed: number; remaining: number };
+  | { status: "success"; updated: number; failed: number; remaining: number; nextCursor: string | null };
 
 /**
- * Backfill thumbnail/hash/duration for existing video items that were added by
- * hand (paste-an-ID) before Vimeo was connected — a one-click "sync from Vimeo".
- * Only fills the metadata fields; never overwrites an edited title/summary.
- * Processes up to BACKFILL_LIMIT per run and reports how many still remain.
+ * Two jobs sharing one fetch-and-store loop:
+ *
+ * - "missing" (default): fill thumbnail/hash/duration for videos added by hand
+ *   (paste-an-ID) before Vimeo was connected — the original one-click sync.
+ *   Selects only rows still missing a still or duration.
+ *
+ * - "refresh": re-derive the still for EVERY video, so an existing catalogue
+ *   picks up a changed thumbnail policy (e.g. the 1280px→640px right-sizing).
+ *   Walks all video rows by id (`cursor` = the last id processed), a page at a
+ *   time, so repeated calls make deterministic progress regardless of catalogue
+ *   size — the caller loops until `nextCursor` is null.
+ *
+ * Either way it only ever writes the Vimeo-derived fields; an edited
+ * title/summary is never touched. Bounded to BACKFILL_LIMIT outbound calls per
+ * run.
  */
-export async function backfillVimeoMetadataAction(): Promise<VimeoBackfillResult> {
+export async function backfillVimeoMetadataAction(
+  opts: { mode?: "missing" | "refresh"; cursor?: string } = {}
+): Promise<VimeoBackfillResult> {
+  const mode = opts.mode ?? "missing";
   await verifySession();
   const profile = await getProfile();
   if (profile.role !== "ntitt_admin") return { status: "error", message: "You don’t have access to the Brain." };
   if (!isVimeoConfigured()) return { status: "not_configured" };
 
   const supabase = await createClient();
-  // "Not yet enriched" = a video with no still or no duration. (A public video
-  // legitimately has no hash, so hash-null is NOT the signal.)
-  const { data, error } = await supabase
-    .from("content_items")
-    .select("id, vimeo_id")
-    .eq("type", "video")
-    .or("thumbnail_url.is.null,duration_seconds.is.null")
-    .limit(BACKFILL_LIMIT + 1);
+  let query = supabase.from("content_items").select("id, vimeo_id").eq("type", "video");
+  if (mode === "refresh") {
+    // Every video, walked by id so a cursor gives a stable, complete sweep.
+    query = query.not("vimeo_id", "is", null).order("id", { ascending: true });
+    if (opts.cursor) query = query.gt("id", opts.cursor);
+  } else {
+    // "Not yet enriched" = a video with no still or no duration. (A public video
+    // legitimately has no hash, so hash-null is NOT the signal.)
+    query = query.or("thumbnail_url.is.null,duration_seconds.is.null");
+  }
+  const { data, error } = await query.limit(BACKFILL_LIMIT + 1);
   if (error) return { status: "error", message: "Couldn’t list videos to sync. Please try again." };
 
   const rows = (data ?? []) as { id: string; vimeo_id: string | null }[];
+  const hasMore = rows.length > BACKFILL_LIMIT;
   const batch = rows.slice(0, BACKFILL_LIMIT);
-  const remaining = Math.max(0, rows.length - BACKFILL_LIMIT);
+  // "missing" reports a rough count still to go; "refresh" hands back a cursor so
+  // the caller can page the whole catalogue without re-scanning from the top.
+  const remaining = mode === "refresh" ? 0 : hasMore ? rows.length - BACKFILL_LIMIT : 0;
+  const nextCursor = mode === "refresh" && hasMore && batch.length > 0 ? batch[batch.length - 1].id : null;
 
   let updated = 0;
   let failed = 0;
@@ -189,7 +210,7 @@ export async function backfillVimeoMetadataAction(): Promise<VimeoBackfillResult
     revalidatePath("/admin/content");
     revalidatePath("/content");
   }
-  return { status: "success", updated, failed, remaining };
+  return { status: "success", updated, failed, remaining, nextCursor };
 }
 
 /** How many videos one "Sync entire library" click imports — bounds the AI +
