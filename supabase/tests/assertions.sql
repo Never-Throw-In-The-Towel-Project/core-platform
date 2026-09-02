@@ -1872,5 +1872,31 @@ begin
 end
 $$;
 
+-- ---------------------------------------------------------------------------
+-- 21  Performance indexes (Load-Time Teardown, Tier 1). The five hot-path
+--     indexes exist. Additive-only, so presence is the assertion -- the query
+--     planner picks them; here we prove the migration created them.
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  if to_regclass('public.community_posts_feed_idx') is null then
+    raise exception 'FAIL perf: community_posts_feed_idx missing (community feed)';
+  end if;
+  if to_regclass('public.community_posts_company_feed_idx') is null then
+    raise exception 'FAIL perf: community_posts_company_feed_idx missing (company feed)';
+  end if;
+  if to_regclass('public.community_comments_post_idx') is null then
+    raise exception 'FAIL perf: community_comments_post_idx missing (comments by post_id)';
+  end if;
+  if to_regclass('public.content_items_pub_day_created_idx') is null then
+    raise exception 'FAIL perf: content_items_pub_day_created_idx missing (Today day carousel)';
+  end if;
+  if to_regclass('public.content_items_pub_type_created_idx') is null then
+    raise exception 'FAIL perf: content_items_pub_type_created_idx missing (Library picked/browse)';
+  end if;
+  raise notice 'PASS  21  hot-path perf indexes present (community feed + comments + content day/type)';
+end
+$$;
+
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'
