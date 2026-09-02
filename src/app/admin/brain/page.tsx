@@ -10,6 +10,7 @@ import { ContentImportForm } from "@/components/admin/ContentImportForm";
 import { BrainVimeoImport } from "@/components/admin/BrainVimeoImport";
 import { BrainVimeoSync } from "@/components/admin/BrainVimeoSync";
 import { BrainVimeoBackfill } from "@/components/admin/BrainVimeoBackfill";
+import { BrainVimeoResizeThumbnails } from "@/components/admin/BrainVimeoResizeThumbnails";
 import { BrainFolderCreate } from "@/components/admin/BrainFolderCreate";
 import { BrainFolderSettings } from "@/components/admin/BrainFolderSettings";
 import { BrainAutoOrganize } from "@/components/admin/BrainAutoOrganize";
@@ -92,6 +93,9 @@ export default async function BrainPage({
   const videosNeedingSync = items.filter(
     (i) => i.type === "video" && (i.thumbnail_url == null || i.duration_seconds == null)
   ).length;
+  // Every video with a Vimeo id — the target for the one-time thumbnail re-fetch
+  // that re-sizes an existing catalogue down to the current ~640px poster.
+  const videoCount = items.filter((i) => i.type === "video" && i.vimeo_id != null).length;
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
@@ -172,6 +176,8 @@ export default async function BrainPage({
               <ContentImportForm />
               {/* Backfill stills/durations for videos added before Vimeo was connected. */}
               {videosNeedingSync > 0 && <BrainVimeoBackfill count={videosNeedingSync} />}
+              {/* One-time: re-pull every video poster at the current (smaller) size. */}
+              <BrainVimeoResizeThumbnails count={videoCount} />
               {/* AI: propose folders + tags for everything in this view. */}
               {visible.length > 0 && (
                 <BrainAutoOrganize
