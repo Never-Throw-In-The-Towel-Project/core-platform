@@ -56,7 +56,7 @@ describe("vimeoHashFrom", () => {
 });
 
 describe("vimeoThumbnail", () => {
-  it("picks the largest size link", () => {
+  it("picks the smallest size that covers the ~640px display, not the largest", () => {
     const pics = {
       base_link: "https://i.vimeocdn.com/video/base",
       sizes: [
@@ -65,7 +65,37 @@ describe("vimeoThumbnail", () => {
         { width: 640, link: "https://i.vimeocdn.com/video/medium" },
       ],
     };
-    expect(vimeoThumbnail(pics)).toBe("https://i.vimeocdn.com/video/large");
+    // 640 covers the target exactly; the 1280 "large" would be ~4x the pixels a
+    // ≤310px card ever shows.
+    expect(vimeoThumbnail(pics)).toBe("https://i.vimeocdn.com/video/medium");
+  });
+  it("steps up to the next size when nothing hits the target exactly", () => {
+    const pics = {
+      sizes: [
+        { width: 295, link: "https://i.vimeocdn.com/video/s" },
+        { width: 960, link: "https://i.vimeocdn.com/video/l" },
+      ],
+    };
+    // No 640; 960 is the smallest that still covers it.
+    expect(vimeoThumbnail(pics)).toBe("https://i.vimeocdn.com/video/l");
+  });
+  it("falls back to the largest available when every size is below the target", () => {
+    const pics = {
+      sizes: [
+        { width: 100, link: "https://i.vimeocdn.com/video/xs" },
+        { width: 295, link: "https://i.vimeocdn.com/video/s" },
+      ],
+    };
+    expect(vimeoThumbnail(pics)).toBe("https://i.vimeocdn.com/video/s");
+  });
+  it("honours an explicit target width", () => {
+    const pics = {
+      sizes: [
+        { width: 640, link: "https://i.vimeocdn.com/video/medium" },
+        { width: 1280, link: "https://i.vimeocdn.com/video/large" },
+      ],
+    };
+    expect(vimeoThumbnail(pics, 1000)).toBe("https://i.vimeocdn.com/video/large");
   });
   it("falls back to base_link, then null", () => {
     expect(vimeoThumbnail({ base_link: "https://i.vimeocdn.com/video/base" })).toBe("https://i.vimeocdn.com/video/base");

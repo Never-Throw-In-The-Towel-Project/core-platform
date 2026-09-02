@@ -64,15 +64,35 @@ export function vimeoHashFrom(video: any): string | null {
   return null;
 }
 
-/** Largest available still from `pictures.sizes`, falling back to `base_link`. */
-export function vimeoThumbnail(pictures: any): string | null {
+/**
+ * Target width for the stored still. The Library renders these posters in
+ * aspect-video cards at most ~310px wide (3–6 column grids inside max-w-6xl)
+ * and as dimmed opacity-20/30 backdrops on the shelves and carousel — so ~640px
+ * is crisp at 2× device-pixel-ratio on every surface, while being roughly a
+ * third of the bytes of Vimeo's 1280px "large". Vimeo serves the same still at
+ * a ladder of widths; we pick the size that fits our display rather than the
+ * largest one it offers.
+ */
+export const THUMBNAIL_TARGET_WIDTH = 640;
+
+/**
+ * The best still from `pictures.sizes` for our display sizes: the SMALLEST
+ * entry at least `targetWidth` wide, or — when every size is smaller — the
+ * largest available. (Was: always the largest, which shipped a ~1280px JPEG
+ * into ≤310px cards.) Falls back to `base_link`, then null.
+ */
+export function vimeoThumbnail(pictures: any, targetWidth: number = THUMBNAIL_TARGET_WIDTH): string | null {
   const sizes = pictures?.sizes;
   if (Array.isArray(sizes) && sizes.length > 0) {
-    const best = sizes.reduce(
-      (a: any, b: any) => ((b?.width ?? 0) > (a?.width ?? 0) ? b : a),
-      sizes[0]
-    );
-    if (typeof best?.link === "string") return best.link;
+    const usable = sizes.filter((s: any) => typeof s?.link === "string");
+    if (usable.length > 0) {
+      const covering = usable
+        .filter((s: any) => (s?.width ?? 0) >= targetWidth)
+        .sort((a: any, b: any) => (a?.width ?? 0) - (b?.width ?? 0));
+      const pick =
+        covering[0] ?? usable.reduce((a: any, b: any) => ((b?.width ?? 0) > (a?.width ?? 0) ? b : a), usable[0]);
+      if (typeof pick?.link === "string") return pick.link;
+    }
   }
   return typeof pictures?.base_link === "string" ? pictures.base_link : null;
 }
