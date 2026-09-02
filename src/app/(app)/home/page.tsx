@@ -2,14 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
-import {
-  resolveHomePhase,
-  getThemedCheckinCompletionThisWeek,
-  getOutstandingWeekdaysThisWeek,
-} from "@/lib/routines/dayState";
+import { resolveHomePhase, getThemedCheckinCompletionThisWeek } from "@/lib/routines/dayState";
 import { getPendingPeriodicReview } from "@/lib/routines/periodicReview";
 import { getTodayStats } from "@/lib/gamification/todayStats";
 import {
+  catchUpEligibleWeekdays,
   getIsoWeekNumber,
   getMondayOfWeek,
   todayISODate,
@@ -36,7 +33,7 @@ import { getMyHabitEntrySummary, type HabitEntrySummary } from "@/lib/habits/que
 import { StandFundamentals } from "@/components/today/StandFundamentals";
 import { getMyStandEntry } from "@/lib/routines/stand";
 import { toStandState, type StandState } from "@/lib/routines/standConfig";
-import type { ContentItem, ChallengeWithProgress, StandEntry } from "@/types/database";
+import type { ContentItem, ChallengeWithProgress } from "@/types/database";
 
 const THEMED_TITLES: Record<Weekday, { title: string; subtitle: string }> = {
   ...CHECKIN_CONFIG,
@@ -137,35 +134,61 @@ export default async function HomePage() {
     const publicClient = await createClient();
     const todayISO = todayISODate(now, timeZone);
 
-    const [{ data: morningEntry }, { data: nightEntry }, { data: todayCheckin }, { data: company }] =
-      await Promise.all([
-        privateClient
-          .from("morning_entries")
-          .select("completed_at, sleep_score")
-          .eq("user_id", profile.id)
-          .eq("entry_date", todayISO)
-          .maybeSingle(),
-        privateClient
-          .from("night_entries")
-          .select("completed_at, day_rating")
-          .eq("user_id", profile.id)
-          .eq("entry_date", todayISO)
-          .maybeSingle(),
-        isWeekday && todayWeekday !== "wednesday"
-          ? privateClient
-              .from("themed_checkins")
-              .select("answers")
-              .eq("user_id", profile.id)
-              .eq("week_start_date", mondayStart)
-              .eq("weekday", todayWeekday)
-              .maybeSingle()
-          : Promise.resolve({ data: null }),
-        publicClient
-          .from("companies")
-          .select("name, welcome_copy, primary_color")
-          .eq("id", profile.company_id)
-          .maybeSingle(),
-      ]);
+    // Every per-request read for /home fires in ONE wave. The four routine /
+    // check-in / company lookups don't depend on the content-OS reads (today's
+    // day-tagged carousel, the member's challenge progress, the Notice Board,
+    // and their own Clean Streak + STAND), so there's no reason to await them in
+    // two sequential rounds -- both are plain reads (RLS scopes the spine by
+    // channel and participation to the caller), folded into this same guarded
+    // block so /home still degrades to "nothing yet" if Supabase is unreachable
+    // rather than crashing the universal landing page.
+    const [
+      { data: morningEntry },
+      { data: nightEntry },
+      { data: todayCheckin },
+      { data: company },
+      dayItemsResult,
+      myChallengesResult,
+      noticesResult,
+      habitSummaryResult,
+      standEntryResult,
+    ] = await Promise.all([
+      privateClient
+        .from("morning_entries")
+        .select("completed_at, sleep_score")
+        .eq("user_id", profile.id)
+        .eq("entry_date", todayISO)
+        .maybeSingle(),
+      privateClient
+        .from("night_entries")
+        .select("completed_at, day_rating")
+        .eq("user_id", profile.id)
+        .eq("entry_date", todayISO)
+        .maybeSingle(),
+      isWeekday && todayWeekday !== "wednesday"
+        ? privateClient
+            .from("themed_checkins")
+            .select("answers")
+            .eq("user_id", profile.id)
+            .eq("week_start_date", mondayStart)
+            .eq("weekday", todayWeekday)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      publicClient
+        .from("companies")
+        .select("name, welcome_copy, primary_color")
+        .eq("id", profile.company_id)
+        .maybeSingle(),
+      getDayContent(publicClient, isoWeekday),
+      listChallengesWithProgress(publicClient, privateClient, profile.id),
+      // The Notice Board: ad-hoc promo cards Anthony schedules for today (RLS
+      // gates them to published; the query filters by the date window + weekday).
+      listActiveNotices(publicClient, { isoWeekday, todayIso: todayISO }),
+      // The member's own Clean Streak (private, own-rows only) for the rail card.
+      getMyHabitEntrySummary(privateClient, profile.id, todayISO),
+      // The member's own STAND fundamentals for today (private, own-rows only).
+      getMyStandEntry(privateClient, profile.id, todayISO),
+    ]);
 
     morningDone = Boolean(morningEntry?.completed_at);
     nightDone = Boolean(nightEntry?.completed_at);
@@ -183,31 +206,22 @@ export default async function HomePage() {
     companyMessage = (company?.welcome_copy as string | null) ?? null;
     companySkin = (company?.primary_color as string | null) ?? "#ec3013";
 
-    // The content-OS in the daily loop: today's day-tagged carousel and the
-    // member's own challenge progress. Both are plain reads (RLS scopes the
-    // spine by channel and participation to the caller), folded into this same
-    // guarded block so /home still degrades to "nothing yet" if Supabase is
-    // unreachable rather than crashing the universal landing page.
-    let standEntry: StandEntry | null = null;
-    [dayItems, myChallenges, notices, habitSummary, standEntry] = await Promise.all([
-      getDayContent(publicClient, isoWeekday),
-      listChallengesWithProgress(publicClient, privateClient, profile.id),
-      // The Notice Board: ad-hoc promo cards Anthony schedules for today (RLS
-      // gates them to published; the query filters by the date window + weekday).
-      listActiveNotices(publicClient, { isoWeekday, todayIso: todayISO }),
-      // The member's own Clean Streak (private, own-rows only) for the rail card.
-      getMyHabitEntrySummary(privateClient, profile.id, todayISO),
-      // The member's own STAND fundamentals for today (private, own-rows only).
-      getMyStandEntry(privateClient, profile.id, todayISO),
-    ]);
-    standState = toStandState(standEntry);
+    dayItems = dayItemsResult;
+    myChallenges = myChallengesResult;
+    notices = noticesResult;
+    habitSummary = habitSummaryResult;
+    standState = toStandState(standEntryResult);
   } catch {
     // safe defaults above
   }
 
   const completedWeekdays = await getThemedCheckinCompletionThisWeek(profile.id, now, timeZone);
+  // Catch-up = this week's eligible weekdays that aren't done yet, minus today
+  // (already the hero). Derived from the set we just fetched, not a second
+  // getOutstandingWeekdaysThisWeek() call -- that helper re-runs the identical
+  // themed_checkins query we already have the answer for.
   const catchUp = isWeekday
-    ? (await getOutstandingWeekdaysThisWeek(profile.id, now, timeZone)).filter((w) => w !== todayWeekday)
+    ? catchUpEligibleWeekdays(now, timeZone).filter((w) => !completedWeekdays.has(w) && w !== todayWeekday)
     : [];
 
   // Rotate today's bank so a different pick leads each ISO week (the same helper

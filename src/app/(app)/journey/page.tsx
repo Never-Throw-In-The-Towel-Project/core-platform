@@ -88,7 +88,8 @@ export default async function JourneyPage() {
   // The member's own last 7 days (private, never-reportable). The date window is
   // computed in the member's own timezone; the reads run under the private
   // client, in the same guarded block as the reviews.
-  const stepDates = lastNDates(todayISODate(new Date(), profile.timezone), 7);
+  const todayIso = todayISODate(new Date(), profile.timezone);
+  const stepDates = lastNDates(todayIso, 7);
 
   let weeklyReviews: WeeklyReview[] | null = null;
   let periodicReviews: PeriodicReview[] | null = null;
@@ -106,7 +107,24 @@ export default async function JourneyPage() {
   let habitSummary: HabitEntrySummary = { hasAny: false, active: null };
   try {
     const supabase = await createClient("private");
-    const [weeklyResult, periodicResult] = await Promise.all([
+    const publicClient = await createClient();
+
+    // Every read on this screen fires in ONE wave. The reviews, steps, earned
+    // badges, Clean Streak summary, the 7-day sleep/rating rows and the
+    // already-shared badge keys are all independent, per-user reads -- there's
+    // no data dependency between them, so awaiting them in six sequential rounds
+    // (as this did) only stacked their latencies. Kept in the same guarded block
+    // so any failure still degrades to the safe empty-history defaults above.
+    const [
+      weeklyResult,
+      periodicResult,
+      stepEntriesResult,
+      earnedBadgesResult,
+      habitSummaryResult,
+      { data: sleepRows },
+      { data: ratingRows },
+      { data: sharedRows },
+    ] = await Promise.all([
       supabase
         .from("weekly_reviews")
         .select("*")
@@ -118,22 +136,25 @@ export default async function JourneyPage() {
         .select("*")
         .eq("user_id", profile.id)
         .not("completed_at", "is", null),
+      getRecentSteps(supabase, profile.id, stepDates[0]),
+      getEarnedBadges(supabase, profile.id),
+      getMyHabitEntrySummary(supabase, profile.id, todayIso),
+      // Daily sleep + day-rating over the same 7-day window as steps.
+      supabase.from("morning_entries").select("entry_date, sleep_score").eq("user_id", profile.id).in("entry_date", stepDates),
+      supabase.from("night_entries").select("entry_date, day_rating").eq("user_id", profile.id).in("entry_date", stepDates),
+      // Which badges are already on the wins board (public.community_posts).
+      publicClient
+        .from("community_posts")
+        .select("shared_badge_key")
+        .eq("user_id", profile.id)
+        .not("shared_badge_key", "is", null)
+        .eq("is_removed", false),
     ]);
     weeklyReviews = weeklyResult.data as WeeklyReview[] | null;
     periodicReviews = periodicResult.data as PeriodicReview[] | null;
-    stepEntries = await getRecentSteps(supabase, profile.id, stepDates[0]);
-    earnedBadges = await getEarnedBadges(supabase, profile.id);
-    habitSummary = await getMyHabitEntrySummary(
-      supabase,
-      profile.id,
-      todayISODate(new Date(), profile.timezone)
-    );
-
-    // Daily sleep + day-rating over the same 7-day window as steps.
-    const [{ data: sleepRows }, { data: ratingRows }] = await Promise.all([
-      supabase.from("morning_entries").select("entry_date, sleep_score").eq("user_id", profile.id).in("entry_date", stepDates),
-      supabase.from("night_entries").select("entry_date, day_rating").eq("user_id", profile.id).in("entry_date", stepDates),
-    ]);
+    stepEntries = stepEntriesResult;
+    earnedBadges = earnedBadgesResult;
+    habitSummary = habitSummaryResult;
     dailySleep = new Map(
       (sleepRows ?? [])
         .filter((r) => r.sleep_score != null)
@@ -144,15 +165,6 @@ export default async function JourneyPage() {
         .filter((r) => r.day_rating != null)
         .map((r) => [r.entry_date as string, r.day_rating as number])
     );
-
-    // Which badges are already on the wins board (public.community_posts).
-    const publicClient = await createClient();
-    const { data: sharedRows } = await publicClient
-      .from("community_posts")
-      .select("shared_badge_key")
-      .eq("user_id", profile.id)
-      .not("shared_badge_key", "is", null)
-      .eq("is_removed", false);
     sharedBadgeKeys = new Set((sharedRows ?? []).map((r) => r.shared_badge_key as string));
   } catch {
     weeklyReviews = null;
@@ -162,33 +174,37 @@ export default async function JourneyPage() {
   }
 
   const stepsWeek = buildStepsWeek(stepDates, stepEntries);
-  const stats = await getJourneyStats(profile.id, activeDayCount);
+
+  const reviews = (weeklyReviews as WeeklyReview[] | null) ?? [];
+  const recentReviews = reviews.slice(0, 5);
+
+  // The four remaining reads are independent (only the already-loaded weekly
+  // reviews feed ratingsByWeek), so they run in one wave rather than four
+  // sequential awaits: journey stats, the badge engagement snapshot, the
+  // company step-challenge brief, and the per-week rating averages. The
+  // step-challenge lookup keeps its own best-effort guard (a failure there just
+  // hides the card) via the inline catch, so it can't reject the whole batch.
+  const [stats, engagement, activeChallenge, ratingsByWeek] = await Promise.all([
+    getJourneyStats(profile.id, activeDayCount),
+    gatherEngagement(profile.id),
+    (async (): Promise<{ id: string; title: string } | null> => {
+      try {
+        const publicClient = await createClient();
+        return await getActiveChallengeBrief(publicClient, profile.company_id);
+      } catch {
+        return null;
+      }
+    })(),
+    getWeeklyRatingAverages(profile.id, recentReviews.map((r) => r.week_start_date)),
+  ]);
 
   // Full badge catalogue (earned + locked, in display order) evaluated against
   // the same engagement the Today screen uses, plus the earned-at dates for every
   // persisted badge -- including the awarded ones (Team MVP / Challenge Complete /
   // Clean Streak), which the Trophy Room shows as earned when a date is present.
-  const engagement = await gatherEngagement(profile.id);
   const badgeStats = badgeStatsFrom(engagement);
   const allBadges = evaluateBadges(badgeStats);
   const earnedAt = new Map(earnedBadges.map((b) => [b.badge_key, b.earned_at]));
-
-  // The member's company's active step challenge, if any -- a lightweight entry
-  // point to the full challenge screen. Best-effort: any failure just hides it.
-  let activeChallenge: { id: string; title: string } | null = null;
-  try {
-    const publicClient = await createClient();
-    activeChallenge = await getActiveChallengeBrief(publicClient, profile.company_id);
-  } catch {
-    activeChallenge = null;
-  }
-
-  const reviews = (weeklyReviews as WeeklyReview[] | null) ?? [];
-  const recentReviews = reviews.slice(0, 5);
-  const ratingsByWeek = await getWeeklyRatingAverages(
-    profile.id,
-    recentReviews.map((r) => r.week_start_date)
-  );
 
   const now = new Date();
   const todayWeekday = weekdayNameOrWeekend(now, profile.timezone);
