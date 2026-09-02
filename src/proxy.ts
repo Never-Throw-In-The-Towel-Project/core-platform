@@ -83,20 +83,19 @@ export async function proxy(request: NextRequest) {
   // Wrapped in try/catch: createServerClient() throws synchronously if the
   // URL/key are missing or malformed
   // (node_modules/@supabase/ssr/dist/main/createServerClient.js), and
-  // auth-js's getUser() only resolves normally when it recognizes a failure
-  // as an AuthError, re-throwing anything it doesn't (see lib/auth/dal.ts's
+  // auth-js's getClaims()/getUser() only resolve normally when they recognize a
+  // failure as an AuthError, re-throwing anything they don't (see lib/auth/dal.ts's
   // verifySession(), which has the same guard for the identical reason).
   // Unwrapped, either crashed to Next's generic error page on every single
   // protected route, since this runs on nearly every request via the
   // matcher below -- not just the one page a user happened to be on.
   // Treated the same as no session: redirect to /login rather than
   // propagate the exception.
-  let user;
+  let authed = false;
   try {
-    // Standard Supabase SSR proxy/middleware pattern: create a client bound
-    // to this request's cookies, call getUser() (revalidates against
-    // Supabase Auth, not just an optimistic cookie-presence check), and
-    // propagate any refreshed session cookies onto the response.
+    // Standard Supabase SSR proxy/middleware pattern: a client bound to this
+    // request's cookies whose setAll (below) propagates any rotated session
+    // cookies onto the response.
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -118,17 +117,27 @@ export async function proxy(request: NextRequest) {
       }
     );
 
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
-    user = authUser;
+    // getClaims() rather than getUser() for this optimistic gate: with the
+    // project's asymmetric JWT signing keys it verifies the token's signature
+    // LOCALLY (WebCrypto + a cached JWKS), sparing a round-trip to the Auth
+    // server on every single navigation; if the project is still on the legacy
+    // symmetric secret it transparently falls back to a getUser() network check
+    // (node_modules/@supabase/auth-js/.../GoTrueClient.js getClaims()), so this
+    // is never slower and gets strictly faster the moment asymmetric keys are
+    // enabled. It still calls getSession() internally, which refreshes an
+    // expiring access token, so the cookie refresh above is unchanged. This
+    // stays an OPTIMISTIC gate; RLS + verifySession()/requireHrAdmin() in
+    // src/lib/auth/dal.ts remain the hard boundary, re-run server-side on every
+    // protected page.
+    const { data } = await supabase.auth.getClaims();
+    authed = Boolean(data?.claims);
   } catch {
-    user = null;
+    authed = false;
   }
 
   const pathname = request.nextUrl.pathname;
 
-  if (!user && !isPublicPath(pathname)) {
+  if (!authed && !isPublicPath(pathname)) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
