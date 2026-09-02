@@ -489,7 +489,7 @@ function BrainCard({
         ) : imageSrc ? (
           <div className="relative aspect-video w-full border-b border-rule-hairline">
             {/* eslint-disable-next-line @next/next/no-img-element -- remote/derived URL, not a local/optimizable asset */}
-            <img src={imageSrc} alt="" className="h-full w-full object-cover" />
+            <img src={imageSrc} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
             {item.type === "video" && (
               <span className="absolute inset-0 flex items-center justify-center">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground/70 text-xs text-background">

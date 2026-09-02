@@ -47,6 +47,8 @@ function ResumeCard({ resume }: { resume: ResumeItem }) {
           <img
             src={item.thumbnail_url!}
             alt=""
+            loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         ) : (

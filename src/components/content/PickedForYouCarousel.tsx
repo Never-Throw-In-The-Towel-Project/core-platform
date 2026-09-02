@@ -266,6 +266,8 @@ function TileVisual({ item, height }: { item: ContentItem; height: string }) {
         <img
           src={item.thumbnail_url}
           alt=""
+          loading="lazy"
+          decoding="async"
           className="absolute inset-0 h-full w-full object-cover opacity-20 transition-opacity duration-300 group-hover:opacity-30"
         />
       )}
