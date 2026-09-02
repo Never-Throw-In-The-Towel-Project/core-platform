@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { escapeFilterValue } from "@/lib/supabase/filterEscape";
 import type { Company } from "@/types/database";
@@ -80,11 +81,15 @@ export function cookieDomainForHost(host: string): string | undefined {
  * anon key is sufficient here — no service role needed, and this is safe to
  * call before a user is authenticated (e.g. to brand the login page).
  *
- * Perf note for later: this is one DB round-trip per request when called
- * from proxy.ts. Fine for the foundation phase; worth caching (short-TTL,
- * keyed by hostname) once real traffic makes it worth the complexity.
+ * Wrapped in React's `cache()` so the several callers that all run within one
+ * server request -- the root layout plus the route's own layout/page (e.g. the
+ * marketing home calls it in the root layout, `(marketing)/layout.tsx` AND
+ * `(marketing)/page.tsx`: three identical lookups) -- share a single DB
+ * round-trip keyed on `host`, instead of each issuing its own. The cache is
+ * per-request and never spans requests, so a different host next request
+ * resolves fresh. (Middleware never calls this; it uses the pure `extractTenantSlug`.)
  */
-export async function resolveCompanyForHost(host: string): Promise<Company | null> {
+export const resolveCompanyForHost = cache(async (host: string): Promise<Company | null> => {
   const hostname = host.split(":")[0].toLowerCase();
   const slug = extractTenantSlug(host);
 
@@ -144,4 +149,4 @@ export async function resolveCompanyForHost(host: string): Promise<Company | nul
   } catch {
     return null;
   }
-}
+});
