@@ -1,5 +1,14 @@
 import { z } from "zod";
 import type { ContentType, VideoCategory } from "@/types/database";
+import type { ContentImportError, ContentImportState } from "./importState";
+import { initialContentImportState } from "./importState";
+
+// Re-exported so this module stays the single import surface for the server
+// side (the action, tests). The definitions themselves live in the zod-free
+// importState.ts so the client form can import the initial state without
+// dragging zod + the parser into the browser bundle.
+export type { ContentImportError, ContentImportState };
+export { initialContentImportState };
 
 /**
  * Shared content-input validator + CSV bulk-import parsing.
@@ -55,10 +64,6 @@ export type ContentImportRow = {
   folder: string | null;
 };
 
-/** A per-row problem, anchored to the 1-based line in the uploaded file so the
- *  operator can jump straight to the offending spreadsheet row. */
-export type ContentImportError = { line: number; message: string };
-
 export type ContentImportParseResult = {
   rows: ContentImportRow[];
   errors: ContentImportError[];
@@ -68,13 +73,6 @@ export type ContentImportParseResult = {
   /** Count of non-blank data rows seen (valid or not), for the summary. */
   dataRowCount: number;
 };
-
-export type ContentImportState =
-  | { status: "idle" }
-  | { status: "error"; message: string; rowErrors?: ContentImportError[] }
-  | { status: "success"; message: string; created: number; published: number; drafted: number };
-
-export const initialContentImportState: ContentImportState = { status: "idle" };
 
 /** Hard cap per import so one insert stays well-bounded; larger loads split. */
 export const MAX_IMPORT_ROWS = 500;
