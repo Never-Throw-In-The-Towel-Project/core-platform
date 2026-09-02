@@ -25,7 +25,6 @@ import {
   type EventFieldValues,
 } from "@/lib/events/validation";
 import { downscaleImageToJpeg } from "@/lib/images/downscale";
-import { getBrowserSupabase } from "@/lib/supabase/browserUpload";
 import { FormSection, Switch, TextAreaField, TextField } from "@/components/ui/form";
 import { ImageUploadField } from "@/components/ui/ImageUploadField";
 import type { EventRow } from "@/types/database";
@@ -224,6 +223,10 @@ export function EventStudioForm({
         failUpload(target.error);
         return;
       }
+      // Loaded on demand (the first time an admin actually uploads) so the
+      // ~230KB supabase-js browser client is code-split out of every event
+      // page's initial bundle instead of shipping on load.
+      const { getBrowserSupabase } = await import("@/lib/supabase/browserUpload");
       const { error } = await getBrowserSupabase()
         .storage.from(EVENT_IMAGE_BUCKET)
         .uploadToSignedUrl(target.path, target.token, uploadFile);

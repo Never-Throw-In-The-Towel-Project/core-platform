@@ -18,7 +18,6 @@ import {
   type NoticeFieldKey,
   type NoticeFieldValues,
 } from "@/lib/notices/validation";
-import { getBrowserSupabase } from "@/lib/supabase/browserUpload";
 import { FormSection, Switch, TextAreaField, TextField } from "@/components/ui/form";
 import { ImageUploadField } from "@/components/ui/ImageUploadField";
 import { VideoUploadField } from "@/components/ui/VideoUploadField";
@@ -244,6 +243,10 @@ export function NoticeStudioForm({ notice }: { notice?: NoticeView }) {
         setVideoError(target.error);
         return;
       }
+      // Loaded on demand (the first time an admin uploads) so the ~230KB
+      // supabase-js browser client is code-split out of the notice page's
+      // initial bundle instead of shipping on load.
+      const { getBrowserSupabase } = await import("@/lib/supabase/browserUpload");
       const { error } = await getBrowserSupabase()
         .storage.from(NOTICE_VIDEO_BUCKET)
         .uploadToSignedUrl(target.path, target.token, file);
