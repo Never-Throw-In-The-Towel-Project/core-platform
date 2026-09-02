@@ -193,19 +193,27 @@ export async function backfillVimeoMetadataAction(
       failed++;
       continue;
     }
-    const { error: updateError } = await supabase
-      .from("content_items")
-      .update({
-        thumbnail_url: res.data.thumbnailUrl ?? null,
-        vimeo_hash: res.data.hash ?? null,
-        duration_seconds: res.data.durationSeconds ?? null,
-      })
-      .eq("id", row.id);
+    // Only ever write a field Vimeo actually returned. "refresh" sweeps EVERY
+    // video, so a transient/edge response that omits duration or hash must not
+    // null out a value that was already correct -- only fill/replace with a real
+    // value (this also protects the "missing" path from clobbering a good field
+    // on a row it selected for a different missing one).
+    const patch: { thumbnail_url?: string; vimeo_hash?: string; duration_seconds?: number } = {};
+    if (res.data.thumbnailUrl != null) patch.thumbnail_url = res.data.thumbnailUrl;
+    if (res.data.hash != null) patch.vimeo_hash = res.data.hash;
+    if (res.data.durationSeconds != null) patch.duration_seconds = res.data.durationSeconds;
+    if (Object.keys(patch).length === 0) continue; // nothing new to write
+
+    const { error: updateError } = await supabase.from("content_items").update(patch).eq("id", row.id);
     if (updateError) failed++;
     else updated++;
   }
 
-  if (updated > 0) {
+  // Revalidate ONCE per run, not per cursor page: a "refresh" sweep loops the
+  // action across many pages, so only fan out on the final page (nextCursor
+  // null) rather than re-invalidating these three paths on every page.
+  const isFinalPage = nextCursor === null;
+  if (mode === "refresh" ? isFinalPage : updated > 0) {
     revalidatePath("/admin/brain");
     revalidatePath("/admin/content");
     revalidatePath("/content");
