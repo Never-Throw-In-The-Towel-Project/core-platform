@@ -100,6 +100,8 @@ function ShelfAnchor({ item }: { item: ContentItem }) {
         <img
           src={item.thumbnail_url}
           alt=""
+          loading="lazy"
+          decoding="async"
           className="absolute inset-0 h-full w-full object-cover opacity-30 transition-opacity duration-300 group-hover:opacity-40"
         />
       )}
