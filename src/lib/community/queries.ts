@@ -210,31 +210,52 @@ export async function getPosts(
   return sortPosts(withMeta, params.sort ?? "new", Date.now()).slice(0, FEED_PAGE_SIZE);
 }
 
-export async function getComments(
+/**
+ * Load the comments for MANY posts in a fixed number of round-trips instead of
+ * one query fan-out per post. The feed renders up to FEED_PAGE_SIZE (50) posts;
+ * reading each post's comments on its own was three queries a post (the comment
+ * rows + getAuthorInfo's profiles + companies lookups) -- ~150 round-trips for a
+ * full page. This does ONE comments query (`.in post_id`) plus ONE getAuthorInfo
+ * across every comment author, then groups the rows in memory.
+ *
+ * Returns a Map keyed by post_id; each value is that post's comments in
+ * created_at-ascending order (the global order the query returns is preserved
+ * within a post because grouping appends in iteration order) -- identical shape
+ * to what a per-post read produced. Posts with no comments are simply absent
+ * from the map, so callers read `map.get(postId) ?? []`.
+ */
+export async function getCommentsForPosts(
   supabase: AnySupabaseClient,
-  postId: string
-): Promise<CommentWithAuthor[]> {
+  postIds: string[]
+): Promise<Map<string, CommentWithAuthor[]>> {
+  if (postIds.length === 0) return new Map();
+
   const { data: comments } = await supabase
     .from("community_comments")
     .select("*")
-    .eq("post_id", postId)
+    .in("post_id", postIds)
     .eq("is_removed", false)
     .order("created_at", { ascending: true });
 
-  if (!comments || comments.length === 0) return [];
+  if (!comments || comments.length === 0) return new Map();
 
   const userIds = Array.from(new Set(comments.map((c: CommunityComment) => c.user_id)));
   const authorInfo = await getAuthorInfo(supabase, userIds);
 
   // Comments carry no per-post override -- they follow the author's account
   // default (peer-facing, same resolver as the feed).
-  return (comments as CommunityComment[]).map((comment) => {
+  const byPost = new Map<string, CommentWithAuthor[]>();
+  for (const comment of comments as CommunityComment[]) {
     const info = authorInfo.get(comment.user_id);
-    return {
+    const withAuthor: CommentWithAuthor = {
       ...comment,
       authorDisplayName: info ? peerCommunityName(info) : "Someone",
     };
-  });
+    const list = byPost.get(comment.post_id);
+    if (list) list.push(withAuthor);
+    else byPost.set(comment.post_id, [withAuthor]);
+  }
+  return byPost;
 }
 
 /** Used by the ntitt_admin moderation queue to show the REAL name behind

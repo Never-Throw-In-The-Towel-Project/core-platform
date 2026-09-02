@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getComments, getPosts } from "@/lib/community/queries";
+import { getCommentsForPosts, getPosts } from "@/lib/community/queries";
 import type { FeedSort } from "@/lib/community/sort";
 import { PostCard } from "./PostCard";
 import { PostComposer } from "./PostComposer";
@@ -52,7 +52,7 @@ export async function CommunityFeedView({
   let posts: Awaited<ReturnType<typeof getPosts>> = [];
   let company: { name: string } | null = null;
   let podcastEpisode: { title: string; embed_url: string } | null = null;
-  let commentsByPost: Awaited<ReturnType<typeof getComments>>[] = [];
+  let commentsByPost: Awaited<ReturnType<typeof getCommentsForPosts>> = new Map();
   try {
     const supabase = await createClient();
 
@@ -69,12 +69,18 @@ export async function CommunityFeedView({
     posts = postsResult;
     company = companyResult.data;
     podcastEpisode = podcastResult.data;
-    commentsByPost = await Promise.all(posts.map((post) => getComments(supabase, post.id)));
+    // One batched read for every visible post's comments (was a getComments()
+    // fan-out per post -- ~150 round-trips for a full page); PostCard reads its
+    // own thread out of the map below.
+    commentsByPost = await getCommentsForPosts(
+      supabase,
+      posts.map((post) => post.id)
+    );
   } catch {
     posts = [];
     company = null;
     podcastEpisode = null;
-    commentsByPost = [];
+    commentsByPost = new Map();
   }
 
   // One server-computed "now" for every card's relative timestamp, so SSR and
@@ -138,8 +144,8 @@ export async function CommunityFeedView({
 
         <div className="mt-4 space-y-4">
           {posts.length === 0 && <p className="py-8 text-sm text-muted">{emptyMessage}</p>}
-          {posts.map((post, i) => (
-            <PostCard key={post.id} post={post} comments={commentsByPost[i]} now={nowIso} />
+          {posts.map((post) => (
+            <PostCard key={post.id} post={post} comments={commentsByPost.get(post.id) ?? []} now={nowIso} />
           ))}
         </div>
       </div>
