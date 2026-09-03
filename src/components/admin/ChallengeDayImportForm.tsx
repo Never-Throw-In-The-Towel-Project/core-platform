@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { importChallengeDays } from "@/lib/actions/challenges";
-import { initialChallengeImportState } from "@/lib/challenges/challengeImport";
+import { initialChallengeImportState } from "@/lib/challenges/challengeImportState";
 
 const LABEL = "block text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted";
 const FIELD = "mt-1 w-full border border-rule-border bg-transparent px-3 py-2 text-sm";
