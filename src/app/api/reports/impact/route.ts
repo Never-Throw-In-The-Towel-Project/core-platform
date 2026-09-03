@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { requireHrAdmin } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { collectImpactReportData } from "@/lib/reports/collectImpactReportData";
-import { generateImpactReportPdf } from "@/lib/reports/generateImpactReportPdf";
 
 /**
  * On-demand impact report download for the logged-in HR admin -- unlike the
@@ -41,6 +40,9 @@ export async function GET() {
     }
 
     const data = await collectImpactReportData(supabase, profile.company_id, company.name);
+    // Loaded on demand so the heavy @react-pdf/renderer subtree stays out of
+    // this route's cold-start graph (import() is cached across requests).
+    const { generateImpactReportPdf } = await import("@/lib/reports/generateImpactReportPdf");
     const pdf = await generateImpactReportPdf(data);
 
     // NextResponse's body type doesn't line up with Node's Buffer (a TS/@types

@@ -6,19 +6,12 @@ import Anthropic from "@anthropic-ai/sdk";
 // confirms -- and only ever reads content metadata, never a member's private
 // journals (the privacy invariant). The Anthropic client reads ANTHROPIC_API_KEY
 // from the environment (set in the hosting platform), never a hardcoded key.
-//
-// The model is overridable via ANTHROPIC_MODEL so cost/latency can be dialed
-// without a code change; it defaults to the current Opus.
-export const AI_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-opus-5";
 
-/**
- * True only when an API key is configured. Callers guard with this so a
- * preview/local deploy that doesn't carry the key degrades to a friendly "AI
- * isn't configured here" message instead of throwing.
- */
-export function isAiConfigured(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY);
-}
+// AI_MODEL + isAiConfigured live in the zero-dependency ./config module so a
+// caller that only needs the env check doesn't pull @anthropic-ai/sdk in with
+// it. Re-exported here so existing `@/lib/ai/client` importers are unchanged;
+// import them from ./config directly wherever the SDK itself isn't needed.
+export { AI_MODEL, isAiConfigured } from "./config";
 
 /** A fresh Anthropic client. Throws if no key is configured -- always guard with
  *  isAiConfigured() first. */

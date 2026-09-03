@@ -5,7 +5,7 @@ import { listAllContentForAdmin } from "@/lib/content/queries";
 import { CalendarDayControl } from "@/components/admin/CalendarDayControl";
 import { ScheduleControl } from "@/components/admin/ScheduleControl";
 import { buildMonthGrid, monthTitle, shiftMonth, parseMonthParam, monthParam } from "@/lib/content/calendarMonth";
-import { isAiConfigured } from "@/lib/ai/client";
+import { isAiConfigured } from "@/lib/ai/config";
 import { CalendarWeekSuggest } from "@/components/admin/CalendarWeekSuggest";
 import { CalendarMonthSuggest } from "@/components/admin/CalendarMonthSuggest";
 import { CalendarChannelSelect } from "@/components/admin/CalendarChannelSelect";
