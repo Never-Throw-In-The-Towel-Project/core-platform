@@ -169,7 +169,11 @@
   --color-success-foreground: var(--success-foreground);
   --color-success-vivid: var(--success-vivid);
   --font-sans: var(--font-archivo);
-  --font-mono: var(--font-geist-mono);
+  /* System monospace stack (was self-hosted Geist Mono). `font-mono` is only
+     used on two admin CSV-paste textareas and a couple of inline <code> spans,
+     so it doesn't warrant an app-wide webfont preload -- the OS monospace
+     renders those surfaces identically. */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
   /* Zero corner radius everywhere except rounded-full (avatars, pills,
      tap-scale numbers, radio dots) -- Modernist's flat, architectural look.

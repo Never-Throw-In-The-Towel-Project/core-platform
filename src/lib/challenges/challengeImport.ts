@@ -1,4 +1,13 @@
 import { parseCsv } from "@/lib/content/csvImport";
+import type { ChallengeImportError } from "./challengeImportState";
+
+// The action-state shape + initial value live in the zero-zod leaf
+// ./challengeImportState so the "use client" import form can pull the initial
+// state without dragging this module's CSV parser (and its zod) into the
+// browser bundle. Re-exported here so existing server-side importers of
+// `@/lib/challenges/challengeImport` are unaffected.
+export type { ChallengeImportError, ChallengeImportState } from "./challengeImportState";
+export { initialChallengeImportState } from "./challengeImportState";
 
 /**
  * CSV bulk-import parsing for a challenge's day sequence (challenge → day_index →
@@ -22,9 +31,6 @@ import { parseCsv } from "@/lib/content/csvImport";
  * writes rows only when there are zero errors across BOTH phases, so a bad row
  * never leaves a half-sequenced challenge that would collide on a re-run.
  */
-
-/** A per-row problem, anchored to the 1-based line in the uploaded file. */
-export type ChallengeImportError = { line: number; message: string };
 
 /** A structurally-valid row, content reference not yet resolved to an id. */
 export type ParsedChallengeRow = {
@@ -56,13 +62,6 @@ export type ChallengeContentIndex = {
   /** normalised (trim+lowercase) title → the ids that carry it (usually one). */
   byTitle: Map<string, string[]>;
 };
-
-export type ChallengeImportState =
-  | { status: "idle" }
-  | { status: "error"; message: string; rowErrors?: ChallengeImportError[] }
-  | { status: "success"; message: string; created: number; withContent: number; promptOnly: number };
-
-export const initialChallengeImportState: ChallengeImportState = { status: "idle" };
 
 /** A challenge has at most 366 days, so this doubles as the row cap. */
 export const MAX_CHALLENGE_IMPORT_ROWS = 366;
