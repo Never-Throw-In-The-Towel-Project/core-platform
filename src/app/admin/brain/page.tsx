@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { listAllContentForAdmin } from "@/lib/content/queries";
 import { listTopicsWithCounts } from "@/lib/content/topicQueries";
 import { listContentFolders, resolveAssetUrls } from "@/lib/content/brain";
-import { isAiConfigured } from "@/lib/ai/client";
+import { isAiConfigured } from "@/lib/ai/config";
 import { ContentStudioForm } from "@/components/admin/ContentStudioForm";
 import { ContentImportForm } from "@/components/admin/ContentImportForm";
 import { BrainVimeoImport } from "@/components/admin/BrainVimeoImport";

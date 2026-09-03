@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyCronRequest } from "@/lib/auth/cron";
 import { collectImpactReportData } from "@/lib/reports/collectImpactReportData";
-import { generateImpactReportPdf } from "@/lib/reports/generateImpactReportPdf";
 import { getHrAdminEmails } from "@/lib/reports/getHrAdminEmails";
 import { sendImpactReportEmail } from "@/lib/reports/sendImpactReportEmail";
 import { todayISODate } from "@/lib/routines/dates";
@@ -60,6 +59,11 @@ export async function GET(request: NextRequest) {
       if (emails.length === 0) continue; // no HR admin provisioned yet -- retry next run
 
       const data = await collectImpactReportData(supabase, company.id, company.name);
+      // Load the heavy @react-pdf/renderer subtree only when a company is
+      // actually due -- most daily runs have none, so this keeps ~react-pdf out
+      // of the cron function's cold start entirely on those runs (import() is
+      // cached, so a run with several due companies still loads it once).
+      const { generateImpactReportPdf } = await import("@/lib/reports/generateImpactReportPdf");
       const pdf = await generateImpactReportPdf(data);
 
       const result = await sendImpactReportEmail({
