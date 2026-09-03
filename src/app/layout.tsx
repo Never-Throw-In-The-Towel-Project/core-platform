@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import { GeistMono } from "geist/font/mono";
 import { headers } from "next/headers";
 import "./globals.css";
 import { resolveCompanyForHost } from "@/lib/tenant/resolve";
@@ -8,10 +7,14 @@ import { ThemeProvider } from "@/lib/theme/ThemeProvider";
 
 // Self-hosted (was next/font/google) so the Turbopack build never fetches from
 // fonts.gstatic.com -- that fetch flaked intermittently in CI ("Can't resolve
-// @vercel/turbopack-next/internal/font/google/font"). Same typefaces: Archivo
-// variable (its weight axis covers the 400/600/800 we use) bundled in the repo,
-// and Geist Mono from the official `geist` package. Variable names are
-// unchanged (--font-archivo / --font-geist-mono), so globals.css is untouched.
+// @vercel/turbopack-next/internal/font/google/font"). Archivo variable (its
+// weight axis covers the 400/600/800 we use) is bundled in the repo as a
+// latin-subset woff2. It's the app's only webfont: `font-mono` (two admin
+// CSV textareas + a couple of inline <code> spans) now uses the OS monospace
+// stack (globals.css --font-mono), so no separate mono webfont is declared in
+// the root layout -- a 71KB Geist Mono variable file was previously preloaded
+// on every route (next/font preloads root-layout fonts app-wide) just to style
+// those admin surfaces. A system monospace renders them identically.
 const archivo = localFont({
   src: "./fonts/archivo-latin.woff2",
   variable: "--font-archivo",
@@ -70,7 +73,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${archivo.variable} ${GeistMono.variable} h-full antialiased`}
+      className={`${archivo.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider company={company}>{children}</ThemeProvider>
