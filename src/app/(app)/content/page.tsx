@@ -9,11 +9,19 @@ import {
 } from "@/lib/content/queries";
 import { listResumeItems, type ResumeItem } from "@/lib/content/resumeQueries";
 import { listTopicsWithCounts } from "@/lib/content/topicQueries";
+import { listStagesWithCounts } from "@/lib/content/stageQueries";
+import { STAGE_META, isContentStage } from "@/lib/content/stageConfig";
 import { ContentCard } from "@/components/content/ContentCard";
 import { Shelf } from "@/components/content/Shelf";
 import { ResumeShelf } from "@/components/content/ResumeShelf";
 import { PickedForYouCarousel } from "@/components/content/PickedForYouCarousel";
-import type { ContentItem, ContentTopicWithCount, VideoCategory } from "@/types/database";
+import type {
+  ContentItem,
+  ContentStage,
+  ContentStageWithCount,
+  ContentTopicWithCount,
+  VideoCategory,
+} from "@/types/database";
 
 const CATEGORIES: { value: VideoCategory; label: string }[] = [
   { value: "mental_fitness", label: "Mental Fitness" },
@@ -45,6 +53,7 @@ function contentHref(next: {
   q?: string;
   category?: string;
   topic?: string;
+  stage?: ContentStage;
   filter?: ContentFilter;
   page?: number;
 }): string {
@@ -52,6 +61,7 @@ function contentHref(next: {
   if (next.q) params.set("q", next.q);
   if (next.category) params.set("category", next.category);
   if (next.topic) params.set("topic", next.topic);
+  if (next.stage) params.set("stage", next.stage);
   if (next.filter) params.set("filter", next.filter);
   if (next.page && next.page > 1) params.set("page", String(next.page));
   const qs = params.toString();
@@ -74,19 +84,32 @@ const PILL_INACTIVE = "border-rule-border text-muted hover:border-foreground hov
  * content_items RLS policy for the viewer's own session.
  *
  * The dark "content-OS" layout (Anthony's designers): a near-black board on the
- * shared data-surface="ink" scope. The default browse view leads with curated
- * shelves (Series, Under 3 minutes, Read & download) and the "Browse by topic"
- * rooms above the paginated all-content grid; a search / category / topic / shelf
- * filter collapses to the focused grid. Topics come from the AI-tagged taxonomy
- * (content_topics); the "where you are" stages land in a later slice.
+ * shared data-surface="ink" scope. The default browse view leads with the
+ * "Where you are" phase cards and curated shelves (Series, Under 3 minutes,
+ * Read & download) plus the "Browse by topic" rooms above the paginated
+ * all-content grid; a where-you-are / search / category / topic / shelf filter
+ * collapses to the focused grid. Topics come from the AI-tagged open taxonomy
+ * (content_topics); the "Where you are" stages are the fixed three-phase journey
+ * (content_item_stages, AI-tagged) — start_here → in_it → rebuilding.
  */
 export default async function ContentLibraryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string; topic?: string; filter?: string; page?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    category?: string;
+    topic?: string;
+    stage?: string;
+    filter?: string;
+    page?: string;
+  }>;
 }) {
-  const { q, category, topic: topicParam, filter: filterParam, page: pageParam } = await searchParams;
+  const { q, category, topic: topicParam, stage: stageParam, filter: filterParam, page: pageParam } =
+    await searchParams;
   const filter = FILTERS.find((f) => f === filterParam);
+  // Guard the stage param against the three known keys before it touches a query
+  // or renders as the active pill (an unknown ?stage= just falls back to unfiltered).
+  const stage = isContentStage(stageParam) ? stageParam : undefined;
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
 
   // Wrapped in try/catch: createClient() throws synchronously if the URL/key
@@ -100,12 +123,15 @@ export default async function ContentLibraryPage({
   let pickedItems: ContentItem[] = [];
   let resumeItems: ResumeItem[] = [];
   let topics: ContentTopicWithCount[] = [];
+  let stages: ContentStageWithCount[] = [];
   try {
     const supabase = await createClient();
-    topics = await listTopicsWithCounts(supabase);
+    // Topics (open taxonomy) and stages ("where you are", fixed) both drive a
+    // filter row and a browse-view section, so fetch their counts together.
+    [topics, stages] = await Promise.all([listTopicsWithCounts(supabase), listStagesWithCounts(supabase)]);
     const activeTopic = topicParam ? topics.find((t) => t.slug === topicParam) : undefined;
     const topicId = activeTopic?.id;
-    const isFiltered = Boolean(q || category || filter || topicId);
+    const isFiltered = Boolean(q || category || filter || topicId || stage);
 
     if (isFiltered) {
       const result = await listContentItems(supabase, {
@@ -113,6 +139,7 @@ export default async function ContentLibraryPage({
         category,
         filter,
         topicId,
+        stageKey: stage,
         limit: PAGE_SIZE * page,
       });
       items = result.items;
@@ -144,7 +171,10 @@ export default async function ContentLibraryPage({
   // Recompute the active topic against the (possibly empty) list for rendering.
   const activeTopic = topicParam ? topics.find((t) => t.slug === topicParam) : undefined;
   const populatedTopics = topics.filter((t) => t.count > 0);
-  const filtered = Boolean(q || category || filter || activeTopic);
+  // The "Where you are" facet: only offer stages that actually carry content
+  // (same rule the topic row uses), so a pill never leads to an empty result.
+  const populatedStages = stages.filter((s) => s.count > 0);
+  const filtered = Boolean(q || category || filter || activeTopic || stage);
   const shown = items.length;
   const hasMore = shown < total;
 
@@ -154,18 +184,25 @@ export default async function ContentLibraryPage({
       ? "Topic"
       : q
         ? "Search"
-        : category
-          ? "Category"
-          : "Everything else";
+        : stage
+          ? "Where you are"
+          : category
+            ? "Category"
+            : "Everything else";
   const heading = filter
     ? FILTER_META[filter].heading
     : activeTopic
       ? activeTopic.label
       : q
         ? `“${q}”`
-        : category && CATEGORY_LABEL[category as VideoCategory]
-          ? CATEGORY_LABEL[category as VideoCategory]
-          : "All content";
+        : stage
+          ? STAGE_META[stage].label
+          : category && CATEGORY_LABEL[category as VideoCategory]
+            ? CATEGORY_LABEL[category as VideoCategory]
+            : "All content";
+  // Shown under the grid heading only on the stage view — the authored blurb
+  // for the active stage, so the page speaks to where the member is.
+  const stageBlurb = stage && !filter && !activeTopic && !q ? STAGE_META[stage].blurb : null;
 
   return (
     <main data-surface="ink" className="min-h-full bg-background text-foreground">
@@ -211,13 +248,50 @@ export default async function ContentLibraryPage({
         </div>
       </section>
 
+      {/* "Where you are" filter row — the fixed three-phase journey facet
+          (start_here → in_it → rebuilding), the Library's primary emotional
+          entry point. Shown only once some content carries stages (each pill a
+          populated phase); composes with category/topic/search like the rows
+          below. */}
+      {populatedStages.length > 0 && (
+        <nav className="border-b border-rule-hairline" aria-label="Filter by where you are">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-3 px-6 py-4">
+            <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-brand-accent-light-2">
+              Where you are
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={contentHref({ q, category, topic: activeTopic?.slug })}
+                aria-current={!stage ? "page" : undefined}
+                className={`${PILL_BASE} ${!stage ? PILL_ACTIVE : PILL_INACTIVE}`}
+              >
+                All
+              </Link>
+              {populatedStages.map((s) => {
+                const active = stage === s.stage;
+                return (
+                  <Link
+                    key={s.stage}
+                    href={contentHref({ q, category, topic: activeTopic?.slug, stage: s.stage })}
+                    aria-current={active ? "page" : undefined}
+                    className={`${PILL_BASE} ${active ? PILL_ACTIVE : PILL_INACTIVE}`}
+                  >
+                    {s.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </nav>
+      )}
+
       {/* Category filter row. */}
       <nav className="border-b border-rule-hairline" aria-label="Filter by category">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-3 px-6 py-4">
           <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-muted">Category</span>
           <div className="flex flex-wrap gap-2">
             <Link
-              href={contentHref({ q, topic: activeTopic?.slug })}
+              href={contentHref({ q, topic: activeTopic?.slug, stage })}
               aria-current={!category ? "page" : undefined}
               className={`${PILL_BASE} ${!category ? PILL_ACTIVE : PILL_INACTIVE}`}
             >
@@ -228,7 +302,7 @@ export default async function ContentLibraryPage({
               return (
                 <Link
                   key={cat.value}
-                  href={contentHref({ q, category: cat.value, topic: activeTopic?.slug })}
+                  href={contentHref({ q, category: cat.value, topic: activeTopic?.slug, stage })}
                   aria-current={active ? "page" : undefined}
                   className={`${PILL_BASE} ${active ? PILL_ACTIVE : PILL_INACTIVE}`}
                 >
@@ -248,7 +322,7 @@ export default async function ContentLibraryPage({
             <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-muted">Topic</span>
             <div className="flex flex-wrap gap-2">
               <Link
-                href={contentHref({ q, category })}
+                href={contentHref({ q, category, stage })}
                 aria-current={!activeTopic ? "page" : undefined}
                 className={`${PILL_BASE} ${!activeTopic ? PILL_ACTIVE : PILL_INACTIVE}`}
               >
@@ -259,7 +333,7 @@ export default async function ContentLibraryPage({
                 return (
                   <Link
                     key={t.id}
-                    href={contentHref({ q, category, topic: t.slug })}
+                    href={contentHref({ q, category, topic: t.slug, stage })}
                     aria-current={active ? "page" : undefined}
                     className={`${PILL_BASE} ${active ? PILL_ACTIVE : PILL_INACTIVE}`}
                   >
@@ -278,6 +352,35 @@ export default async function ContentLibraryPage({
             where you left off" row follows when they have anything in progress. */}
         {!filtered && (
           <>
+            {/* "Where you are" — the emotional front door. Three fixed phase
+                cards (with their authored blurbs) leading the browse view; each
+                opens the stage-filtered grid. Rendered only once content is
+                stage-tagged, so it never shows empty phases. */}
+            {populatedStages.length > 0 && (
+              <section>
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-brand-accent-light-2">
+                  Where you are
+                </p>
+                <h2 className="mt-1 text-2xl font-extrabold tracking-tight">Start from where you are.</h2>
+                <div className="mt-3 border-t border-brand-accent" />
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  {populatedStages.map((s) => (
+                    <Link
+                      key={s.stage}
+                      href={contentHref({ stage: s.stage })}
+                      className="group flex flex-col border border-rule-border p-5 transition-colors hover:border-foreground"
+                    >
+                      <p className="text-lg font-extrabold leading-tight tracking-tight">{s.label}</p>
+                      <p className="mt-1 text-sm text-muted">{STAGE_META[s.stage].blurb}</p>
+                      <p className="mt-4 text-xs font-extrabold uppercase tracking-wide text-brand-accent-light-2">
+                        {s.count} {s.count === 1 ? "piece" : "pieces"} →
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+
             <PickedForYouCarousel items={pickedItems} />
             <ResumeShelf items={resumeItems} />
             {series.map((s) => (
@@ -343,6 +446,7 @@ export default async function ContentLibraryPage({
                 {eyebrow}
               </p>
               <h2 className="mt-1 text-2xl font-extrabold tracking-tight">{heading}</h2>
+              {stageBlurb && <p className="mt-1 text-sm text-muted">{stageBlurb}</p>}
             </div>
             <div className="flex shrink-0 items-baseline gap-4">
               {total > 0 && (
@@ -391,7 +495,7 @@ export default async function ContentLibraryPage({
               {hasMore && (
                 <div className="mt-10 flex justify-center">
                   <Link
-                    href={contentHref({ q, category, topic: activeTopic?.slug, filter, page: page + 1 })}
+                    href={contentHref({ q, category, topic: activeTopic?.slug, stage, filter, page: page + 1 })}
                     scroll={false}
                     className="border-2 border-foreground px-6 py-3 text-sm font-extrabold uppercase tracking-wide transition-colors hover:bg-foreground hover:text-background"
                   >
