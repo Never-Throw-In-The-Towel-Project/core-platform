@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Challenge, ContentItem } from "@/types/database";
+import type { Challenge, ContentItem, ContentStage } from "@/types/database";
 import { escapeFilterValue } from "@/lib/supabase/filterEscape";
 import { listPublishedChallenges, getChallengeDays } from "@/lib/challenges/queries";
 
@@ -41,12 +41,26 @@ export type ContentPage = { items: ContentItem[]; total: number };
  */
 export async function listContentItems(
   supabase: AnyClient,
-  opts: { q?: string; category?: string; filter?: ContentFilter; topicId?: string; limit?: number; offset?: number } = {}
+  opts: {
+    q?: string;
+    category?: string;
+    filter?: ContentFilter;
+    topicId?: string;
+    stageKey?: ContentStage;
+    limit?: number;
+    offset?: number;
+  } = {}
 ): Promise<ContentPage> {
-  // Filtering by topic needs an INNER join to the assignment table; the nested
-  // resource is only in the select so the filter can apply — content_items' own
-  // columns (`*`) are what we read back.
-  const select = opts.topicId ? "*, content_item_topics!inner(topic_id)" : "*";
+  // Filtering by topic and/or stage needs an INNER join to the relevant
+  // assignment table; the nested resource is only in the select so the filter
+  // can apply — content_items' own columns (`*`) are what we read back. Both
+  // filters pin a SINGLE value (a specific topic_id / a specific stage), so the
+  // inner join matches at most one child row per item and can't duplicate the
+  // parent — no distinct needed, same as the topic-only path always has.
+  const embeds: string[] = [];
+  if (opts.topicId) embeds.push("content_item_topics!inner(topic_id)");
+  if (opts.stageKey) embeds.push("content_item_stages!inner(stage)");
+  const select = embeds.length ? `*, ${embeds.join(", ")}` : "*";
   let query = supabase
     .from("content_items")
     .select(select, { count: "exact" })
@@ -56,6 +70,9 @@ export async function listContentItems(
 
   if (opts.topicId) {
     query = query.eq("content_item_topics.topic_id", opts.topicId);
+  }
+  if (opts.stageKey) {
+    query = query.eq("content_item_stages.stage", opts.stageKey);
   }
   if (opts.category) {
     query = query.eq("category", opts.category);
