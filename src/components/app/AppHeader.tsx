@@ -14,8 +14,8 @@ import type { Profile } from "@/types/database";
  *
  * The primary tabs move into this bar on desktop and the bottom tab bar takes
  * over below lg. The header carries the support entry point on desktop (the
- * "Check in with me" button); on mobile it's the "Check in with me" item inside
- * the account menu (the ☰) -- so "support on every screen" stays true at every
+ * "Get support" button); on mobile it's the "Get support" item inside the
+ * account menu (the ☰) -- so "support on every screen" stays true at every
  * width, without a bar across the bottom.
  */
 export function AppHeader({
@@ -60,12 +60,12 @@ export function AppHeader({
               </Link>
               <AppHeaderMenu role={profile.role} trigger="avatar" initial={initial} includeSettings={false} />
               <span className="ml-1">
-                <AskForSupport helplineNumber={helplineNumber} variant="header" label="Check in with me" />
+                <AskForSupport helplineNumber={helplineNumber} variant="header" label="Get support" />
               </span>
             </div>
 
             {/* Mobile: everything collapses into the account menu, which also
-                carries the "Check in with me" support entry (no bottom bar). */}
+                carries the "Get support" entry (no bottom bar). */}
             <div className="sm:hidden">
               <AppHeaderMenu role={profile.role} trigger="hamburger" showCheckIn helplineNumber={helplineNumber} />
             </div>

@@ -492,13 +492,13 @@ export default async function HomePage() {
                 Support
               </h2>
               <p className="mt-2 text-lg font-extrabold leading-tight tracking-tight">
-                Someone can check in with you.
+                Support, whenever you need it.
               </p>
               <p className="mt-1.5 text-sm text-muted-on-ink">
                 You choose when. Nothing here triggers it for you.
               </p>
               <div className="mt-4">
-                <AskForSupport helplineNumber={helplineNumber} variant="block" label="Ask for a check-in" />
+                <AskForSupport helplineNumber={helplineNumber} variant="block" label="Get support" />
               </div>
             </section>
 

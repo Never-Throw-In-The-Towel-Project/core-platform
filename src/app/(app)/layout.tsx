@@ -44,7 +44,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <AppHeader profile={profile} skinColor={skinColor} helplineNumber={helplineNumber} />
       <div className="flex-1">{children}</div>
       {/* Mobile only: the bottom tab bar. Support is no longer a bar here -- it's
-          the "Check in with me" item in the account menu (the ☰), still one tap
+          the "Get support" item in the account menu (the ☰), still one tap
           from every screen. On desktop the header carries support + the primary
           tabs, so this is lg:hidden. bg-background is now the ink ground (the
           data-surface="ink" scope above), so the bar reads dark on mobile. */}
