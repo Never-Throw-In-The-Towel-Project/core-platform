@@ -12,8 +12,8 @@ import type { UserRole } from "@/types/database";
  *    role links (Workspace / Control Tower) and Sign out. Settings has its own
  *    gear next to it, so it's omitted here (`includeSettings={false}`).
  *  - `hamburger` — the mobile "☰", where the same items plus Settings collapse,
- *    and (with showCheckIn) the "Check in with me" support entry lives too --
- *    the mobile home for support now there's no bottom support bar.
+ *    and (with showCheckIn) the "Get support" entry lives too -- the mobile
+ *    home for support now there's no bottom support bar.
  *
  * A small accessible dropdown: toggles on the button, closes on outside-click,
  * Escape, or following a link. Sign out is a server action (there was no
@@ -31,8 +31,8 @@ export function AppHeaderMenu({
   trigger: "avatar" | "hamburger";
   initial?: string;
   includeSettings?: boolean;
-  /** Show the "Check in with me" item (the mobile menu, where there's no
-   *  header support button and no longer a bottom support bar). */
+  /** Show the "Get support" item (the mobile menu, where there's no header
+   *  support button and no longer a bottom support bar). */
   showCheckIn?: boolean;
   helplineNumber?: string;
 }) {
@@ -97,7 +97,7 @@ export function AppHeaderMenu({
               }}
               className={`${itemClass} border-b border-ink-hairline !text-brand-accent-light-2 hover:!text-brand-accent-light`}
             >
-              Check in with me
+              Get support
             </button>
           )}
           {role === "hr_admin" && (

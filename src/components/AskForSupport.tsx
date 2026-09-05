@@ -17,7 +17,7 @@ const FOCUSABLE_SELECTOR =
 type HubView = "choose" | "urgent" | "ongoing" | "responder";
 
 /**
- * "Check in with me" -- a person-led support hub, never triggered automatically
+ * "Get support" -- a person-led support hub, never triggered automatically
  * by any journal answer or score. Must render on every screen inside the
  * platform (see the (app) and (admin) layouts that use this), per the brief's
  * non-negotiable flag.
@@ -46,7 +46,7 @@ type HubView = "choose" | "urgent" | "ongoing" | "responder";
 export function AskForSupport({
   helplineNumber,
   variant = "floating",
-  label = "I want someone to check in with me",
+  label = "Get support",
   open: controlledOpen,
   onOpenChange,
   hideTrigger = false,
