@@ -54,8 +54,6 @@ const REVIEW_ROUTES = {
   "90_day": "/reviews/90-day",
 } as const;
 
-const CHECKIN_IMAGE = "/site/community-group.jpg";
-
 function formatHM(time: string | null): string {
   if (!time) return "";
   return time.slice(0, 5);
@@ -341,7 +339,6 @@ export default async function HomePage() {
               ctaHref={hero.ctaHref}
               answered={hero.answered}
               total={hero.total}
-              image={hero.image}
             />
 
             {hero.extraLink && (
@@ -551,7 +548,6 @@ interface HeroSpec {
   ctaHref: string;
   answered?: number;
   total?: number;
-  image?: string;
   extraLink?: { href: string; label: string };
 }
 
@@ -596,7 +592,6 @@ function buildHero({
         description: "Move the body. Four rounds, four difficulty tiers.",
         ctaLabel: "Start →",
         ctaHref: "/checkin",
-        image: CHECKIN_IMAGE,
       };
     }
     const config = CHECKIN_CONFIG[weekday];
@@ -609,7 +604,6 @@ function buildHero({
       ctaHref: "/checkin",
       answered: answeredToday,
       total,
-      image: CHECKIN_IMAGE,
     };
   }
 
