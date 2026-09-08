@@ -28,5 +28,5 @@ export const PRIMARY_NAV_TABS: readonly PrimaryNavTab[] = [
   },
   { href: "/community/wins", label: "Wins", match: (p) => p.startsWith("/community/wins") },
   { href: "/events", label: "Events", match: under("/events") },
-  { href: "/content", label: "Library", match: under("/content") },
+  { href: "/content", label: "Training", match: under("/content") },
 ];

@@ -58,7 +58,7 @@ export default async function ContentItemPage({ params }: { params: Promise<{ id
         href="/content"
         className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted transition-colors hover:text-foreground"
       >
-        ← Library
+        ← Training
       </Link>
 
       {item.type === "video" && item.vimeo_id ? (

@@ -3,7 +3,7 @@
 // Everything here is either a value-prop framing of a REAL platform feature or
 // verbatim copy already published on the site -- no invented stats, outcomes,
 // pricing, or testimonials. Member-benefit blurbs describe the actual screens
-// (Today, Community/Feed, Wins Board, Library, Challenges, Journey); client
+// (Today, Community/Feed, Wins Board, Training, Challenges, Journey); client
 // names and testimonials are reused from the existing pages.
 
 export const CONTACT_MAILTO = "mailto:a.hutton@ntitt.co.uk";
@@ -30,7 +30,7 @@ export type Benefit = { name: string; blurb: string };
 
 // The login-gated member features, each a one-line description of the real
 // screen (labels/routes: /home "Today", /community "Community/Feed",
-// /community/wins "Wins Board", /content "Library", /challenges + /step-challenge
+// /community/wins "Wins Board", /content "Training", /challenges + /step-challenge
 // "Challenges", /journey "Journey").
 export const MEMBER_BENEFITS: Benefit[] = [
   {
@@ -48,7 +48,7 @@ export const MEMBER_BENEFITS: Benefit[] = [
       "Celebrate the wins, big and small. Nothing from your private check-ins appears here — you choose what to share.",
   },
   {
-    name: "Library",
+    name: "Training",
     blurb:
       "Search a topic — grief, divorce, sleep, redundancy — and go straight to the talk or tool you need right now.",
   },

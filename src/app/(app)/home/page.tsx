@@ -297,7 +297,7 @@ export default async function HomePage() {
   } else if (todayWeekday === "saturday") {
     alsoThisWeek.push({ label: "Set Up Sunday opens tomorrow", href: "/sunday-setup" });
   }
-  alsoThisWeek.push({ label: "Explore the Library", href: "/content" });
+  alsoThisWeek.push({ label: "Explore Training", href: "/content" });
 
   return (
     // The Today board is a dark "ink" surface (Anthony's design): the ink-scope
