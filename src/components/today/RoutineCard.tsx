@@ -1,12 +1,10 @@
 import Link from "next/link";
-import { StepBadge } from "./StepBadge";
 
 /**
  * A secondary routine / check-in card on Today, below the hero. It speaks the
  * same visual language as the hero CheckinCard -- the red 2px outline
- * (--brand-accent), a header strip, a big bold title, a subtitle, a leading
- * step number and a trailing completion tick -- so the whole board reads as one
- * family and the daily sequence (1 -> 2 -> 3) is obvious.
+ * (--brand-accent), a header strip, a big bold title, a subtitle and a trailing
+ * completion tick -- so the whole board reads as one family.
  *
  * The hero still stays the loudest element (its solid-red header strip, larger
  * title, red START button and photo), so it remains the focal "do this now"
@@ -19,7 +17,6 @@ import { StepBadge } from "./StepBadge";
  * report.
  */
 export function RoutineCard({
-  step,
   eyebrow,
   label,
   meta,
@@ -27,7 +24,6 @@ export function RoutineCard({
   href,
   trailing,
 }: {
-  step: number;
   eyebrow: string;
   label: string;
   meta: string;
@@ -51,10 +47,9 @@ export function RoutineCard({
           </span>
         )}
       </div>
-      {/* Body: the step number, the big bold title + subtitle, and the
-          completion tick -- [1] ... [tick] mirrors across the card. */}
+      {/* Body: the big bold title + subtitle, with the completion tick as the
+          trailing accent (mirrors the hero's scale, one step down). */}
       <div className="flex items-center gap-4 p-5">
-        <StepBadge n={step} />
         <div className="min-w-0 flex-1">
           <h2 className="text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">{label}</h2>
           {meta && <p className="mt-1.5 text-sm text-foreground/70">{meta}</p>}
