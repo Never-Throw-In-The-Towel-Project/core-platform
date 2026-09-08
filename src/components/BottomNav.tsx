@@ -2,20 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const TABS = [
-  { href: "/home", label: "Today" },
-  { href: "/community", label: "Feed" },
-  { href: "/events", label: "Events" },
-  { href: "/content", label: "Library" },
-] as const;
+import { PRIMARY_NAV_TABS } from "@/lib/app/primaryNav";
 
 /**
- * The four-tab bottom bar, from the redesign's mobile composition: the active
- * tab gets a 3px vivid-accent top border and ink text, the rest a quiet muted
- * label. A route is "active" if the current path is that tab's href or a
- * sub-path of it (e.g. /community/wins highlights the Feed tab).
- * (Journey moved to Settings, reached from the account ☰ menu.)
+ * The bottom tab bar (Today · Feed · Wins · Events · Library), from the
+ * redesign's mobile composition: the active tab gets a 3px vivid-accent top
+ * border and ink text, the rest a quiet muted label. The active rule comes from
+ * each tab's `match` (see lib/app/primaryNav.ts -- Feed and Wins are mutually
+ * exclusive even though both live under /community).
  *
  * Mobile/tablet only (lg:hidden) -- on desktop the primary tabs live in the ink
  * AppHeader instead, matching the design's desktop composition.
@@ -25,8 +19,8 @@ export function BottomNav() {
 
   return (
     <nav className="sticky bottom-0 z-10 flex bg-background pb-[env(safe-area-inset-bottom)] text-[11px] font-extrabold uppercase tracking-wide lg:hidden">
-      {TABS.map((tab) => {
-        const isActive = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+      {PRIMARY_NAV_TABS.map((tab) => {
+        const isActive = tab.match(pathname);
         return (
           <Link
             key={tab.href}

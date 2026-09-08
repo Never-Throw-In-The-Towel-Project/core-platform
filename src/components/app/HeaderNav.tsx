@@ -2,28 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const TABS = [
-  { href: "/home", label: "Today" },
-  { href: "/community", label: "Feed" },
-  { href: "/events", label: "Events" },
-  { href: "/content", label: "Library" },
-] as const;
+import { PRIMARY_NAV_TABS } from "@/lib/app/primaryNav";
 
 /**
- * The four primary tabs in the desktop ink header. Active tab is the vivid
- * accent-light (#ff563c on ink); a route counts as active when the path is
- * the tab's href or a sub-path of it (so /community/wins keeps Feed lit).
+ * The primary tabs in the desktop ink header (Today · Feed · Wins · Events ·
+ * Library). Active tab is the vivid accent-light (#ff563c on ink); the active
+ * rule comes from each tab's `match` (see lib/app/primaryNav.ts -- Feed and
+ * Wins are mutually exclusive even though both live under /community).
  * Hidden below lg -- on mobile these live in the bottom tab bar instead.
- * (Journey moved to Settings; the community section is labelled "Feed" here.)
  */
 export function HeaderNav() {
   const pathname = usePathname();
 
   return (
     <nav className="hidden items-center gap-6 lg:flex">
-      {TABS.map((tab) => {
-        const isActive = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+      {PRIMARY_NAV_TABS.map((tab) => {
+        const isActive = tab.match(pathname);
         return (
           <Link
             key={tab.href}
