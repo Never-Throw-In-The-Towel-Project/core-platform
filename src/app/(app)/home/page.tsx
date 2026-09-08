@@ -372,11 +372,6 @@ export default async function HomePage() {
               </div>
             )}
 
-            {/* STAND: the daily fundamentals checklist from Anthony's journal --
-                four one-tap discipline ticks + the five STAND reflections behind
-                an expander. Private, own-rows only; nothing here is reported. */}
-            <StandFundamentals initial={standState} />
-
             {catchUp.length > 0 && (
               <div>
                 <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">
@@ -487,6 +482,11 @@ export default async function HomePage() {
                 card is the discoverable entry point to /clean-streak, since it
                 deliberately isn't a top-level nav tab. */}
             <CleanStreakEntryCard summary={habitSummary} />
+
+            {/* Fundamentals Daily Checklist (Anthony's journal): five one-tap
+                yes/no questions, right under the habit tracker. Private,
+                own-rows only; nothing here is reported. */}
+            <StandFundamentals initial={standState} />
 
             {/* Support: the person-led "check in with me" flow, always present
                 and never triggered by anything the member logs. A second entry
