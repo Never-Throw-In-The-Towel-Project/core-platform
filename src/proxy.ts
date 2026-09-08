@@ -32,9 +32,8 @@ import { extractTenantSlug, cookieDomainForHost } from "@/lib/tenant/resolve";
 // src/app/signup/page.tsx + src/lib/actions/signup.ts's signUp() itself.
 // Don't "fix" this into a host check here -- it would either miss custom
 // domains or duplicate a DB round-trip proxy.ts otherwise never makes.
-// /community-guidelines was never a real route either -- the actual page
-// (/community/guidelines) intentionally requires a session, same as the
-// rest of /community.
+// /community and everything under it intentionally requires a session, so
+// none of it is listed as a public route here.
 //
 // /documentary, /podcast, and /what-i-do are the public marketing site (see
 // src/app/(marketing)/) -- the free "taster" that explicitly must not

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getProfile, verifySession } from "@/lib/auth/dal";
 import { getPushSubscriptionStatus } from "@/lib/actions/pushSubscription";
 import { AccountSettingsCard } from "@/components/settings/AccountSettingsCard";
@@ -6,6 +7,7 @@ import { TimezoneForm } from "@/components/settings/TimezoneForm";
 import { NotificationTimesForm } from "@/components/settings/NotificationTimesForm";
 import { PushNotificationToggle } from "@/components/settings/PushNotificationToggle";
 import { DeleteAccountForm } from "@/components/settings/DeleteAccountForm";
+import { GuidelinesList } from "@/components/community/GuidelinesList";
 
 export default async function SettingsPage() {
   // getProfile and getPushSubscriptionStatus are independent reads; verifySession
@@ -42,6 +44,22 @@ export default async function SettingsPage() {
       </div>
 
       <div className="mt-10 space-y-4">
+        <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Your journey</h2>
+        <Link
+          href="/journey"
+          className="block border border-rule-hairline p-4 transition-colors hover:bg-foreground/[0.03]"
+        >
+          <p className="text-sm font-medium">Trophy Room &amp; progress</p>
+          <p className="mt-1 text-xs text-muted">
+            Your days in, streaks, reviews and every trophy you&apos;ve earned — private to you.
+          </p>
+          <span className="mt-3 inline-block text-xs font-extrabold uppercase tracking-wide text-brand-accent-deep">
+            Open my journey →
+          </span>
+        </Link>
+      </div>
+
+      <div className="mt-10 space-y-4">
         <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Reminders</h2>
         <TimezoneForm currentTimezone={profile.timezone} />
         <NotificationTimesForm
@@ -50,6 +68,14 @@ export default async function SettingsPage() {
           sundayTime={profile.sunday_notification_time}
         />
         <PushNotificationToggle initiallySubscribed={pushSubscribed} />
+      </div>
+
+      <div id="community-guidelines" className="mt-10 scroll-mt-24 space-y-4">
+        <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Community guidelines</h2>
+        <p className="text-sm text-muted">
+          How the community stays a good place to be. The team reviews every report.
+        </p>
+        <GuidelinesList />
       </div>
 
       <div className="mt-10 space-y-4">

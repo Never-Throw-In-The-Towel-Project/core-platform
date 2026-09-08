@@ -8,14 +8,14 @@ const TABS = [
   { href: "/community", label: "Feed" },
   { href: "/events", label: "Events" },
   { href: "/content", label: "Library" },
-  { href: "/journey", label: "Journey" },
 ] as const;
 
 /**
  * The four-tab bottom bar, from the redesign's mobile composition: the active
  * tab gets a 3px vivid-accent top border and ink text, the rest a quiet muted
  * label. A route is "active" if the current path is that tab's href or a
- * sub-path of it (e.g. /community/wins highlights the Community tab).
+ * sub-path of it (e.g. /community/wins highlights the Feed tab).
+ * (Journey moved to Settings, reached from the account ☰ menu.)
  *
  * Mobile/tablet only (lg:hidden) -- on desktop the primary tabs live in the ink
  * AppHeader instead, matching the design's desktop composition.
