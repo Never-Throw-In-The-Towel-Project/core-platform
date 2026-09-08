@@ -5,8 +5,8 @@ const tab = (label: string) => PRIMARY_NAV_TABS.find((t) => t.label === label)!;
 const activeLabels = (pathname: string) => PRIMARY_NAV_TABS.filter((t) => t.match(pathname)).map((t) => t.label);
 
 describe("PRIMARY_NAV_TABS", () => {
-  it("lists Today, Feed, Wins, Events, Library in order", () => {
-    expect(PRIMARY_NAV_TABS.map((t) => t.label)).toEqual(["Today", "Feed", "Wins", "Events", "Library"]);
+  it("lists Today, Feed, Wins, Events, Training in order", () => {
+    expect(PRIMARY_NAV_TABS.map((t) => t.label)).toEqual(["Today", "Feed", "Wins", "Events", "Training"]);
     expect(tab("Wins").href).toBe("/community/wins");
   });
 
@@ -23,8 +23,8 @@ describe("PRIMARY_NAV_TABS", () => {
     expect(activeLabels("/home")).toEqual(["Today"]);
     expect(activeLabels("/events")).toEqual(["Events"]);
     expect(activeLabels("/events/123")).toEqual(["Events"]);
-    expect(activeLabels("/content")).toEqual(["Library"]);
-    expect(activeLabels("/content/abc")).toEqual(["Library"]);
+    expect(activeLabels("/content")).toEqual(["Training"]);
+    expect(activeLabels("/content/abc")).toEqual(["Training"]);
   });
 
   it("matches a tab on its own href or a sub-path, not a sibling prefix", () => {

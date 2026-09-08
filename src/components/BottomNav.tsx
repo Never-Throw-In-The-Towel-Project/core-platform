@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { PRIMARY_NAV_TABS } from "@/lib/app/primaryNav";
 
 /**
- * The bottom tab bar (Today · Feed · Wins · Events · Library), from the
+ * The bottom tab bar (Today · Feed · Wins · Events · Training), from the
  * redesign's mobile composition: the active tab gets a 3px vivid-accent top
  * border and ink text, the rest a quiet muted label. The active rule comes from
  * each tab's `match` (see lib/app/primaryNav.ts -- Feed and Wins are mutually

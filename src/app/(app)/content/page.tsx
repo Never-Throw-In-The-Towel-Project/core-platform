@@ -212,7 +212,7 @@ export default async function ContentLibraryPage({
         <div className="mx-auto grid max-w-6xl gap-8 px-6 py-14 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-brand-accent-light-2">
-              The Library
+              Training
             </p>
             <h1 className="mt-3 max-w-2xl text-5xl font-extrabold leading-[0.95] tracking-tight sm:text-6xl">
               Every video, in the order you need it.
