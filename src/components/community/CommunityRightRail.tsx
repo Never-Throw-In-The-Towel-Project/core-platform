@@ -12,7 +12,7 @@ export function CommunityRightRail({ displayName }: { displayName: string }) {
           that doesn&apos;t sit right.
         </p>
         <Link
-          href="/community/guidelines"
+          href="/settings#community-guidelines"
           className="mt-2 inline-block text-xs font-bold uppercase tracking-wide text-brand-accent-deep"
         >
           Read the full guidelines →

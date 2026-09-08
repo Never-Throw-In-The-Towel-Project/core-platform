@@ -5,17 +5,17 @@ import { usePathname } from "next/navigation";
 
 const TABS = [
   { href: "/home", label: "Today" },
-  { href: "/community", label: "Community" },
+  { href: "/community", label: "Feed" },
   { href: "/events", label: "Events" },
   { href: "/content", label: "Library" },
-  { href: "/journey", label: "Journey" },
 ] as const;
 
 /**
  * The four primary tabs in the desktop ink header. Active tab is the vivid
  * accent-light (#ff563c on ink); a route counts as active when the path is
- * the tab's href or a sub-path of it (so /community/wins keeps Community lit).
+ * the tab's href or a sub-path of it (so /community/wins keeps Feed lit).
  * Hidden below lg -- on mobile these live in the bottom tab bar instead.
+ * (Journey moved to Settings; the community section is labelled "Feed" here.)
  */
 export function HeaderNav() {
   const pathname = usePathname();

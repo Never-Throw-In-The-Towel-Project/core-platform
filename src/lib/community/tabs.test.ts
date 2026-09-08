@@ -8,7 +8,6 @@ describe("visibleCommunityTabs", () => {
       "/community",
       "/community/wins",
       "/community/company",
-      "/community/guidelines",
     ]);
   });
 
@@ -17,7 +16,6 @@ describe("visibleCommunityTabs", () => {
     expect(tabs.map((t) => t.href)).toEqual([
       "/community",
       "/community/wins",
-      "/community/guidelines",
     ]);
     expect(tabs.some((t) => t.href === "/community/company")).toBe(false);
     // Nothing else is dropped.
