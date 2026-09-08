@@ -701,8 +701,8 @@ select set_config('request.jwt.claim.sub', '', false);
 -- anyone else, exactly like the morning/night routines. Reuses usera / userb.
 -- ============================================================================
 -- userb's stand entry, seeded as the bootstrap superuser (bypassing RLS).
-insert into private.stand_entries (user_id, entry_date, hydration, strength_of_connection) values
-  ('b0000000-0000-0000-0000-00000000000b', '2026-08-13', true, 'called my brother');
+insert into private.stand_entries (user_id, entry_date, won_morning, talked) values
+  ('b0000000-0000-0000-0000-00000000000b', '2026-08-13', true, true);
 
 select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
 set role authenticated;
@@ -711,7 +711,7 @@ declare visible int;
 begin
   -- TEST 1 (must be BLOCKED): writing a stand entry as another user
   begin
-    insert into private.stand_entries (user_id, entry_date, hydration)
+    insert into private.stand_entries (user_id, entry_date, won_morning)
     values ('b0000000-0000-0000-0000-00000000000b', '2026-08-14', true);
     raise exception 'FAIL stand-write: a member wrote a stand entry for another user';
   exception when insufficient_privilege then null;
@@ -722,8 +722,8 @@ begin
   if visible <> 0 then raise exception 'FAIL stand-read: another user''s stand entry leaked (saw %)', visible; end if;
 
   -- TEST 3 (must be ALLOWED): usera writes their OWN day's fundamentals
-  insert into private.stand_entries (user_id, entry_date, hydration, healthy_food, do_good_for_others)
-    values ('a0000000-0000-0000-0000-00000000000a', '2026-08-13', true, true, 'helped a neighbour');
+  insert into private.stand_entries (user_id, entry_date, won_morning, moved, grateful)
+    values ('a0000000-0000-0000-0000-00000000000a', '2026-08-13', true, true, true);
 
   -- TEST 4 (must be ISOLATED): usera now sees exactly their own 1 entry
   select count(*) into visible from private.stand_entries;
