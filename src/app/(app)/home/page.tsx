@@ -16,7 +16,7 @@ import { CHECKIN_CONFIG, type TextCheckinWeekday } from "@/lib/routines/checkinC
 import type { Weekday } from "@/types/database";
 import { ProgressBand } from "@/components/today/ProgressBand";
 import { CheckinCard } from "@/components/today/CheckinCard";
-import { RoutineRow } from "@/components/today/RoutineRow";
+import { RoutineCard } from "@/components/today/RoutineCard";
 import { CompanySlot } from "@/components/today/CompanySlot";
 import { WeekStrip } from "@/components/today/WeekStrip";
 import { BadgeSync } from "@/components/today/BadgeSync";
@@ -247,6 +247,7 @@ export default async function HomePage() {
   if (phase.kind !== "morning") {
     rows.push({
       key: "morning",
+      eyebrow: "Start your day",
       label: "Morning Routine",
       done: morningDone,
       href: "/morning-routine",
@@ -262,6 +263,7 @@ export default async function HomePage() {
     const done = completedWeekdays.has(todayWeekday as Weekday);
     rows.push({
       key: "themed",
+      eyebrow: "Today's check-in",
       label: THEMED_TITLES[todayWeekday as Weekday].title,
       done,
       href: "/checkin",
@@ -272,6 +274,7 @@ export default async function HomePage() {
   if (phase.kind !== "night") {
     rows.push({
       key: "night",
+      eyebrow: "Wind down",
       label: "Night Routine",
       done: nightDone,
       href: "/night-routine",
@@ -354,10 +357,11 @@ export default async function HomePage() {
             <NoticeBoard notices={notices} />
 
             {rows.length > 0 && (
-              <div>
+              <div className="space-y-4">
                 {rows.map((row) => (
-                  <RoutineRow
+                  <RoutineCard
                     key={row.key}
+                    eyebrow={row.eyebrow}
                     label={row.label}
                     meta={row.meta}
                     done={row.done}
@@ -531,6 +535,7 @@ export default async function HomePage() {
 
 interface RowSpec {
   key: string;
+  eyebrow: string;
   label: string;
   meta: string;
   done: boolean;
