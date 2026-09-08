@@ -247,6 +247,7 @@ export default async function HomePage() {
   if (phase.kind !== "morning") {
     rows.push({
       key: "morning",
+      step: 1,
       eyebrow: "Start your day",
       label: "Morning Routine",
       done: morningDone,
@@ -263,6 +264,7 @@ export default async function HomePage() {
     const done = completedWeekdays.has(todayWeekday as Weekday);
     rows.push({
       key: "themed",
+      step: 2,
       eyebrow: "Today's check-in",
       label: THEMED_TITLES[todayWeekday as Weekday].title,
       done,
@@ -274,6 +276,7 @@ export default async function HomePage() {
   if (phase.kind !== "night") {
     rows.push({
       key: "night",
+      step: 3,
       eyebrow: "Wind down",
       label: "Night Routine",
       done: nightDone,
@@ -334,6 +337,7 @@ export default async function HomePage() {
           {/* Main column */}
           <div className="space-y-6">
             <CheckinCard
+              step={hero.step}
               headerLabel={hero.headerLabel}
               title={hero.title}
               description={hero.description}
@@ -361,6 +365,7 @@ export default async function HomePage() {
                 {rows.map((row) => (
                   <RoutineCard
                     key={row.key}
+                    step={row.step}
                     eyebrow={row.eyebrow}
                     label={row.label}
                     meta={row.meta}
@@ -535,6 +540,7 @@ export default async function HomePage() {
 
 interface RowSpec {
   key: string;
+  step: number;
   eyebrow: string;
   label: string;
   meta: string;
@@ -544,6 +550,7 @@ interface RowSpec {
 }
 
 interface HeroSpec {
+  step?: number;
   headerLabel: string;
   title: string;
   description: string;
@@ -569,6 +576,7 @@ function buildHero({
 }): HeroSpec {
   if (phase.kind === "morning") {
     return {
+      step: 1,
       headerLabel: "Morning Routine · 5 min",
       title: "Win the morning",
       description: "Win the morning, win the day.",
@@ -579,6 +587,7 @@ function buildHero({
 
   if (phase.kind === "night") {
     return {
+      step: 3,
       headerLabel: "Night Routine",
       title: "Close the day",
       description: "Tomorrow is a new day — rest up and go again.",
@@ -591,6 +600,7 @@ function buildHero({
     const weekday = phase.weekday;
     if (weekday === "wednesday") {
       return {
+        step: 2,
         headerLabel: "Today's Check-in · Wednesday · Workout",
         title: "Workout Wednesday",
         description: "Move the body. Four rounds, four difficulty tiers.",
@@ -602,6 +612,7 @@ function buildHero({
     const config = CHECKIN_CONFIG[weekday];
     const total = config.fields.length;
     return {
+      step: 2,
       headerLabel: `Today's Check-in · ${WEEKDAY_LABEL[weekday]} · 5 min`,
       title: config.title,
       description: `${config.subtitle}. ${total} prompts, five minutes.`,

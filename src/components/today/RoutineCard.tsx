@@ -1,20 +1,25 @@
 import Link from "next/link";
+import { StepBadge } from "./StepBadge";
 
 /**
  * A secondary routine / check-in card on Today, below the hero. It speaks the
- * same visual language as the hero CheckinCard -- a header strip, a big bold
- * title, a subtitle -- but ONE NOTCH QUIETER: a neutral hairline border and a
- * muted header strip (not the hero's red 2px border + solid-red strip), so
- * "Win the morning" stays the focal action while the whole board reads as one
- * family (the design owner's call).
+ * same visual language as the hero CheckinCard -- the red 2px outline
+ * (--brand-accent), a header strip, a big bold title, a subtitle, a leading
+ * step number and a trailing completion tick -- so the whole board reads as one
+ * family and the daily sequence (1 -> 2 -> 3) is obvious.
  *
- * The completion tick is the card's status + only strong accent: a filled
- * accent tick when done, a red-outlined box when still pending. When done, the
- * subtitle (`meta`) may carry the user's OWN private sleep score / day rating --
- * shown only here, on their own screen, labelled "private to you", and never
- * sent to a company report.
+ * The hero still stays the loudest element (its solid-red header strip, larger
+ * title, red START button and photo), so it remains the focal "do this now"
+ * action while every card shares the red outline.
+ *
+ * The completion tick is the card's status: a filled accent tick when done, a
+ * red-outlined box when still pending. When done, the subtitle (`meta`) may
+ * carry the user's OWN private sleep score / day rating -- shown only here, on
+ * their own screen, labelled "private to you", and never sent to a company
+ * report.
  */
 export function RoutineCard({
+  step,
   eyebrow,
   label,
   meta,
@@ -22,6 +27,7 @@ export function RoutineCard({
   href,
   trailing,
 }: {
+  step: number;
   eyebrow: string;
   label: string;
   meta: string;
@@ -32,10 +38,11 @@ export function RoutineCard({
   return (
     <Link
       href={href}
-      className="block border border-rule-border bg-background transition-colors hover:border-foreground/40"
+      className="block border-2 border-brand-accent bg-background transition-colors hover:bg-foreground/[0.03]"
     >
       {/* Muted header strip: the schedule/category on the left, the time or
-          "Edit" status on the right. Quieter than the hero's solid-red strip. */}
+          "Edit" status on the right. Quieter than the hero's solid-red strip so
+          the hero stays the focal action, while the card shares its red border. */}
       <div className="flex items-center justify-between gap-3 border-b border-rule-hairline bg-foreground/[0.04] px-4 py-2">
         <span className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">{eyebrow}</span>
         {trailing && (
@@ -44,9 +51,10 @@ export function RoutineCard({
           </span>
         )}
       </div>
-      {/* Body: the big bold title + subtitle, with the completion tick as the
-          trailing accent (mirrors the hero's scale, one step down). */}
+      {/* Body: the step number, the big bold title + subtitle, and the
+          completion tick -- [1] ... [tick] mirrors across the card. */}
       <div className="flex items-center gap-4 p-5">
+        <StepBadge n={step} />
         <div className="min-w-0 flex-1">
           <h2 className="text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">{label}</h2>
           {meta && <p className="mt-1.5 text-sm text-foreground/70">{meta}</p>}
