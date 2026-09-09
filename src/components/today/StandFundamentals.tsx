@@ -53,7 +53,7 @@ export function StandFundamentals({ initial }: { initial: StandState }) {
                   aria-hidden
                   className={
                     "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border-2 text-xs font-extrabold " +
-                    (on ? "border-brand-accent bg-brand-accent text-brand-accent-foreground" : "border-rule-border")
+                    (on ? "border-success bg-success text-success-foreground" : "border-rule-border")
                   }
                 >
                   {on ? "✓" : ""}
