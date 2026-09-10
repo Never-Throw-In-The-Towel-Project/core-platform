@@ -72,7 +72,7 @@ function contentHref(next: {
 // Library's ink surface the outline resolves to the ink hairline and the label
 // to muted-on-ink (see the data-surface="ink" scope in globals.css).
 const PILL_BASE =
-  "block whitespace-nowrap border px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] transition-colors";
+  "block whitespace-nowrap border px-3 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.14em] transition-colors sm:py-1.5";
 const PILL_ACTIVE = "border-brand-accent bg-brand-accent text-brand-accent-foreground";
 const PILL_INACTIVE = "border-rule-border text-muted hover:border-foreground hover:text-foreground";
 

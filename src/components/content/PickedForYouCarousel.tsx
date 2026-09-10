@@ -79,7 +79,7 @@ export function PickedForYouCarousel({ items }: { items: ContentItem[] }) {
                   type="button"
                   aria-pressed={active}
                   onClick={() => setMode(m.key)}
-                  className={`px-3 py-1.5 transition-colors ${
+                  className={`px-3 py-3 transition-colors sm:py-1.5 ${
                     active ? "bg-brand-accent text-brand-accent-foreground" : "text-muted hover:text-foreground"
                   }`}
                 >
@@ -130,7 +130,10 @@ function StackCarousel({
         {WINDOW.map((offset) => {
           const idx = safeFocus + offset;
           const abs = Math.abs(offset);
-          const width = offset === 0 ? "w-72 sm:w-80" : abs === 1 ? "w-56" : "w-40";
+          // Narrower on phones so the focused card clears the ‹ › gutters (the
+          // arrows sit beside it, not over it) and a peek sliver still shows;
+          // the sm: widths restore the roomy desktop coverflow unchanged.
+          const width = offset === 0 ? "w-52 sm:w-80" : abs === 1 ? "w-40 sm:w-56" : "w-40";
           // The far peek cards are hidden on narrow screens (focus ±1 there).
           const hideOnMobile = abs === 2 ? "hidden sm:block" : "";
 
