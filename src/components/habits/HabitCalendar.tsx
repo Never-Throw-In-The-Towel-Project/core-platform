@@ -171,7 +171,7 @@ export function HabitCalendar({
               aria-pressed={view === v}
               onClick={() => setView(v)}
               className={
-                "px-4 py-1.5 text-xs font-extrabold uppercase tracking-wide " +
+                "px-4 py-3 text-xs font-extrabold uppercase tracking-wide sm:py-1.5 " +
                 (view === v ? "bg-foreground text-background" : "text-foreground hover:bg-foreground/[0.05]")
               }
             >
