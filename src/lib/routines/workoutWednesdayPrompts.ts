@@ -1,9 +1,9 @@
 // Shared, pure config for the Workout Wednesday journal prompts (Anthony's
-// journal -- "MOVEMENT IS MEDICINE"). Added ALONGSIDE the existing exercise
-// bank + tier picker, not replacing them. No side effects and no server-only
-// imports, so both the client form and the server action import the same keys.
-// These answers ride in the existing themed_checkins.answers jsonb next to the
-// chosen `tier`, so there is no migration.
+// journal -- "MOVEMENT IS MEDICINE"). Sit alongside the Home/Gym workout picker.
+// No side effects and no server-only imports, so both the client form and the
+// server action import the same keys. These answers ride in the existing
+// themed_checkins.answers jsonb next to the chosen `mode`, so there is no
+// migration.
 
 /** The reflective prompts from the journal's Workout Wednesday page. */
 export const WORKOUT_WEDNESDAY_REFLECTIONS = [

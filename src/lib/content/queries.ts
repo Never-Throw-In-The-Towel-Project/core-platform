@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Challenge, ContentItem, ContentStage } from "@/types/database";
+import type { Challenge, ContentItem, ContentStage, WorkoutSetting } from "@/types/database";
 import { escapeFilterValue } from "@/lib/supabase/filterEscape";
 import { listPublishedChallenges, getChallengeDays } from "@/lib/challenges/queries";
 
@@ -168,6 +168,26 @@ export async function getDayContent(supabase: AnyClient, isoWeekday: number): Pr
     .select("*")
     .eq("is_published", true)
     .eq("day_of_week", isoWeekday)
+    .order("created_at", { ascending: false });
+  return (data as ContentItem[] | null) ?? [];
+}
+
+/**
+ * The Workout Wednesday bank for one mode -- the published physical-fitness
+ * videos classified for `setting` (home or gym), newest first. This replaces the
+ * retired bespoke workout_weeks bank: it draws on content that actually exists
+ * in the Training library, so the check-in shows real workouts (or a graceful
+ * "nothing tagged yet" state) instead of the old "isn't loaded yet" dead end.
+ * Channel visibility is enforced by the content_items RLS policy, as elsewhere.
+ */
+export async function listWorkoutVideos(supabase: AnyClient, setting: WorkoutSetting): Promise<ContentItem[]> {
+  const { data } = await supabase
+    .from("content_items")
+    .select("*")
+    .eq("is_published", true)
+    .eq("type", "video")
+    .eq("category", "physical_fitness")
+    .eq("workout_setting", setting)
     .order("created_at", { ascending: false });
   return (data as ContentItem[] | null) ?? [];
 }

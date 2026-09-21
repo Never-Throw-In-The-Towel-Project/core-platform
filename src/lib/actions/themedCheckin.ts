@@ -13,8 +13,9 @@ const TEXT_CHECKIN_WEEKDAYS: readonly TextCheckinWeekday[] = ["monday", "tuesday
 /**
  * Handles Momentum Monday, Talking Tuesday, Thursday Thoughts, and Feel
  * Good Friday -- the four themed check-ins that are plain prompt-and-answer
- * forms. Workout Wednesday is structurally different (exercise bank + tier
- * picker, not free-text prompts) and has its own action, submitWorkoutWednesday.
+ * forms. Workout Wednesday is structurally different (a Home/Gym workout picker
+ * over the library, not free-text prompts) and has its own action,
+ * submitWorkoutWednesday.
  *
  * Accepts an optional "weekday" field for this-week catch-up (see
  * docs/ARCHITECTURE.md "Daily core loop") -- revised from the original
@@ -129,7 +130,7 @@ export async function submitThemedCheckin(
   return { status: "success" };
 }
 
-const WorkoutTierSchema = z.enum(["beginner", "intermediate", "advanced", "elite"]);
+const WorkoutSettingSchema = z.enum(["home", "gym"]);
 
 export async function submitWorkoutWednesday(
   _prevState: RoutineActionState,
@@ -145,15 +146,14 @@ export async function submitWorkoutWednesday(
     return { status: "error", message: "Workout Wednesday isn't available right now." };
   }
 
-  const parsed = WorkoutTierSchema.safeParse(formData.get("tier"));
-  if (!parsed.success) {
-    return { status: "error", message: "Please select a difficulty level." };
-  }
-
-  // The chosen tier plus the optional journal prompts (PB tracking + the
-  // reflective questions), all stored in the same free-form answers jsonb.
-  // Each prompt is optional; blank ones simply aren't written.
-  const answers: Record<string, string> = { tier: parsed.data };
+  // The chosen mode (home / gym) plus the optional journal prompts (PB tracking
+  // + the reflective questions), all stored in the same free-form answers jsonb.
+  // Mode is optional -- a member can just journal -- and the picker always
+  // submits one, so it's normally present. Each prompt is optional; blank ones
+  // simply aren't written.
+  const answers: Record<string, string> = {};
+  const mode = WorkoutSettingSchema.safeParse(formData.get("mode"));
+  if (mode.success) answers.mode = mode.data;
   for (const key of WORKOUT_WEDNESDAY_PROMPT_KEYS) {
     const raw = formData.get(key);
     if (typeof raw !== "string") continue;

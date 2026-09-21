@@ -47,9 +47,21 @@ describe("parseContentImportCsv", () => {
         external_url: null,
         tags: ["stress", "sleep"],
         is_published: true,
+        workout_setting: null,
         folder: null,
       },
     ]);
+  });
+
+  it("maps the workout_setting column (home/gym), erroring on an invalid value", () => {
+    const csv =
+      "title,category,vimeo_id,workout_setting\n" +
+      "Home HIIT,physical_fitness,111,home\n" +
+      "Gym push day,physical_fitness,222,Gym\n" +
+      "Bad one,physical_fitness,333,studio";
+    const { rows, errors } = parseContentImportCsv(csv, { defaultPublish: true });
+    expect(rows.map((r) => r.workout_setting)).toEqual(["home", "gym"]);
+    expect(errors).toEqual([{ line: 4, message: expect.stringMatching(/workout_setting/i) }]);
   });
 
   it("maps a text row with no media, filed into a folder", () => {

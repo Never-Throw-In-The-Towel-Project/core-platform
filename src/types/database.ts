@@ -10,6 +10,12 @@ export type SupportUrgency = "check_in" | "talk_today" | "urgent";
 export type SupportStatus = "new" | "contacted" | "resolved";
 export type VideoCategory = "mental_fitness" | "physical_fitness" | "nutrition" | "tools_tips";
 export type WorkoutTier = "beginner" | "intermediate" | "advanced" | "elite";
+
+// Home vs gym classification for physical-fitness workout videos -- the source
+// for the Workout Wednesday check-in's two modes (see the workout_home_gym
+// migration). Distinct from WorkoutTier (a difficulty tag, no longer used by
+// the member-facing flow).
+export type WorkoutSetting = "home" | "gym";
 export type CommunityScope = "global" | "company";
 export type CommunityBoard = "feed" | "wins";
 export type PushNotificationType = "morning" | "night" | "sunday";
@@ -180,6 +186,9 @@ export interface ContentItem {
   thumbnail_url: string | null;
   tags: string[];
   workout_tier: WorkoutTier | null;
+  /** Home vs gym classification (physical-fitness workout videos); drives the
+   *  Workout Wednesday check-in. null = not a classified workout. */
+  workout_setting: WorkoutSetting | null;
   duration_seconds: number | null;
   is_published: boolean;
   created_by: string | null;
@@ -455,24 +464,6 @@ export interface HabitCheckIn {
   outcome: HabitCheckInOutcome;
   created_at: string;
   updated_at: string;
-}
-
-export interface WorkoutWeek {
-  id: string;
-  bank_position: number;
-  created_at: string;
-}
-
-export interface WorkoutWeekExercise {
-  id: string;
-  workout_week_id: string;
-  exercise_order: number;
-  exercise_name: string;
-  beginner_video_id: string | null;
-  intermediate_video_id: string | null;
-  advanced_video_id: string | null;
-  elite_video_id: string | null;
-  created_at: string;
 }
 
 export interface DailyQuote {

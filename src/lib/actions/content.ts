@@ -51,6 +51,7 @@ export async function createContentItem(
     externalUrl: formData.get("externalUrl") || undefined,
     tags: formData.get("tags") || undefined,
     publish: formData.get("publish") || undefined,
+    workoutSetting: formData.get("workoutSetting") || undefined,
   });
 
   if (!parsed.success) {
@@ -155,6 +156,7 @@ export async function createContentItem(
         thumbnail_url: videoMeta.thumbnail_url,
         duration_seconds: videoMeta.duration_seconds,
         tags,
+        workout_setting: data.workoutSetting ?? null,
         is_published: data.publish === "true",
         folder_id: folderId,
         scheduled_for: scheduledFor,
@@ -236,6 +238,7 @@ export async function updateContentItem(
     externalUrl: formData.get("externalUrl") || undefined,
     tags: formData.get("tags") || undefined,
     publish: formData.get("publish") || undefined,
+    workoutSetting: formData.get("workoutSetting") || undefined,
   });
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Please check the fields and try again." };
@@ -310,6 +313,7 @@ export async function updateContentItem(
         asset_path: media.asset_path,
         external_url: media.external_url,
         tags,
+        workout_setting: data.workoutSetting ?? null,
         is_published: data.publish === "true",
       })
       .eq("id", id);

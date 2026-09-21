@@ -23,6 +23,7 @@ function item(over: Partial<ContentItem>): ContentItem {
     thumbnail_url: null,
     tags: [],
     workout_tier: null,
+    workout_setting: null,
     duration_seconds: null,
     is_published: false,
     created_by: null,
