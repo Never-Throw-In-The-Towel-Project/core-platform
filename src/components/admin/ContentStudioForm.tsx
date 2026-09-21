@@ -85,6 +85,9 @@ export function ContentStudioForm({
   const [category, setCategory] = useState<string>(item?.category ?? "mental_fitness");
   const [dayOfWeek, setDayOfWeek] = useState(initialDay);
   const [tags, setTags] = useState(item?.tags.join(", ") ?? "");
+  // Home vs gym classification, only meaningful for physical-fitness workouts --
+  // the source for the Workout Wednesday check-in's two modes.
+  const [workoutSetting, setWorkoutSetting] = useState<string>(item?.workout_setting ?? "");
 
   const [suggestPending, startSuggest] = useTransition();
   const [suggestNote, setSuggestNote] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
@@ -111,6 +114,7 @@ export function ContentStudioForm({
       // Keep the calendar-add day so several pieces can be added to the same slot.
       setDayOfWeek(initialDay);
       setTags("");
+      setWorkoutSetting("");
       setSuggestNote(null);
     }
   }
@@ -293,6 +297,30 @@ export function ContentStudioForm({
           />
         </div>
       </div>
+
+      {/* Home vs gym — only for physical-fitness content, since it drives the
+          Workout Wednesday check-in's two modes. Left off other themes. */}
+      {category === "physical_fitness" && (
+        <div>
+          <label htmlFor="content-workout-setting" className={LABEL}>
+            Workout setting
+          </label>
+          <select
+            id="content-workout-setting"
+            name="workoutSetting"
+            value={workoutSetting}
+            onChange={(e) => setWorkoutSetting(e.target.value)}
+            className={FIELD}
+          >
+            <option value="">Not a workout</option>
+            <option value="home">Home workout</option>
+            <option value="gym">Gym workout</option>
+          </select>
+          <p className="mt-1 text-xs text-muted">
+            Surfaces this video in the Workout Wednesday check-in, under Home or Gym.
+          </p>
+        </div>
+      )}
 
       <div>
         <label htmlFor="content-summary" className={LABEL}>

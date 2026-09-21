@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ContentType, VideoCategory } from "@/types/database";
+import type { ContentType, VideoCategory, WorkoutSetting } from "@/types/database";
 import type { ContentImportError, ContentImportState } from "./importState";
 import { initialContentImportState } from "./importState";
 
@@ -44,6 +44,9 @@ export const ContentInputSchema = z.object({
     .optional(),
   tags: z.string().max(500).optional(),
   publish: z.enum(["true", "false"]).optional(),
+  // Home vs gym classification for physical-fitness workout videos (drives the
+  // Workout Wednesday check-in). Optional: only workout content carries it.
+  workoutSetting: z.enum(["home", "gym"]).optional(),
 });
 
 /** An insert-ready content row: exactly the columns `content_items` takes,
@@ -59,6 +62,8 @@ export type ContentImportRow = {
   external_url: string | null;
   tags: string[];
   is_published: boolean;
+  /** Home vs gym classification (physical-fitness workout videos). null = none. */
+  workout_setting: WorkoutSetting | null;
   /** Optional Brain folder NAME to file this item under (create-or-reuse by
    *  name in the importer action). null = Unfiled. */
   folder: string | null;
@@ -125,7 +130,18 @@ export function parseCsv(input: string): string[][] {
   return rows;
 }
 
-type Canon = "type" | "title" | "category" | "summary" | "day" | "vimeo" | "url" | "tags" | "publish" | "folder";
+type Canon =
+  | "type"
+  | "title"
+  | "category"
+  | "summary"
+  | "day"
+  | "vimeo"
+  | "url"
+  | "tags"
+  | "publish"
+  | "setting"
+  | "folder";
 
 /** Header spellings we accept, normalised (lowercased, spaces/hyphens → `_`). */
 const HEADER_ALIASES: Record<string, Canon> = {
@@ -152,6 +168,9 @@ const HEADER_ALIASES: Record<string, Canon> = {
   tag: "tags",
   publish: "publish",
   published: "publish",
+  workout_setting: "setting",
+  setting: "setting",
+  workout: "setting",
   folder: "folder",
   folder_name: "folder",
   group: "folder",
@@ -194,6 +213,7 @@ function friendlyIssue(err: z.ZodError): string {
   if (path === "category")
     return "category must be one of mental_fitness, physical_fitness, nutrition, tools_tips.";
   if (path === "title") return "title is required (1–200 characters).";
+  if (path === "workoutSetting") return "workout_setting must be home or gym.";
   return issue?.message ?? "Please check this row.";
 }
 
@@ -296,6 +316,7 @@ export function parseContentImportCsv(
       externalUrl: get("url") || undefined,
       tags: get("tags") || undefined,
       publish,
+      workoutSetting: get("setting").toLowerCase() || undefined,
     });
     if (!parsed.success) {
       errors.push({ line, message: friendlyIssue(parsed.error) });
@@ -339,6 +360,7 @@ export function parseContentImportCsv(
       external_url: d.type === "document" || d.type === "image" ? d.externalUrl ?? null : null,
       tags,
       is_published: d.publish === "true",
+      workout_setting: d.workoutSetting ?? null,
       folder: folderCell.length > 0 ? folderCell.slice(0, 100) : null,
     });
   }

@@ -21,8 +21,8 @@ begin
     raise exception 'RLS disabled on % public/private table(s)', missing;
   end if;
   select count(*) into total from pg_tables where schemaname in ('public','private');
-  if total <> 45 then
-    raise exception 'expected 45 public+private tables (29+16), found %', total;
+  if total <> 43 then
+    raise exception 'expected 43 public+private tables (27+16), found %', total;
   end if;
   raise notice 'PASS  1  RLS enabled on all % public/private tables', total;
 end
@@ -1895,6 +1895,36 @@ begin
     raise exception 'FAIL perf: content_items_pub_type_created_idx missing (Library picked/browse)';
   end if;
   raise notice 'PASS  21  hot-path perf indexes present (community feed + comments + content day/type)';
+end
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 22  Workout Wednesday → Home/Gym (workout_home_gym migration). The library
+--     gains a nullable workout_setting enum ('home'/'gym') on content_items,
+--     and the never-seeded bespoke bank (workout_weeks + workout_week_exercises)
+--     is dropped. Prove the column/enum exist and the old tables are gone, so a
+--     re-add can't silently resurrect the parallel pipeline.
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'content_items' and column_name = 'workout_setting'
+  ) then
+    raise exception 'FAIL workout: content_items.workout_setting column missing';
+  end if;
+  if not exists (
+    select 1 from pg_type where typname = 'workout_setting' and typtype = 'e'
+  ) then
+    raise exception 'FAIL workout: workout_setting enum type missing';
+  end if;
+  if to_regclass('public.workout_weeks') is not null then
+    raise exception 'FAIL workout: workout_weeks table should have been dropped';
+  end if;
+  if to_regclass('public.workout_week_exercises') is not null then
+    raise exception 'FAIL workout: workout_week_exercises table should have been dropped';
+  end if;
+  raise notice 'PASS  22  content_items.workout_setting enum present; bespoke workout bank dropped';
 end
 $$;
 

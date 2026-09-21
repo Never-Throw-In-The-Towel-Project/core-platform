@@ -8,11 +8,12 @@ import {
   isFirstWeekdayOfMonthInWeek,
   weekdayNameOrWeekend,
 } from "@/lib/routines/dates";
-import { getDailyQuote, getWorkoutForWeek } from "@/lib/routines/workouts";
+import { getDailyQuote } from "@/lib/routines/workouts";
+import { listWorkoutVideos } from "@/lib/content/queries";
 import { ThemedCheckinForm } from "@/components/routines/ThemedCheckinForm";
 import { WorkoutWednesdayForm } from "@/components/routines/WorkoutWednesdayForm";
 import type { TextCheckinWeekday } from "@/lib/routines/checkinConfig";
-import type { Weekday, WorkoutTier } from "@/types/database";
+import type { ContentItem, Weekday, WorkoutSetting } from "@/types/database";
 
 // The screen the Rail's hero card (today's own check-in) and its optional
 // this-week catch-up list (see src/app/(app)/home/page.tsx) both open into.
@@ -86,12 +87,27 @@ async function renderCheckin(
           .maybeSingle()
       : { data: null };
 
-    const defaultTier = ((lastWednesday?.answers as { tier?: string } | null)?.tier ?? null) as
-      | WorkoutTier
+    const defaultMode = ((lastWednesday?.answers as { mode?: string } | null)?.mode ?? null) as
+      | WorkoutSetting
       | null;
-    const workout = await getWorkoutForWeek(now);
 
-    return <WorkoutWednesdayForm workout={workout} defaultTier={defaultTier} />;
+    // The two workout banks, drawn from the physical-fitness library (public
+    // content, RLS-scoped to the caller). Degrade to empty on any failure --
+    // the form then shows a friendly "nothing here yet" state per mode, never
+    // the old hard "isn't loaded yet" dead end.
+    let home: ContentItem[] = [];
+    let gym: ContentItem[] = [];
+    try {
+      const publicClient = await createClient();
+      [home, gym] = await Promise.all([
+        listWorkoutVideos(publicClient, "home"),
+        listWorkoutVideos(publicClient, "gym"),
+      ]);
+    } catch {
+      /* leave both empty */
+    }
+
+    return <WorkoutWednesdayForm home={home} gym={gym} defaultMode={defaultMode} />;
   }
 
   if (weekday === "thursday") {

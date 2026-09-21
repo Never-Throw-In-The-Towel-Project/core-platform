@@ -22,6 +22,7 @@ function item(
     thumbnail_url: null,
     tags: [],
     workout_tier: null,
+    workout_setting: null,
     duration_seconds: null,
     is_published: true,
     created_by: null,

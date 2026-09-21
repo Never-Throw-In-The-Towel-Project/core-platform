@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { submitWorkoutWednesday } from "@/lib/actions/themedCheckin";
 import { initialRoutineState } from "@/lib/actions/routineState";
 import { RoutineComplete } from "./RoutineComplete";
@@ -8,91 +9,109 @@ import {
   WORKOUT_WEDNESDAY_REFLECTIONS,
   WORKOUT_WEDNESDAY_PBS,
 } from "@/lib/routines/workoutWednesdayPrompts";
-import type { WeekWorkout } from "@/lib/routines/workouts";
-import type { WorkoutTier } from "@/types/database";
+import type { ContentItem, WorkoutSetting } from "@/types/database";
 
-const TIERS: { value: WorkoutTier; label: string }[] = [
-  { value: "beginner", label: "Beginner" },
-  { value: "intermediate", label: "Intermediate" },
-  { value: "advanced", label: "Advanced" },
-  { value: "elite", label: "Elite" },
+const MODES: { value: WorkoutSetting; label: string }[] = [
+  { value: "home", label: "Home workout" },
+  { value: "gym", label: "Gym workout" },
 ];
 
+function formatDuration(seconds: number | null): string | null {
+  if (!seconds || seconds <= 0) return null;
+  return `${Math.round(seconds / 60)} min`;
+}
+
+/**
+ * Workout Wednesday: pick where you're training today -- Home or Gym -- and the
+ * matching physical-fitness videos from the Training library show, ready to
+ * watch. The chosen mode is remembered week to week. Below sits the journal
+ * ("Movement is medicine"): optional PB tracking + reflective prompts, the real
+ * check-in payload. Both banks come from the library (listWorkoutVideos), so
+ * there's no bespoke bank to seed and no "isn't loaded yet" dead end -- an
+ * untagged mode simply shows a friendly pointer into Training.
+ */
 export function WorkoutWednesdayForm({
-  workout,
-  defaultTier,
+  home,
+  gym,
+  defaultMode,
 }: {
-  workout: WeekWorkout | null;
-  defaultTier: WorkoutTier | null;
+  home: ContentItem[];
+  gym: ContentItem[];
+  defaultMode: WorkoutSetting | null;
 }) {
   const [state, formAction, isPending] = useActionState(submitWorkoutWednesday, initialRoutineState);
-  const [tier, setTier] = useState<WorkoutTier>(defaultTier ?? "beginner");
+  const [mode, setMode] = useState<WorkoutSetting>(defaultMode ?? "home");
 
   if (state.status === "success") {
     return <RoutineComplete title="Workout Wednesday complete. Nice work." />;
   }
 
+  const videos = mode === "home" ? home : gym;
+
   return (
     <form action={formAction} className="space-y-6">
       <header>
         <h1 className="text-2xl font-extrabold tracking-tight">Workout Wednesday</h1>
-        <p className="text-muted">Move the body. 5 exercises, 40s work / 20s rest, repeat 4 times.</p>
+        <p className="text-muted">Move the body. Choose home or the gym, then log how it&apos;s going.</p>
       </header>
 
+      {/* Home / Gym mode. Rides in a hidden input so it's saved with the
+          check-in and comes back as the default next week. */}
+      <input type="hidden" name="mode" value={mode} />
       <fieldset>
-        <legend className="mb-2 text-sm font-medium">Choose your level</legend>
-        <div className="flex flex-wrap gap-2">
-          {TIERS.map((option) => (
-            <label key={option.value}>
-              <input
-                type="radio"
-                name="tier"
-                value={option.value}
-                checked={tier === option.value}
-                onChange={() => setTier(option.value)}
-                className="peer sr-only"
-                required
-              />
-              <span className="cursor-pointer border border-rule-border px-3 py-1.5 text-sm peer-checked:bg-brand-accent peer-checked:text-brand-accent-foreground">
+        <legend className="mb-2 text-sm font-medium">Where are you training?</legend>
+        <div className="flex border border-rule-border" role="group" aria-label="Workout location">
+          {MODES.map((option) => {
+            const active = mode === option.value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setMode(option.value)}
+                className={`flex-1 px-4 py-3 text-sm font-extrabold uppercase tracking-wide transition-colors ${
+                  active ? "bg-brand-accent text-brand-accent-foreground" : "text-muted hover:text-foreground"
+                }`}
+              >
                 {option.label}
-              </span>
-            </label>
-          ))}
+              </button>
+            );
+          })}
         </div>
       </fieldset>
 
-      {!workout || workout.exercises.length === 0 ? (
-        <p className="border border-rule-hairline p-4 text-sm text-muted">
-          This week&apos;s workout isn&apos;t loaded yet -- check back soon.
-        </p>
+      {videos.length === 0 ? (
+        <div className="border border-rule-hairline p-4 text-sm text-muted">
+          <p>No {mode === "home" ? "home" : "gym"} workouts here yet — new sessions land here as they&apos;re added.</p>
+          <Link
+            href="/content?category=physical_fitness"
+            className="mt-2 inline-block font-semibold text-brand-accent-light underline"
+          >
+            Browse all Training →
+          </Link>
+        </div>
       ) : (
-        <ol className="space-y-3">
-          {workout.exercises.map((exercise) => {
-            const video = exercise.videos[tier];
+        <ul className="space-y-3">
+          {videos.map((item) => {
+            const duration = formatDuration(item.duration_seconds);
             return (
-              <li
-                key={exercise.exercise_order}
-                className="flex items-center justify-between border border-rule-hairline p-4 text-sm"
-              >
-                <span>
-                  {exercise.exercise_order}. {exercise.exercise_name}
-                </span>
-                {video ? (
-                  <a
-                    href={`https://vimeo.com/${video.vimeo_id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="underline text-muted"
-                  >
-                    Watch demo
-                  </a>
-                ) : (
-                  <span className="text-xs text-muted">No demo yet</span>
-                )}
+              <li key={item.id}>
+                <Link
+                  href={`/content/${item.id}`}
+                  className="group flex items-center justify-between gap-3 border border-rule-hairline p-4 transition-colors hover:border-foreground"
+                >
+                  <span className="min-w-0">
+                    <span className="block font-extrabold leading-tight tracking-tight">{item.title}</span>
+                    {duration && <span className="text-xs text-muted">{duration}</span>}
+                  </span>
+                  <span className="shrink-0 bg-brand-accent px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-brand-accent-foreground">
+                    Watch
+                  </span>
+                </Link>
               </li>
             );
           })}
-        </ol>
+        </ul>
       )}
 
       {/* Journal prompts, alongside the workout above -- movement is medicine.

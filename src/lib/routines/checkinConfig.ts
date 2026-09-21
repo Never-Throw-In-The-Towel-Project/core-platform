@@ -3,7 +3,8 @@
 // captured separately (see themed_checkins.goals in the migration) since
 // they're read back structurally on Friday, not just displayed as text.
 // Wednesday (Workout Wednesday) isn't here -- it's a structurally different
-// screen (exercise bank + tier picker), handled by WorkoutWednesdayForm.
+// screen (a Home/Gym workout picker over the library), handled by
+// WorkoutWednesdayForm.
 
 export type PromptField = {
   key: string;
