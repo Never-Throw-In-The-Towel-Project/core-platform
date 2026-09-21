@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import { createContentItem, updateContentItem } from "@/lib/actions/content";
 import { suggestTagsAction } from "@/lib/actions/aiStudio";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import { buildVimeoEmbedUrl, vimeoIdFromInput } from "@/lib/vimeo/parse";
 import type { ContentItem, ContentType } from "@/types/database";
 
 const LABEL = "block text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted";
@@ -78,6 +79,18 @@ export function ContentStudioForm({
   const [type, setType] = useState<ContentType>(item?.type ?? "video");
   const formRef = useRef<HTMLFormElement>(null);
 
+  // Controlled + debounced so the inline preview follows the field (accepting a
+  // pasted URL or a bare id) without re-mounting the Vimeo player on every
+  // keystroke. In edit mode it starts on the saved id, so the preview is there
+  // immediately with no delay.
+  const [vimeoId, setVimeoId] = useState(item?.vimeo_id ?? "");
+  const [previewInput, setPreviewInput] = useState(item?.vimeo_id ?? "");
+  useEffect(() => {
+    const t = setTimeout(() => setPreviewInput(vimeoId), 400);
+    return () => clearTimeout(t);
+  }, [vimeoId]);
+  const previewId = vimeoIdFromInput(previewInput);
+
   // Controlled so the AI suggestion can populate them (and so a suggestion is
   // always editable before it's committed). Prefilled from `item` when editing.
   const [title, setTitle] = useState(item?.title ?? "");
@@ -110,6 +123,7 @@ export function ContentStudioForm({
     if (!isEdit && state.status === "success") {
       setTitle("");
       setSummary("");
+      setVimeoId("");
       setCategory("mental_fitness");
       // Keep the calendar-add day so several pieces can be added to the same slot.
       setDayOfWeek(initialDay);
@@ -200,11 +214,36 @@ export function ContentStudioForm({
             id="content-vimeo"
             name="vimeoId"
             placeholder="e.g. 123456789"
-            defaultValue={item?.vimeo_id ?? ""}
+            value={vimeoId}
+            onChange={(e) => setVimeoId(e.target.value)}
             className={FIELD}
             inputMode="numeric"
           />
           <p className="mt-1 text-xs text-muted">The numeric ID from the Vimeo URL.</p>
+
+          {/* Inline preview so you can see the actual video while tagging, not
+              just an id. A plain embed (no progress capture, unlike the member
+              player). Private videos preview with the item's saved play-hash;
+              a brand-new private id previews once saved and enriched. */}
+          {previewId && (
+            <div className="mt-3">
+              <p className={LABEL}>Preview</p>
+              <div className="mt-1 aspect-video w-full max-w-md overflow-hidden border border-rule-border bg-black">
+                <iframe
+                  key={previewId}
+                  src={buildVimeoEmbedUrl(previewId, item?.vimeo_hash ?? null)}
+                  title="Video preview"
+                  allow="fullscreen; picture-in-picture"
+                  allowFullScreen
+                  loading="lazy"
+                  className="h-full w-full"
+                />
+              </div>
+              <p className="mt-1 text-xs text-muted">
+                Private videos preview using the saved play-hash — a brand-new private ID previews after you save.
+              </p>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
