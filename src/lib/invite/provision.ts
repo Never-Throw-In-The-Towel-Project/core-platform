@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { generateAnonHandle } from "@/lib/identity/preference";
 import type { UserRole } from "@/types/database";
 
 // NOT a "use server" module -- these are server-internal helpers, never exposed
@@ -59,7 +60,17 @@ export async function provisionInvite(params: {
   if (error || !data.user) return { ok: false, message: inviteErrorMessage(error?.message ?? "") };
 
   const { error: profileError } = await admin.from("profiles").upsert(
-    { id: data.user.id, company_id: params.companyId, role: params.role, display_name: params.displayName },
+    {
+      id: data.user.id,
+      company_id: params.companyId,
+      role: params.role,
+      // The admin-typed name is the member's REAL name: store it as full_name
+      // (the admin-visible identity) and give display_name a generated anon
+      // handle, so an invited member who later appears anonymously never shows
+      // their real name (finding A3). Self-service signup already does this.
+      full_name: params.displayName,
+      display_name: generateAnonHandle(data.user.id),
+    },
     { onConflict: "id" }
   );
   if (profileError) {

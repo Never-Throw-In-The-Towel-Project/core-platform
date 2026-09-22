@@ -7,12 +7,17 @@ vi.mock("@/lib/auth/dal", () => ({
 }));
 
 let lastUpdate: Record<string, unknown> | undefined;
+// The profile row updateIdentity reads back to decide whether to regenerate the
+// anon handle (only when appearing anonymously). Default: no row.
+let currentProfile: { display_name: string; full_name: string } | null = null;
 const eqMock = vi.fn(() => Promise.resolve({ error: null }));
 const updateMock = vi.fn((values: Record<string, unknown>) => {
   lastUpdate = values;
   return { eq: eqMock };
 });
-const fromMock = vi.fn(() => ({ update: updateMock }));
+const maybeSingleMock = vi.fn(() => Promise.resolve({ data: currentProfile }));
+const selectMock = vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: maybeSingleMock })) }));
+const fromMock = vi.fn(() => ({ update: updateMock, select: selectMock }));
 vi.mock("@/lib/supabase/server", () => ({
   createClient: () => Promise.resolve({ from: fromMock }),
 }));
@@ -29,6 +34,7 @@ function fd(fields: Record<string, string>): FormData {
 beforeEach(() => {
   vi.clearAllMocks();
   lastUpdate = undefined;
+  currentProfile = null;
   eqMock.mockResolvedValue({ error: null });
 });
 
@@ -44,6 +50,36 @@ describe("updateIdentity", () => {
       date_of_birth: "1990-05-01",
     });
     expect(state.status).toBe("success");
+  });
+
+  it("regenerates the handle when going anonymous and the handle is still the real name (A3)", async () => {
+    // Invited/legacy member: display_name == full_name (their real name).
+    currentProfile = { display_name: "Alex Morgan", full_name: "Alex Morgan" };
+    await updateIdentity(
+      initialRoutineState,
+      fd({ fullName: "Alex Morgan", identityPreference: "anonymous" })
+    );
+    // "u1" is the mocked session user id; generateAnonHandle("u1") === "Bold Lynx".
+    expect(lastUpdate).toMatchObject({ display_name: "Bold Lynx" });
+    expect(lastUpdate?.display_name).not.toBe("Alex Morgan");
+  });
+
+  it("leaves a customised handle untouched when going anonymous", async () => {
+    currentProfile = { display_name: "Night Heron", full_name: "Alex Morgan" };
+    await updateIdentity(
+      initialRoutineState,
+      fd({ fullName: "Alex Morgan", identityPreference: "anonymous" })
+    );
+    expect(lastUpdate).not.toHaveProperty("display_name");
+  });
+
+  it("never touches the handle for a non-anonymous preference", async () => {
+    currentProfile = { display_name: "Alex Morgan", full_name: "Alex Morgan" };
+    await updateIdentity(
+      initialRoutineState,
+      fd({ fullName: "Alex Morgan", identityPreference: "full_name" })
+    );
+    expect(lastUpdate).not.toHaveProperty("display_name");
   });
 
   it("omits date_of_birth when the field is blank (never clears a set DOB)", async () => {

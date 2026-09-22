@@ -1969,5 +1969,25 @@ begin
 end
 $$;
 
+-- ---------------------------------------------------------------------------
+-- 24  The SQL anon-handle generator matches the TS one (finding A3,
+--     anon_handle_backfill migration). public.generate_anon_handle() is a hand
+--     port of generateAnonHandle() (src/lib/identity/preference.ts); a backfilled
+--     handle must equal the one the app generates for the same id, or an
+--     invited/legacy member's handle would silently change under them. The
+--     expected values are computed from the TS implementation for these seeds.
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  if public.generate_anon_handle('some-user-id') <> 'Warm Owl'
+     or public.generate_anon_handle('a0000000-0000-0000-0000-00000000000a') <> 'Quiet Hare'
+     or public.generate_anon_handle('u1') <> 'Bold Lynx'
+     or public.generate_anon_handle('') <> 'Quiet Otter' then
+    raise exception 'FAIL anon-handle: generate_anon_handle() drifted from the TS generateAnonHandle()';
+  end if;
+  raise notice 'PASS  24  generate_anon_handle() matches TS generateAnonHandle for known seeds';
+end
+$$;
+
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'
