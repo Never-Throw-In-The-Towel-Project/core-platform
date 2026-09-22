@@ -142,17 +142,39 @@ begin
 end
 $$;
 
--- ---- 3. photo-upload storage bucket + policies applied ----------------------
+-- ---- 3. photo-upload storage bucket + policies applied (A4: now private) -----
 do $$
 declare npol int; is_public boolean;
 begin
   select public into is_public from storage.buckets where id = 'community-images';
-  if is_public is distinct from true then
-    raise exception 'community-images bucket missing or not public';
+  if is_public is null then
+    raise exception 'community-images bucket missing';
+  end if;
+  -- A4: the bucket is PRIVATE -- member photos are visible only to signed-in
+  -- members via read-time signed URLs, never a permanent public link. The old
+  -- assertion required `public = true`; the whole point of A4 is that it isn't.
+  if is_public is distinct from false then
+    raise exception 'community-images bucket is still public (A4 expects private)';
+  end if;
+  -- The role-less public read policy must be gone...
+  if exists (
+    select 1 from pg_policy
+    where polrelid = 'storage.objects'::regclass
+      and polname = 'community images are publicly readable'
+  ) then
+    raise exception 'public community-images read policy still present (A4)';
+  end if;
+  -- ...replaced by an authenticated-only read policy.
+  if not exists (
+    select 1 from pg_policy
+    where polrelid = 'storage.objects'::regclass
+      and polname = 'authenticated users read community images'
+  ) then
+    raise exception 'authenticated community-images read policy missing (A4)';
   end if;
   select count(*) into npol from pg_policy where polrelid = 'storage.objects'::regclass;
   if npol < 3 then raise exception 'expected >= 3 storage.objects policies, found %', npol; end if;
-  raise notice 'PASS  3  community-images bucket + % storage.objects policies', npol;
+  raise notice 'PASS  3  community-images bucket private + % storage.objects policies (A4)', npol;
 end
 $$;
 
