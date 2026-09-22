@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { verifySession } from "@/lib/auth/dal";
+import { generateAnonHandle } from "@/lib/identity/preference";
 import { type RoutineActionState } from "./routineState";
 import { TimeSchema, DisplayNameSchema } from "./schemas";
 
@@ -205,12 +206,32 @@ export async function updateIdentity(
   // URL/key are missing or malformed -- same gap already closed elsewhere.
   try {
     const supabase = await createClient();
+
+    // Choosing to appear anonymously must not leave the public handle set to the
+    // member's real name. Invited/legacy members were provisioned with
+    // display_name == full_name, so without this they'd post "anonymously" under
+    // their real name (finding A3). If their handle is still their real name
+    // (never customised via updateDisplayName), swap in a generated one now; a
+    // handle they've already personalised is left untouched.
+    let handleFix: { display_name: string } | undefined;
+    if (parsed.data.identityPreference === "anonymous") {
+      const { data: current } = await supabase
+        .from("profiles")
+        .select("display_name, full_name")
+        .eq("id", session.userId)
+        .maybeSingle();
+      if (current && current.display_name === current.full_name) {
+        handleFix = { display_name: generateAnonHandle(session.userId) };
+      }
+    }
+
     const { error } = await supabase
       .from("profiles")
       .update({
         full_name: parsed.data.fullName,
         community_identity_preference: parsed.data.identityPreference,
         ...(dateOfBirth ? { date_of_birth: dateOfBirth } : {}),
+        ...(handleFix ?? {}),
       })
       .eq("id", session.userId);
 
