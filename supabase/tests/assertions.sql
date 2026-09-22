@@ -1928,5 +1928,46 @@ begin
 end
 $$;
 
+-- ---------------------------------------------------------------------------
+-- 23  Community feed is not anonymously readable (finding A1, community_anon_
+--     read_lock migration). The "read visible" SELECT policies on
+--     community_posts / community_comments must be restricted to the
+--     authenticated role (never public/anon), and anon must hold no SELECT
+--     grant -- so a bare anon key with no session reads nothing. Guards against
+--     a re-introduction of the unguarded, role-less global-read policy.
+-- ---------------------------------------------------------------------------
+do $$
+declare leaky int; authed int;
+begin
+  -- Any "read visible" community SELECT policy applying to public or anon is the leak.
+  select count(*) into leaky
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('community_posts','community_comments')
+      and policyname like 'read visible%'
+      and cmd = 'SELECT'
+      and ('public' = any(roles) or 'anon' = any(roles));
+  if leaky <> 0 then
+    raise exception 'FAIL community: % "read visible" SELECT policy(ies) still apply to public/anon', leaky;
+  end if;
+  -- Both must exist and be authenticated-scoped.
+  select count(*) into authed
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('community_posts','community_comments')
+      and policyname like 'read visible%'
+      and cmd = 'SELECT'
+      and 'authenticated' = any(roles);
+  if authed <> 2 then
+    raise exception 'FAIL community: expected 2 authenticated-only read-visible SELECT policies, found %', authed;
+  end if;
+  if has_table_privilege('anon','public.community_posts','select')
+     or has_table_privilege('anon','public.community_comments','select') then
+    raise exception 'FAIL community: anon still holds SELECT on community_posts/comments';
+  end if;
+  raise notice 'PASS  23  community feed not anon-readable (posts/comments SELECT authenticated-only; anon revoked)';
+end
+$$;
+
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'
