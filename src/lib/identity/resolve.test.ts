@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { peerCommunityName, realName, firstNameOf, type CommunityIdentity } from "./resolve";
+import {
+  peerCommunityName,
+  realName,
+  firstNameOf,
+  inheritedCommentOverride,
+  type CommunityIdentity,
+} from "./resolve";
 
 const alex: CommunityIdentity = {
   fullName: "Alex Morgan",
@@ -48,5 +54,25 @@ describe("firstNameOf", () => {
     expect(firstNameOf("Alex Morgan")).toBe("Alex");
     expect(firstNameOf("Cher")).toBe("Cher");
     expect(firstNameOf("  Mary  Jane  ")).toBe("Mary");
+  });
+});
+
+describe("inheritedCommentOverride", () => {
+  const anonPost = { authorId: "author-1", override: "anonymous" as const };
+
+  it("inherits the post's override for the post author's own comments", () => {
+    expect(inheritedCommentOverride("author-1", anonPost)).toBe("anonymous");
+  });
+
+  it("does NOT apply the override to anyone else's comments", () => {
+    expect(inheritedCommentOverride("someone-else", anonPost)).toBeNull();
+  });
+
+  it("is null when the post carried no override (author uses their account default)", () => {
+    expect(inheritedCommentOverride("author-1", { authorId: "author-1", override: null })).toBeNull();
+  });
+
+  it("is null when the parent post is unknown", () => {
+    expect(inheritedCommentOverride("author-1", undefined)).toBeNull();
   });
 });

@@ -3,13 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   CommunityBoard,
-  CommunityComment,
-  CommunityPost,
   CommunityScope,
   CommunityIdentityPreference,
 } from "@/types/database";
 import { sortPosts, type FeedSort } from "@/lib/community/sort";
-import { peerCommunityName, realName } from "@/lib/identity/resolve";
+import { peerCommunityName, realName, inheritedCommentOverride } from "@/lib/identity/resolve";
 
 // The feed pulls a recent candidate window and ranks it in application code
 // (lib/community/sort.ts) rather than ordering by a likes aggregate in the DB --
@@ -26,7 +24,19 @@ const FEED_PAGE_SIZE = 50;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any>;
 
-export interface PostWithMeta extends CommunityPost {
+// Peer-facing feed post -- a FIXED, explicit field set, deliberately NOT
+// `extends CommunityPost`. The sensitive columns (user_id, identity_override,
+// company_id, removed_by/removal_reason, scope/board/is_removed) must never ride
+// into a "use client" component's serialized props, or a peer could deanonymise
+// an author or read moderation internals straight out of the page source
+// (finding A2). Ownership is not a feature here, so user_id is simply not
+// projected; the author is pre-resolved to a peer-safe display name server-side.
+export interface PostWithMeta {
+  id: string;
+  body: string;
+  image_url: string | null;
+  shared_badge_key: string | null;
+  created_at: string;
   authorDisplayName: string;
   authorCompanyName: string | null;
   likeCount: number;
@@ -34,9 +44,34 @@ export interface PostWithMeta extends CommunityPost {
   commentCount: number;
 }
 
-export interface CommentWithAuthor extends CommunityComment {
+// Peer-facing comment -- same rule: only what the thread UI renders. No user_id
+// / company_id / scope / removal columns reach the client.
+export interface CommentWithAuthor {
+  id: string;
+  parent_comment_id: string | null;
+  body: string;
   authorDisplayName: string;
 }
+
+/** Server-only shapes for the raw rows the feed queries actually select --
+ *  narrower than the full DB row, and never returned to a caller. */
+type FeedPostRow = {
+  id: string;
+  user_id: string;
+  body: string;
+  image_url: string | null;
+  shared_badge_key: string | null;
+  identity_override: CommunityIdentityPreference | null;
+  created_at: string;
+};
+
+type FeedCommentRow = {
+  id: string;
+  post_id: string;
+  user_id: string;
+  parent_comment_id: string | null;
+  body: string;
+};
 
 export interface AuthorInfo {
   /** The public handle -- what peers see when the author is anonymous. */
@@ -147,7 +182,10 @@ export async function getPosts(
 ): Promise<PostWithMeta[]> {
   let query = supabase
     .from("community_posts")
-    .select("*")
+    // Only the columns the feed actually needs. user_id + identity_override are
+    // read HERE (server-side) to resolve the peer name, but are never returned
+    // to the caller (see PostWithMeta) -- so they can't reach the client.
+    .select("id, user_id, body, image_url, shared_badge_key, identity_override, created_at")
     .eq("scope", params.scope)
     .eq("board", params.board)
     // Explicitly exclude moderated-away posts. Non-admins already never see
@@ -166,11 +204,12 @@ export async function getPosts(
     query = query.eq("company_id", params.companyId);
   }
 
-  const { data: posts } = await query;
-  if (!posts || posts.length === 0) return [];
+  const { data } = await query;
+  const posts = (data as FeedPostRow[] | null) ?? [];
+  if (posts.length === 0) return [];
 
-  const postIds = posts.map((post: CommunityPost) => post.id);
-  const userIds = Array.from(new Set(posts.map((post: CommunityPost) => post.user_id)));
+  const postIds = posts.map((post) => post.id);
+  const userIds = Array.from(new Set(posts.map((post) => post.user_id)));
 
   const [authorInfo, { data: likes }, { data: comments }] = await Promise.all([
     getAuthorInfo(supabase, userIds),
@@ -190,12 +229,18 @@ export async function getPosts(
     commentCounts.set(comment.post_id, (commentCounts.get(comment.post_id) ?? 0) + 1);
   }
 
-  const withMeta: PostWithMeta[] = (posts as CommunityPost[]).map((post) => {
+  const withMeta: PostWithMeta[] = posts.map((post) => {
     const info = authorInfo.get(post.user_id);
+    // Build the peer DTO field by field -- NO `...post` spread, so user_id and
+    // identity_override stay server-side. The peer-facing name is the author's
+    // account default, overridden per-post when they chose to. Admins never
+    // render through this path.
     return {
-      ...post,
-      // Peer-facing name: the author's account default, overridden per-post when
-      // they chose to (identity_override). Admins never render through this.
+      id: post.id,
+      body: post.body,
+      image_url: post.image_url,
+      shared_badge_key: post.shared_badge_key,
+      created_at: post.created_at,
       authorDisplayName: info ? peerCommunityName(info, post.identity_override) : "Someone",
       authorCompanyName: info?.companyName ?? null,
       likeCount: likeCounts.get(post.id) ?? 0,
@@ -230,26 +275,47 @@ export async function getCommentsForPosts(
 ): Promise<Map<string, CommentWithAuthor[]>> {
   if (postIds.length === 0) return new Map();
 
-  const { data: comments } = await supabase
-    .from("community_comments")
-    .select("*")
-    .in("post_id", postIds)
-    .eq("is_removed", false)
-    .order("created_at", { ascending: true });
+  // The comments, plus each post's author + per-post identity override. The
+  // override matters here: an author who posted anonymously (identity_override
+  // = 'anonymous' on the post, while their account default is their real name)
+  // would otherwise render under their real name the moment they replied in
+  // their own thread -- silently deanonymising the post (finding A2). So the
+  // post author's OWN comments on that post inherit the post's override;
+  // everyone else follows their own account default.
+  const [commentsRes, postAuthorsRes] = await Promise.all([
+    supabase
+      .from("community_comments")
+      .select("id, post_id, user_id, parent_comment_id, body")
+      .in("post_id", postIds)
+      .eq("is_removed", false)
+      .order("created_at", { ascending: true }),
+    supabase.from("community_posts").select("id, user_id, identity_override").in("id", postIds),
+  ]);
 
-  if (!comments || comments.length === 0) return new Map();
+  const comments = (commentsRes.data as FeedCommentRow[] | null) ?? [];
+  if (comments.length === 0) return new Map();
 
-  const userIds = Array.from(new Set(comments.map((c: CommunityComment) => c.user_id)));
+  const postAuthor = new Map<string, { authorId: string; override: CommunityIdentityPreference | null }>(
+    (
+      (postAuthorsRes.data as
+        | { id: string; user_id: string; identity_override: CommunityIdentityPreference | null }[]
+        | null) ?? []
+    ).map((p) => [p.id, { authorId: p.user_id, override: p.identity_override }])
+  );
+
+  const userIds = Array.from(new Set(comments.map((c) => c.user_id)));
   const authorInfo = await getAuthorInfo(supabase, userIds);
 
-  // Comments carry no per-post override -- they follow the author's account
-  // default (peer-facing, same resolver as the feed).
   const byPost = new Map<string, CommentWithAuthor[]>();
-  for (const comment of comments as CommunityComment[]) {
+  for (const comment of comments) {
     const info = authorInfo.get(comment.user_id);
+    // Inherit the post's override ONLY for the post author's own comments.
+    const override = inheritedCommentOverride(comment.user_id, postAuthor.get(comment.post_id));
     const withAuthor: CommentWithAuthor = {
-      ...comment,
-      authorDisplayName: info ? peerCommunityName(info) : "Someone",
+      id: comment.id,
+      parent_comment_id: comment.parent_comment_id,
+      body: comment.body,
+      authorDisplayName: info ? peerCommunityName(info, override) : "Someone",
     };
     const list = byPost.get(comment.post_id);
     if (list) list.push(withAuthor);
