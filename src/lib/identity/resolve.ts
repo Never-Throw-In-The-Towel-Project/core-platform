@@ -58,3 +58,18 @@ export function peerCommunityName(
 export function realName(identity: Pick<CommunityIdentity, "fullName" | "displayName">): string {
   return identity.fullName?.trim() || identity.displayName;
 }
+
+/**
+ * Which per-post identity override applies to a COMMENT's author. A post's
+ * `identity_override` anonymises THAT post; it must extend to the post author's
+ * OWN comments on it -- otherwise they deanonymise the post the instant they
+ * reply in their own thread (the in-thread leak, finding A2) -- but it must
+ * never touch anyone else's comments. Returns null (meaning: use the account
+ * default) for every commenter except the post's own author.
+ */
+export function inheritedCommentOverride(
+  commentAuthorId: string,
+  post: { authorId: string; override: CommunityIdentityPreference | null } | null | undefined
+): CommunityIdentityPreference | null {
+  return post && post.authorId === commentAuthorId ? post.override : null;
+}

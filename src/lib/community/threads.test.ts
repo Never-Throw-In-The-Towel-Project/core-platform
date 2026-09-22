@@ -7,16 +7,8 @@ import type { CommentWithAuthor } from "./queries";
 function comment(id: string, parent: string | null, body = id): CommentWithAuthor {
   return {
     id,
-    post_id: "post-1",
-    user_id: `user-${id}`,
-    scope: "global",
-    company_id: "company-1",
-    body,
     parent_comment_id: parent,
-    is_removed: false,
-    removed_by: null,
-    removed_at: null,
-    created_at: `2026-08-12T00:00:0${id.length}Z`,
+    body,
     authorDisplayName: `Author ${id}`,
   };
 }
