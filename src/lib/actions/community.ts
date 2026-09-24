@@ -27,7 +27,9 @@ const PostSchema = z.object({
  * The photo, if any, arrives as a real File (Phase 9 -- replaces the
  * pasted-URL interim from Phase 7) and is uploaded to the `community-images`
  * Storage bucket before the row is inserted, so image_url always ends up
- * either null or a real uploaded photo's public URL.
+ * either null or a real uploaded photo's object path. The bucket is private
+ * (A4): the path is signed into a short-lived URL at read time, never stored
+ * as a permanent public link.
  */
 export async function submitCommunityPost(
   _prevState: RoutineActionState,
@@ -55,14 +57,14 @@ export async function submitCommunityPost(
   try {
     const supabase = await createClient();
 
-    let imageUrl: string | null = null;
+    let imagePath: string | null = null;
     const image = formData.get("image");
     if (image instanceof File && image.size > 0) {
       const result = await uploadCommunityImage(supabase, session.userId, image);
       if ("error" in result) {
         return { status: "error", message: result.error };
       }
-      imageUrl = result.url;
+      imagePath = result.path;
     }
 
     // Per-post identity override: null = post under the account default. Any
@@ -76,7 +78,7 @@ export async function submitCommunityPost(
       scope: parsed.data.scope,
       board: parsed.data.board,
       body: parsed.data.body,
-      image_url: imageUrl,
+      image_url: imagePath,
       identity_override: identityOverride,
     });
 

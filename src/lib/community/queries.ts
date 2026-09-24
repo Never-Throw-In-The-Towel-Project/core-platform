@@ -7,6 +7,7 @@ import type {
   CommunityIdentityPreference,
 } from "@/types/database";
 import { sortPosts, type FeedSort } from "@/lib/community/sort";
+import { signCommunityImageUrls } from "@/lib/community/imageUpload";
 import { peerCommunityName, realName, inheritedCommentOverride } from "@/lib/identity/resolve";
 
 // The feed pulls a recent candidate window and ranks it in application code
@@ -210,11 +211,18 @@ export async function getPosts(
 
   const postIds = posts.map((post) => post.id);
   const userIds = Array.from(new Set(posts.map((post) => post.user_id)));
+  // Image references stored on the page's posts. The bucket is private (A4), so
+  // each is signed into a short-lived URL below rather than served as a public
+  // link -- batched into the same round-trip fan-out as likes/comments.
+  const imageRefs = posts
+    .map((post) => post.image_url)
+    .filter((ref): ref is string => ref !== null);
 
-  const [authorInfo, { data: likes }, { data: comments }] = await Promise.all([
+  const [authorInfo, { data: likes }, { data: comments }, signedImages] = await Promise.all([
     getAuthorInfo(supabase, userIds),
     supabase.from("community_likes").select("post_id, user_id").in("post_id", postIds),
     supabase.from("community_comments").select("post_id").in("post_id", postIds).eq("is_removed", false),
+    signCommunityImageUrls(supabase, imageRefs),
   ]);
 
   const likeCounts = new Map<string, number>();
@@ -238,7 +246,10 @@ export async function getPosts(
     return {
       id: post.id,
       body: post.body,
-      image_url: post.image_url,
+      // Private-bucket signed URL (A4). A reference that couldn't be signed
+      // (deleted object, no session) collapses to null -- the post renders
+      // without its image rather than emitting a broken/forbidden link.
+      image_url: post.image_url ? signedImages.get(post.image_url) ?? null : null,
       shared_badge_key: post.shared_badge_key,
       created_at: post.created_at,
       authorDisplayName: info ? peerCommunityName(info, post.identity_override) : "Someone",
