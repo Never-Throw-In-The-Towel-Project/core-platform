@@ -2011,5 +2011,107 @@ begin
 end
 $$;
 
+-- ---------------------------------------------------------------------------
+-- 25  k-anonymity floor on company aggregates (finding B1, kanon_floor
+--     migration). Below 5 enrolled employees a "company-wide" figure is one
+--     identifiable person's private behaviour, so an hr_admin must see nothing.
+--     Enforced in RLS (public.company_headcount() >= 5), not just the app, so a
+--     direct API read is gated too. Self-contained fixture: a fresh company with
+--     4 employees + an HR admin + a participation row proves the floor blocks;
+--     adding a 5th employee proves the SAME HR read clears at exactly 5.
+-- ---------------------------------------------------------------------------
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+insert into public.companies (id, name, slug)
+  values ('c1000000-0000-0000-0000-0000000000c1', 'K-Anon Co', 'k-anon-co');
+
+-- Inserting into auth.users fires handle_new_user, which creates a profiles row;
+-- we then move each into K-Anon Co and set the role (same shape as the step
+-- challenge live test above).
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('c1000000-0000-0000-0000-0000000000f0','ka-hr@k.test','{"display_name":"kahr"}'::jsonb),
+  ('c1000000-0000-0000-0000-0000000000e1','ka-e1@k.test','{"display_name":"kae1"}'::jsonb),
+  ('c1000000-0000-0000-0000-0000000000e2','ka-e2@k.test','{"display_name":"kae2"}'::jsonb),
+  ('c1000000-0000-0000-0000-0000000000e3','ka-e3@k.test','{"display_name":"kae3"}'::jsonb),
+  ('c1000000-0000-0000-0000-0000000000e4','ka-e4@k.test','{"display_name":"kae4"}'::jsonb);
+update public.profiles set company_id='c1000000-0000-0000-0000-0000000000c1', role='hr_admin'
+  where id='c1000000-0000-0000-0000-0000000000f0';
+update public.profiles set company_id='c1000000-0000-0000-0000-0000000000c1', role='employee'
+  where id in ('c1000000-0000-0000-0000-0000000000e1','c1000000-0000-0000-0000-0000000000e2',
+               'c1000000-0000-0000-0000-0000000000e3','c1000000-0000-0000-0000-0000000000e4');
+
+-- One aggregate row (service_role would write this in prod).
+insert into public.company_daily_participation
+  (company_id, entry_date, segment, completed_count, eligible_count)
+  values ('c1000000-0000-0000-0000-0000000000c1','2026-09-01','morning',3,4);
+
+-- Replicate Supabase's default grant so RLS -- not a missing grant -- is the gate.
+grant select on public.company_daily_participation to authenticated;
+
+-- Static: the floor function is SECURITY DEFINER, counts employees, and is wired
+-- into all three aggregate read policies.
+do $$
+declare npol int;
+begin
+  if not exists (
+    select 1 from pg_proc
+    where proname = 'company_headcount' and pronamespace = 'public'::regnamespace and prosecdef
+  ) then
+    raise exception 'company_headcount() missing or not SECURITY DEFINER';
+  end if;
+  select count(*) into npol from pg_policy
+    where polrelid in ('public.company_daily_participation'::regclass,
+                       'public.company_review_completions'::regclass,
+                       'public.company_support_counts'::regclass)
+      and polcmd = 'r'
+      and pg_get_expr(polqual, polrelid) like '%company_headcount%';
+  if npol <> 3 then
+    raise exception 'expected the k-anon floor in all 3 aggregate read policies, found %', npol;
+  end if;
+  if public.company_headcount('c1000000-0000-0000-0000-0000000000c1') <> 4 then
+    raise exception 'company_headcount miscounted the 4-employee fixture';
+  end if;
+end
+$$;
+
+-- Live (4 employees < 5): the company's own HR admin sees NO participation row.
+select set_config('request.jwt.claim.sub', 'c1000000-0000-0000-0000-0000000000f0', false);
+set role authenticated;
+do $$
+declare visible int;
+begin
+  select count(*) into visible from public.company_daily_participation
+    where company_id = 'c1000000-0000-0000-0000-0000000000c1';
+  if visible <> 0 then
+    raise exception 'FAIL k-anon: HR saw company aggregates below the 5-employee floor';
+  end if;
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+-- A 5th employee joins -> the SAME HR read now clears the floor.
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('c1000000-0000-0000-0000-0000000000e5','ka-e5@k.test','{"display_name":"kae5"}'::jsonb);
+update public.profiles set company_id='c1000000-0000-0000-0000-0000000000c1', role='employee'
+  where id = 'c1000000-0000-0000-0000-0000000000e5';
+
+select set_config('request.jwt.claim.sub', 'c1000000-0000-0000-0000-0000000000f0', false);
+set role authenticated;
+do $$
+declare visible int;
+begin
+  select count(*) into visible from public.company_daily_participation
+    where company_id = 'c1000000-0000-0000-0000-0000000000c1';
+  if visible <> 1 then
+    raise exception 'FAIL k-anon: HR could not see company aggregates at 5 employees';
+  end if;
+  raise notice 'PASS  25  k-anon floor: company aggregates hidden below 5 employees, visible at 5 (finding B1)';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'

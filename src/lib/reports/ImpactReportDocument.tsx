@@ -20,6 +20,13 @@ import type {
 export interface ImpactReportData {
   companyName: string;
   generatedAt: string;
+  /**
+   * k-anonymity floor (finding B1): true when the company has fewer than the
+   * minimum enrolled employees for a company-wide view, so every figure is
+   * withheld and the document shows only an explanation. Set by
+   * collectImpactReportData.
+   */
+  suppressed: boolean;
   supportCount: number;
   reviewCompletions: ReviewCompletionSummary[];
   weeklyParticipation: WeeklyParticipation[];
@@ -79,6 +86,28 @@ const styles = StyleSheet.create({
 });
 
 export function ImpactReportDocument({ data }: { data: ImpactReportData }) {
+  // k-anon floor (finding B1): too few enrolled employees to show a company-wide
+  // view without describing one identifiable person. Render only an explanation
+  // -- never any figure.
+  if (data.suppressed) {
+    return (
+      <Document>
+        <Page size="A4" style={styles.page}>
+          <Text style={styles.title}>Never Throw In The Towel</Text>
+          <Text style={styles.subtitle}>Wellbeing Programme Impact Report — {data.companyName}</Text>
+          <Text style={styles.sectionTitle}>Not enough enrolled employees yet</Text>
+          <Text style={styles.label}>
+            A company-wide impact report appears once at least five employees are enrolled. Below that, any
+            &ldquo;company&rdquo; figure would really describe a single person&rsquo;s private check-ins,
+            reviews, or support use, so none are shown — this is by design and protects your team&rsquo;s
+            privacy. The full report will generate automatically once enough colleagues have joined.
+          </Text>
+          <Text style={styles.footer}>Generated {data.generatedAt} · Keep on Living.</Text>
+        </Page>
+      </Document>
+    );
+  }
+
   const engaged = data.weekdayEngagement.filter((w) => w.percent !== null);
   const mostEngaged = [...engaged].sort((a, b) => (b.percent ?? 0) - (a.percent ?? 0))[0];
   const leastEngaged = [...engaged].sort((a, b) => (a.percent ?? 0) - (b.percent ?? 0))[0];

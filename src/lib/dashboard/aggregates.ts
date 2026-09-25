@@ -61,6 +61,33 @@ export interface ReviewCompletionSummary {
 
 export type ParticipationTrend = "rising" | "falling" | "steady" | "not_enough_data";
 
+/**
+ * k-anonymity floor for the company aggregates (finding B1). The HR dashboard
+ * and the impact PDF only show a company-wide view once the company has at least
+ * this many enrolled employees, so a tiny company's figures can never expose one
+ * individual's private behaviour. The DATABASE enforces it -- RLS on the
+ * company_* aggregate tables requires public.company_headcount() >= this -- so a
+ * direct API read is gated too; companyMeetsPrivacyFloor() below is only so a
+ * surface can explain WHY there is nothing to show, and is the real gate for the
+ * service-role PDF (which bypasses RLS). Kept at 5 in lockstep with the SQL
+ * (public.company_headcount) and with STEP_CHALLENGE_MIN_CONTRIBUTORS.
+ */
+export const MIN_COMPANY_GROUP_SIZE = 5;
+
+/**
+ * Whether a company clears the k-anon floor. Reads the SECURITY DEFINER
+ * company_headcount() RPC because an hr_admin cannot count peers' profiles
+ * directly. Fails CLOSED: any error suppresses the view rather than risk showing
+ * a sub-floor company's figures.
+ */
+export async function companyMeetsPrivacyFloor(
+  supabase: AnySupabaseClient,
+  companyId: string
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc("company_headcount", { cid: companyId });
+  return !error && typeof data === "number" && data >= MIN_COMPANY_GROUP_SIZE;
+}
+
 export async function getSupportCount(supabase: AnySupabaseClient, companyId: string): Promise<number> {
   const { data } = await supabase
     .from("company_support_counts")
