@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  companyMeetsPrivacyFloor,
   computeOverallTrend,
   computeTrendDelta,
   getWeeklyParticipation,
+  MIN_COMPANY_GROUP_SIZE,
   type WeeklyParticipation,
 } from "./aggregates";
 
@@ -160,5 +162,40 @@ describe("computeTrendDelta", () => {
       week({ morningPercent: 60, nightPercent: 60, themedPercent: 60 }),
     ];
     expect(computeTrendDelta(weeks)).toBeNull();
+  });
+});
+
+describe("companyMeetsPrivacyFloor (k-anon floor, finding B1)", () => {
+  // Stand-in for the one call it makes: supabase.rpc("company_headcount", ...)
+  // resolving to { data, error }.
+  function rpcClient(result: { data?: unknown; error?: unknown }) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return { rpc: vi.fn(() => Promise.resolve(result)) } as any;
+  }
+
+  it("passes the floor value to the RPC and clears at exactly the minimum", async () => {
+    const client = rpcClient({ data: MIN_COMPANY_GROUP_SIZE, error: null });
+    await expect(companyMeetsPrivacyFloor(client, "co-1")).resolves.toBe(true);
+    expect(client.rpc).toHaveBeenCalledWith("company_headcount", { cid: "co-1" });
+  });
+
+  it("is suppressed one below the floor", async () => {
+    const client = rpcClient({ data: MIN_COMPANY_GROUP_SIZE - 1, error: null });
+    await expect(companyMeetsPrivacyFloor(client, "co-1")).resolves.toBe(false);
+  });
+
+  it("clears well above the floor", async () => {
+    const client = rpcClient({ data: MIN_COMPANY_GROUP_SIZE + 20, error: null });
+    await expect(companyMeetsPrivacyFloor(client, "co-1")).resolves.toBe(true);
+  });
+
+  it("fails closed on an RPC error (suppress rather than risk a leak)", async () => {
+    const client = rpcClient({ data: null, error: { message: "boom" } });
+    await expect(companyMeetsPrivacyFloor(client, "co-1")).resolves.toBe(false);
+  });
+
+  it("fails closed when the RPC returns a non-numeric result", async () => {
+    const client = rpcClient({ data: null, error: null });
+    await expect(companyMeetsPrivacyFloor(client, "co-1")).resolves.toBe(false);
   });
 });
