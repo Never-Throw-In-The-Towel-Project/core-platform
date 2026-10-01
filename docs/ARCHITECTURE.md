@@ -555,6 +555,21 @@ user session to scope to there).
 - **Review completion**: read directly from `company_review_completions` —
   see its "all-time running total" design in the Phase 4 section above.
 
+**k-anonymity floor (finding B1).** All three aggregate tables are hidden from
+an hr_admin until their company has at least **`MIN_COMPANY_GROUP_SIZE = 5`**
+enrolled employees (`src/lib/dashboard/aggregates.ts`, kept in lockstep with the
+`STEP_CHALLENGE_MIN_CONTRIBUTORS` floor that already existed for step
+challenges). Below that, a "company-wide" figure is really one identifiable
+person's private check-ins / reviews / support use — exactly what the dashboard
+promises it never shows. It is enforced in **RLS**, not just the UI: the read
+policies require `public.company_headcount(company_id) >= 5` (a `SECURITY
+DEFINER` count of `role = 'employee'` profiles), so an hr_admin can't bypass the
+dashboard and read the raw rows over PostgREST. `service_role` bypasses RLS, so
+the NTITT cross-company overview (`src/lib/admin/overviewEngagement.ts`) still
+sees every company — but the day-90 / on-demand PDF, which also runs as
+`service_role`, re-checks the floor in code (`collectImpactReportData` →
+`suppressed`) and emits a "not enough members" report instead of figures.
+
 **The 90-day HR impact report** ("make it look professional — it needs to
 work as a standalone document in a board meeting without Anthony being in
 the room") uses real server-side PDF generation: **`@react-pdf/renderer`**

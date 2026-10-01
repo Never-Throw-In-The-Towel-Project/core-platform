@@ -59,6 +59,12 @@ export async function GET(request: NextRequest) {
       if (emails.length === 0) continue; // no HR admin provisioned yet -- retry next run
 
       const data = await collectImpactReportData(supabase, company.id, company.name);
+      // k-anonymity floor (finding B1): don't email a report to a company with
+      // too few enrolled employees to aggregate without exposing an individual.
+      // Left unsent (sent_at stays null) so it retries daily and sends the real
+      // report once the team is large enough -- rather than burning the one-shot
+      // send on an empty "not enough members" PDF.
+      if (data.suppressed) continue;
       // Load the heavy @react-pdf/renderer subtree only when a company is
       // actually due -- most daily runs have none, so this keeps ~react-pdf out
       // of the cron function's cold start entirely on those runs (import() is

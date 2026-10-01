@@ -1,11 +1,13 @@
 import { requireHrAdmin } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import {
+  companyMeetsPrivacyFloor,
   computeTrendDelta,
   getReviewCompletions,
   getSupportCount,
   getWeekdayEngagementForWeek,
   getWeeklyParticipation,
+  MIN_COMPANY_GROUP_SIZE,
 } from "@/lib/dashboard/aggregates";
 import { getMondayOfWeek } from "@/lib/routines/dates";
 import type { Weekday } from "@/types/database";
@@ -36,28 +38,62 @@ export default async function WorkspaceOverviewPage() {
   // Wrapped in try/catch: createClient() throws synchronously on a missing/bad
   // URL/key -- degrade to the same "Not enough data yet" empty states this
   // dashboard already renders rather than crashing HR's reporting.
+  // k-anonymity floor (finding B1): below MIN_COMPANY_GROUP_SIZE enrolled
+  // employees these company-wide figures would be one individual's private
+  // behaviour, so we show nothing at all. RLS already hides the aggregate rows
+  // from an hr_admin at a sub-floor company (so a direct API read is gated too);
+  // this check is what lets the page say WHY rather than render a misleading 0.
+  let meetsFloor = false;
   let supportCount: Awaited<ReturnType<typeof getSupportCount>> = 0;
   let reviewCompletions: Awaited<ReturnType<typeof getReviewCompletions>> = [];
   let weeklyParticipation: Awaited<ReturnType<typeof getWeeklyParticipation>> = [];
   let weekdayThisWeek: Awaited<ReturnType<typeof getWeekdayEngagementForWeek>> = [];
   try {
     const supabase = await createClient();
-    const [supportCountResult, reviewCompletionsResult, weeklyParticipationResult, weekdayThisWeekResult] =
-      await Promise.all([
-        getSupportCount(supabase, profile.company_id),
-        getReviewCompletions(supabase, profile.company_id),
-        getWeeklyParticipation(supabase, profile.company_id),
-        getWeekdayEngagementForWeek(supabase, profile.company_id, currentWeekMonday),
-      ]);
-    supportCount = supportCountResult;
-    reviewCompletions = reviewCompletionsResult;
-    weeklyParticipation = weeklyParticipationResult;
-    weekdayThisWeek = weekdayThisWeekResult;
+    meetsFloor = await companyMeetsPrivacyFloor(supabase, profile.company_id);
+    if (meetsFloor) {
+      const [supportCountResult, reviewCompletionsResult, weeklyParticipationResult, weekdayThisWeekResult] =
+        await Promise.all([
+          getSupportCount(supabase, profile.company_id),
+          getReviewCompletions(supabase, profile.company_id),
+          getWeeklyParticipation(supabase, profile.company_id),
+          getWeekdayEngagementForWeek(supabase, profile.company_id, currentWeekMonday),
+        ]);
+      supportCount = supportCountResult;
+      reviewCompletions = reviewCompletionsResult;
+      weeklyParticipation = weeklyParticipationResult;
+      weekdayThisWeek = weekdayThisWeekResult;
+    }
   } catch {
+    meetsFloor = false;
     supportCount = 0;
     reviewCompletions = [];
     weeklyParticipation = [];
     weekdayThisWeek = [];
+  }
+
+  if (!meetsFloor) {
+    return (
+      <main className="mx-auto max-w-5xl px-6 py-8">
+        <h1 className="text-2xl font-extrabold tracking-tight">Overview</h1>
+        <p className="mt-1 text-sm text-muted">Company overview</p>
+
+        <div className="mt-4 bg-brand-background px-4 py-3 text-sm text-brand-foreground">
+          You see company-wide numbers only. No names, no answers, no individual scores — by design, and not
+          configurable.
+        </div>
+
+        <div className="mt-6 border border-rule-border p-6">
+          <h2 className="text-sm font-extrabold">Your team is still small</h2>
+          <p className="mt-2 text-sm text-muted">
+            Company-wide reporting appears once at least {MIN_COMPANY_GROUP_SIZE} employees are enrolled. Below
+            that, any &ldquo;company&rdquo; figure would really be a single person&rsquo;s private check-ins,
+            reviews, or support use — so we show nothing at all. The numbers will appear here automatically once
+            enough colleagues have joined.
+          </p>
+        </div>
+      </main>
+    );
   }
 
   const latestWeek = weeklyParticipation[weeklyParticipation.length - 1] ?? null;
