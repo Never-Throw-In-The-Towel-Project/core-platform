@@ -3,6 +3,7 @@ import {
   computeStepTotals,
   optedInPercent,
   daysRemaining,
+  persistedStepCounts,
   progressPercent,
   pickChallengeAwards,
   STEP_CHALLENGE_MIN_CONTRIBUTORS,
@@ -42,6 +43,32 @@ describe("computeStepTotals (k-anon floor)", () => {
 
   it("floor default matches the product decision (5)", () => {
     expect(STEP_CHALLENGE_MIN_CONTRIBUTORS).toBe(5);
+  });
+});
+
+describe("persistedStepCounts (k-anon floor on ALL counts, finding B2)", () => {
+  it("zeroes every participation count when suppressed -- not just the total", () => {
+    // 4 contributors -> suppressed. opted-in/headcount would otherwise reveal
+    // how many of a tiny team are taking part.
+    const result = computeStepTotals([10000, 20000, 30000, 40000], 1_000_000);
+    expect(result.suppressed).toBe(true);
+    expect(persistedStepCounts(result, /* optedInCount */ 4, /* headcount */ 4)).toEqual({
+      total_steps: 0,
+      contributor_count: 0,
+      opted_in_count: 0,
+      headcount: 0,
+    });
+  });
+
+  it("passes the real counts through once the floor is cleared", () => {
+    const result = computeStepTotals([1000, 2000, 3000, 4000, 5000], 100_000);
+    expect(result.suppressed).toBe(false);
+    expect(persistedStepCounts(result, /* optedInCount */ 6, /* headcount */ 8)).toEqual({
+      total_steps: 15000,
+      contributor_count: 5,
+      opted_in_count: 6,
+      headcount: 8,
+    });
   });
 });
 

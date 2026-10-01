@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyCronRequest } from "@/lib/auth/cron";
 import { DIRECT_COMPANY_ID } from "@/lib/tenant/constants";
-import { computeStepTotals, pickChallengeAwards } from "@/lib/steps/challenge";
+import { computeStepTotals, persistedStepCounts, pickChallengeAwards } from "@/lib/steps/challenge";
 import { sendTargetHitEmail } from "@/lib/steps/challengeNotify";
 
 /**
@@ -166,10 +166,12 @@ export async function GET(request: NextRequest) {
       totalsRows.push({
         challenge_id: challenge.id,
         company_id: challenge.company_id,
-        total_steps: result.totalSteps,
-        contributor_count: result.contributorCount,
-        opted_in_count: optedInCount,
-        headcount,
+        // k-anon floor (B2): below the floor every participation count is zeroed
+        // at rest, not just total_steps -- the row is readable by the company's
+        // HR + staff, and "N contributing"/"M opted in" at a tiny team identifies
+        // people. target_reached/suppressed are flags, not counts (and
+        // target_reached is already false when suppressed).
+        ...persistedStepCounts(result, optedInCount, headcount),
         target_reached: result.targetReached,
         suppressed: result.suppressed,
         updated_at: now,
