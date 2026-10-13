@@ -2113,5 +2113,40 @@ $$;
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 
+-- ---------------------------------------------------------------------------
+-- 26  support_requests inserts are tenant-locked (finding C1,
+--     support_requests_tenant_lock migration). private.support_requests is
+--     exposed over PostgREST, so the WITH CHECK -- not just the server action --
+--     must stop a member of one company filing a request against another: a
+--     cross-tenant row would bump the other company's KPI and page its real
+--     first-aider. A member of company A may insert only with company_id = A.
+--     Reuses usera (a0000000.../company aaaaaaaa...1) and company B (bbbbbbbb...2).
+-- ---------------------------------------------------------------------------
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+set role authenticated;
+do $$
+begin
+  -- BLOCKED: a company A member files against company B (cross-tenant).
+  begin
+    insert into private.support_requests (user_id, company_id, urgency)
+    values ('a0000000-0000-0000-0000-00000000000a', 'bbbbbbbb-0000-0000-0000-000000000002', 'urgent');
+    raise exception 'FAIL C1: a member filed a support request against another company';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- ALLOWED: the same member files for their OWN company.
+  begin
+    insert into private.support_requests (user_id, company_id, urgency)
+    values ('a0000000-0000-0000-0000-00000000000a', 'aaaaaaaa-0000-0000-0000-000000000001', 'urgent');
+  exception when insufficient_privilege then
+    raise exception 'FAIL C1: a member was blocked from filing their own company''s support request';
+  end;
+
+  raise notice 'PASS  26  support_requests inserts tenant-locked to the caller''s own company (finding C1)';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'
