@@ -48,6 +48,40 @@ export function computeStepTotals(
   return { totalSteps, contributorCount, targetReached: totalSteps >= targetSteps, suppressed: false };
 }
 
+export interface PersistedStepCounts {
+  total_steps: number;
+  contributor_count: number;
+  opted_in_count: number;
+  headcount: number;
+}
+
+/**
+ * The company_step_totals counts to PERSIST, with the k-anon floor applied to
+ * ALL of them -- not just the team total (finding B2). company_step_totals is
+ * readable by the company's HR admin AND its staff, so below the floor the
+ * participation counts (how many are contributing, how many opted in, the
+ * headcount) would reveal how many of a tiny team are taking part -- and, with
+ * the company's own knowledge of its size, effectively who. So when the total
+ * is suppressed every count is stored as 0, the same way computeStepTotals
+ * already forces totalSteps to 0; the UI shows a "building momentum" state
+ * instead of a near-single-person figure.
+ */
+export function persistedStepCounts(
+  result: StepTotalsResult,
+  optedInCount: number,
+  headcount: number
+): PersistedStepCounts {
+  if (result.suppressed) {
+    return { total_steps: 0, contributor_count: 0, opted_in_count: 0, headcount: 0 };
+  }
+  return {
+    total_steps: result.totalSteps,
+    contributor_count: result.contributorCount,
+    opted_in_count: optedInCount,
+    headcount,
+  };
+}
+
 /** Percentage of the company's employees who are opted in (0-100, rounded). */
 export function optedInPercent(optedInCount: number, headcount: number): number {
   if (headcount <= 0) return 0;

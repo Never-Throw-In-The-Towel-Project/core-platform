@@ -28,8 +28,10 @@ export function ChallengeAdminTile({ view, todayIso }: { view: AdminChallengeVie
           Team progress updates daily — figures appear after the first day of logging.
         </p>
       ) : totals.suppressed ? (
+        // k-anon floor (B2): withhold the contributor count too -- "(3 so far)"
+        // at a small team identifies them, the very thing suppression protects.
         <p className="mt-3 text-sm text-muted">
-          The team total appears once at least 5 staff are contributing ({totals.contributor_count} so far).
+          The team total appears once at least 5 staff are contributing.
         </p>
       ) : (
         <p className="mt-3 text-3xl font-extrabold">
@@ -39,8 +41,12 @@ export function ChallengeAdminTile({ view, todayIso }: { view: AdminChallengeVie
       )}
 
       <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+        {/* k-anon floor (B2): the opt-in rate is opted_in/headcount, both of
+            which are withheld (stored 0) below the floor -- showing "0%" would
+            be misleading and the ratio itself is identifying at a tiny team, so
+            it appears only once the total is shown. */}
         <span>
-          <strong>{totals ? optedInPercent(totals.opted_in_count, totals.headcount) : 0}%</strong> of staff opted in
+          <strong>{totals && !totals.suppressed ? `${optedInPercent(totals.opted_in_count, totals.headcount)}%` : "—"}</strong> of staff opted in
         </span>
         <span>{totals?.target_reached ? "🎉 Target reached" : "In progress"}</span>
       </div>

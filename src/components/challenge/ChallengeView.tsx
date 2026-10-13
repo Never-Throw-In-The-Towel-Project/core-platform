@@ -40,8 +40,7 @@ export function ChallengeView({ view, todayIso }: { view: StaffChallengeView; to
           <div>
             <p className="text-sm font-semibold">Building momentum…</p>
             <p className="mt-1 text-sm text-muted">
-              The team total appears once at least {STEP_CHALLENGE_MIN_CONTRIBUTORS} people are contributing
-              {contributors > 0 ? ` — ${contributors} so far.` : "."}
+              The team total appears once at least {STEP_CHALLENGE_MIN_CONTRIBUTORS} people are contributing.
             </p>
           </div>
         ) : (
@@ -69,8 +68,17 @@ export function ChallengeView({ view, todayIso }: { view: StaffChallengeView; to
       <dl className="grid grid-cols-2 gap-4">
         <div className="border border-rule-border p-4">
           <dt className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">Contributing</dt>
+          {/* k-anon floor (B2): the contributor count is withheld below the floor
+              -- "3 people" at a tiny team identifies them. Shown only once the
+              total itself is shown. */}
           <dd className="mt-1 text-2xl font-extrabold">
-            {contributors} <span className="text-sm font-semibold text-muted">{contributors === 1 ? "person" : "people"}</span>
+            {suppressed ? (
+              <span className="text-sm font-semibold text-muted">Hidden until 5+ contributing</span>
+            ) : (
+              <>
+                {contributors} <span className="text-sm font-semibold text-muted">{contributors === 1 ? "person" : "people"}</span>
+              </>
+            )}
           </dd>
         </div>
         <div className="border border-rule-border p-4">
