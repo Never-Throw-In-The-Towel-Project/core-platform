@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateAnonHandle } from "@/lib/identity/preference";
+import { DIRECT_COMPANY_ID } from "@/lib/tenant/constants";
 import type { UserRole } from "@/types/database";
 
 // NOT a "use server" module -- these are server-internal helpers, never exposed
@@ -58,6 +59,32 @@ export async function provisionInvite(params: {
     redirectTo,
   });
   if (error || !data.user) return { ok: false, message: inviteErrorMessage(error?.message ?? "") };
+
+  // Guard against clobbering an existing account (finding E-new-6). For a
+  // genuinely new invite the handle_new_user trigger has just inserted a default
+  // (employee / DIRECT / not-onboarded / no-consent) row, which is safe to fill
+  // in below. But inviteUserByEmail ALSO "succeeds" for an email that already
+  // belongs to a pending, unconfirmed invitee (or a self-signup member),
+  // returning that existing user -- and re-provisioning would relocate/demote
+  // them (e.g. a company-B hr_admin re-inviting a pending company-A hr_admin).
+  // So only write when the row is still that untouched trigger default (or
+  // absent); otherwise refuse WITHOUT deleting -- the existing account must not
+  // be destroyed by a re-invite (unlike the genuine-new rollback below, which
+  // deletes the user THIS call just created).
+  const { data: existing } = await admin
+    .from("profiles")
+    .select("role, company_id, onboarding_completed, tc_agreed_at")
+    .eq("id", data.user.id)
+    .maybeSingle();
+  const isUntouchedSelfSignup =
+    !existing ||
+    (existing.role === "employee" &&
+      existing.company_id === DIRECT_COMPANY_ID &&
+      existing.onboarding_completed === false &&
+      existing.tc_agreed_at === null);
+  if (!isUntouchedSelfSignup) {
+    return { ok: false, message: "Someone with that email already has an account." };
+  }
 
   const { error: profileError } = await admin.from("profiles").upsert(
     {
