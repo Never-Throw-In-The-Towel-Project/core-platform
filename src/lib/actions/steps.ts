@@ -8,7 +8,12 @@ import { todayISODate } from "@/lib/routines/dates";
 import { type RoutineActionState } from "./routineState";
 
 const StepsSchema = z.object({
-  steps: z.coerce.number().int().min(0).max(200000),
+  // Optional + an empty-string->undefined guard at the call site (see below):
+  // z.coerce.number("") is 0, which would pass .min(0) and silently overwrite a
+  // real step count with a zero on the shared (user_id, entry_date) row -- the
+  // same row the night routine writes (finding E3). An explicit "0" is still a
+  // valid entry; only a *blank* submit is rejected.
+  steps: z.coerce.number().int().min(0).max(200000).optional(),
 });
 
 /**
@@ -25,10 +30,17 @@ export async function logStepsAction(
   const session = await verifySession();
   const profile = await getProfile();
 
-  const parsed = StepsSchema.safeParse({ steps: formData.get("steps") });
-  if (!parsed.success) {
+  // Empty string -> undefined BEFORE zod coercion, so a blank "Log" tap never
+  // becomes a 0 (finding E3). Same guard the night routine uses for its steps
+  // field (lib/actions/night.ts).
+  const rawSteps = formData.get("steps");
+  const parsed = StepsSchema.safeParse({
+    steps: (rawSteps as string | null)?.trim() ? rawSteps : undefined,
+  });
+  if (!parsed.success || parsed.data.steps === undefined) {
     return { status: "error", message: "Enter your steps as a whole number." };
   }
+  const steps = parsed.data.steps;
 
   // Wrapped in try/catch: createClient() throws synchronously if the URL/key
   // are missing or malformed -- same gap already closed elsewhere.
@@ -38,7 +50,7 @@ export async function logStepsAction(
       {
         user_id: session.userId,
         entry_date: todayISODate(new Date(), profile.timezone),
-        steps: parsed.data.steps,
+        steps,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id,entry_date" }
