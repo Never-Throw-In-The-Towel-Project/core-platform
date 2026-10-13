@@ -60,6 +60,14 @@ const URGENCY_LABEL: Record<SupportUrgency, string> = {
   urgent: "URGENT — needs contact now",
 };
 
+// Cap the outbound Twilio call so a hung socket can't wedge the "Ask for
+// Support" submit, which awaits dispatchSupportAlert inline (finding E4). On
+// timeout `fetch` throws; the catch in sendSms records it as a failed
+// ChannelResult, which flows into the same both-channels-failed escalation as
+// any other send failure. And the request row stays status='new', so
+// monitor-support-response-time remains the final backstop.
+const TWILIO_SEND_TIMEOUT_MS = 8000;
+
 export async function dispatchSupportAlert(input: SupportAlertInput): Promise<DeliveryStatus> {
   const ackUrl = await buildAckUrl(input.requestId);
   const [sms, email] = await Promise.all([sendSms(input, ackUrl), sendEmail(input, ackUrl)]);
@@ -164,6 +172,7 @@ async function sendSms(
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body,
+        signal: AbortSignal.timeout(TWILIO_SEND_TIMEOUT_MS),
       }
     );
 

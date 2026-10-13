@@ -17,6 +17,13 @@ import "server-only";
 
 export const EMAIL_SENDER_NAME = "Never Throw In The Towel";
 
+// Cap the outbound Brevo call so a hung socket can't wedge the request that is
+// waiting on it -- most of all the "Ask for Support" submit, which awaits this
+// send inline (finding E4). On timeout `fetch` throws an abort; the catch below
+// turns it into a { ok:false } result exactly like any other send failure, so
+// callers degrade (and, for support alerts, escalate) instead of hanging.
+const BREVO_SEND_TIMEOUT_MS = 8000;
+
 export type EmailRecipient = { email: string; name?: string };
 export type EmailAttachment = { name: string; contentBase64: string };
 
@@ -59,6 +66,7 @@ export async function sendBrandedEmail(args: SendEmailArgs): Promise<SendEmailRe
           ? { attachment: args.attachments.map((a) => ({ content: a.contentBase64, name: a.name })) }
           : {}),
       }),
+      signal: AbortSignal.timeout(BREVO_SEND_TIMEOUT_MS),
     });
 
     if (!res.ok) {

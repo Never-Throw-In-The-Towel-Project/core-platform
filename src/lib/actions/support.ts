@@ -15,6 +15,18 @@ const SupportRequestSchema = z.object({
   contactMethod: z.string().max(200).optional(),
 });
 
+// Short-cooldown window for collapsing duplicate support requests (finding E4).
+// Within this window, a second submit from the SAME user while they already
+// have an open ('new') request collapses into that request -- we don't create a
+// second row and we don't re-page the company's first-aider. It's short on
+// purpose: long enough to absorb a double-tap, an accidental resubmit, or a
+// deliberate flood (which would otherwise alert-bomb a real person's phone and
+// inflate the support-count KPI), but short enough that someone genuinely
+// reaching out again still gets through. It never REDUCES coverage: the first
+// request is still logged and still escalates on the monitor cron's timer if
+// unanswered, so the person stays covered throughout the cooldown.
+const SUPPORT_REQUEST_COOLDOWN_MS = 2 * 60 * 1000;
+
 export type SupportActionState =
   | { status: "idle" }
   | { status: "error"; message: string }
@@ -51,6 +63,33 @@ export async function submitSupportRequest(
   const companyId = profile.company_id;
   const { stayAnonymous, displayName, urgency, contactMethod } = parsed.data;
   const contactDisplayName = stayAnonymous ? null : displayName?.trim() || null;
+
+  // Short-cooldown collapse (finding E4): if this same user already has an open
+  // ('new') request from the last SUPPORT_REQUEST_COOLDOWN_MS, treat this submit
+  // as "already in" -- return success so the user is reassured, but don't insert
+  // a duplicate row and don't re-dispatch the Twilio/email alert. Scoped to
+  // status='new' so a brand-new need after the previous one was handled still
+  // goes through, and scoped to the caller's own rows (which is all RLS exposes
+  // anyway) via the user's own session client -- no admin client, no trust in
+  // any client-supplied value. Fails OPEN: if the lookup itself errors we fall
+  // through and create the request, because silently dropping a real cry for
+  // help is the one outcome worse than a duplicate alert.
+  try {
+    const sessionClient = await createClient("private");
+    const cutoff = new Date(Date.now() - SUPPORT_REQUEST_COOLDOWN_MS).toISOString();
+    const { data: recent } = await sessionClient
+      .from("support_requests")
+      .select("id")
+      .eq("user_id", profile.id)
+      .eq("status", "new")
+      .gte("created_at", cutoff)
+      .limit(1);
+    if (recent && recent.length > 0) {
+      return { status: "success" };
+    }
+  } catch {
+    // fail open -- never block a real request on a throttle-lookup failure
+  }
 
   // Wrapped in try/catch: createClient() throws synchronously if the
   // URL/key are missing or malformed (node_modules/@supabase/ssr/dist/main/
