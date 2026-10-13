@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { submitWeeklyReview } from "@/lib/actions/weeklyReview";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import type { WeeklyReviewInitial } from "@/lib/routines/checkinPrefill";
 
-const FIELDS: { key: string; label: string }[] = [
+const FIELDS: { key: keyof WeeklyReviewInitial; label: string }[] = [
   { key: "habitsServedWell", label: "What habits served me well this week?" },
   { key: "challengesHelpedGrow", label: "What challenges helped me grow?" },
   { key: "lessonsLearned", label: "What lessons did I learn this week?" },
@@ -15,7 +16,19 @@ const FIELDS: { key: string; label: string }[] = [
   { key: "habitsToDoubleDown", label: "Which habits am I going to double down on to continue the momentum?" },
 ];
 
-export function WeeklyReviewForm() {
+const EMPTY: WeeklyReviewInitial = {
+  habitsServedWell: "",
+  challengesHelpedGrow: "",
+  lessonsLearned: "",
+  challengesOvercome: "",
+  feelsBetterFromHabits: "",
+  oneThingToImprove: "",
+  habitsToDoubleDown: "",
+};
+
+// `initial` pre-fills this week's already-saved review so a second, partial
+// submit can't wipe the first (finding E2). Defaults to empty for a fresh week.
+export function WeeklyReviewForm({ initial = EMPTY }: { initial?: WeeklyReviewInitial }) {
   const [state, formAction, isPending] = useActionState(submitWeeklyReview, initialRoutineState);
 
   if (state.status === "success") {
@@ -43,6 +56,7 @@ export function WeeklyReviewForm() {
           <textarea
             name={field.key}
             rows={2}
+            defaultValue={initial[field.key]}
             className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
           />
         </label>

@@ -3,13 +3,24 @@
 import { useActionState, useState } from "react";
 import { submitMorningEntry } from "@/lib/actions/morning";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import type { MorningInitial } from "@/lib/routines/checkinPrefill";
 import { RoutineComplete } from "./RoutineComplete";
 
 const SLEEP_SCALE = Array.from({ length: 10 }, (_, i) => i + 1);
 
-export function MorningRoutineForm() {
+const EMPTY: MorningInitial = {
+  sleepScore: null,
+  morningWalk: false,
+  breathwork: false,
+  coldDip: false,
+  powerList: "",
+};
+
+// `initial` pre-fills today's already-saved entry so a second, partial submit
+// can't wipe the first (finding E2). Defaults to empty for a fresh day.
+export function MorningRoutineForm({ initial = EMPTY }: { initial?: MorningInitial }) {
   const [state, formAction, isPending] = useActionState(submitMorningEntry, initialRoutineState);
-  const [sleepScore, setSleepScore] = useState<number | null>(null);
+  const [sleepScore, setSleepScore] = useState<number | null>(initial.sleepScore);
 
   if (state.status === "success") {
     return <RoutineComplete title="Morning sorted. Go win the day." />;
@@ -56,12 +67,12 @@ export function MorningRoutineForm() {
       <fieldset className="space-y-2 text-sm">
         <legend className="mb-1 font-medium">Morning checklist</legend>
         {[
-          { name: "morningWalk", label: "Morning walk" },
-          { name: "breathwork", label: "Breathwork" },
-          { name: "coldDip", label: "Cold dip or shower" },
+          { name: "morningWalk", label: "Morning walk", checked: initial.morningWalk },
+          { name: "breathwork", label: "Breathwork", checked: initial.breathwork },
+          { name: "coldDip", label: "Cold dip or shower", checked: initial.coldDip },
         ].map((item) => (
           <label key={item.name} className="flex items-center gap-2">
-            <input type="checkbox" name={item.name} value="true" />
+            <input type="checkbox" name={item.name} value="true" defaultChecked={item.checked} />
             {item.label}
           </label>
         ))}
@@ -72,6 +83,7 @@ export function MorningRoutineForm() {
         <textarea
           name="powerList"
           rows={4}
+          defaultValue={initial.powerList}
           className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
         />
       </label>

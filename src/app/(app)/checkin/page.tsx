@@ -12,8 +12,32 @@ import { getDailyQuote } from "@/lib/routines/workouts";
 import { listWorkoutVideos } from "@/lib/content/queries";
 import { ThemedCheckinForm } from "@/components/routines/ThemedCheckinForm";
 import { WorkoutWednesdayForm } from "@/components/routines/WorkoutWednesdayForm";
+import { toThemedInitial, type ThemedInitial } from "@/lib/routines/checkinPrefill";
 import type { TextCheckinWeekday } from "@/lib/routines/checkinConfig";
 import type { ContentItem, Weekday, WorkoutSetting } from "@/types/database";
+
+type PrivateClient = Awaited<ReturnType<typeof createClient>> | null;
+
+// This weekday's own already-saved row (answers + Monday goals), mapped to the
+// form's pre-fill values so a second, partial submit can't wipe the first
+// (finding E2). Returns empty on any gap -- same degrade-to-blank contract as
+// the rest of this loader.
+async function loadThemedInitial(
+  privateClient: PrivateClient,
+  userId: string,
+  weekStart: string,
+  weekday: Weekday
+): Promise<ThemedInitial> {
+  if (!privateClient) return toThemedInitial(null);
+  const { data } = await privateClient
+    .from("themed_checkins")
+    .select("answers, goals")
+    .eq("user_id", userId)
+    .eq("week_start_date", weekStart)
+    .eq("weekday", weekday)
+    .maybeSingle();
+  return toThemedInitial(data);
+}
 
 // The screen the Rail's hero card (today's own check-in) and its optional
 // this-week catch-up list (see src/app/(app)/home/page.tsx) both open into.
@@ -75,7 +99,13 @@ async function renderCheckin(
   now: Date,
   privateClient: Awaited<ReturnType<typeof createClient>> | null
 ) {
+  const weekStart = getMondayOfWeek(now, timezone);
+
   if (weekday === "wednesday") {
+    const thisWeek = await loadThemedInitial(privateClient, userId, weekStart, "wednesday");
+
+    // The chosen mode carries forward week to week: prefer this week's saved
+    // pick, else the most recent Wednesday's.
     const { data: lastWednesday } = privateClient
       ? await privateClient
           .from("themed_checkins")
@@ -87,9 +117,9 @@ async function renderCheckin(
           .maybeSingle()
       : { data: null };
 
-    const defaultMode = ((lastWednesday?.answers as { mode?: string } | null)?.mode ?? null) as
-      | WorkoutSetting
-      | null;
+    const defaultMode = (thisWeek.answers.mode ??
+      (lastWednesday?.answers as { mode?: string } | null)?.mode ??
+      null) as WorkoutSetting | null;
 
     // The two workout banks, drawn from the physical-fitness library (public
     // content, RLS-scoped to the caller). Degrade to empty on any failure --
@@ -107,12 +137,15 @@ async function renderCheckin(
       /* leave both empty */
     }
 
-    return <WorkoutWednesdayForm home={home} gym={gym} defaultMode={defaultMode} />;
+    return (
+      <WorkoutWednesdayForm home={home} gym={gym} defaultMode={defaultMode} initialAnswers={thisWeek.answers} />
+    );
   }
 
   if (weekday === "thursday") {
     const quote = await getDailyQuote(now);
-    return <ThemedCheckinForm weekday="thursday" quote={quote} />;
+    const initial = await loadThemedInitial(privateClient, userId, weekStart, "thursday");
+    return <ThemedCheckinForm weekday="thursday" quote={quote} initial={initial} />;
   }
 
   if (weekday === "friday") {
@@ -121,14 +154,15 @@ async function renderCheckin(
           .from("themed_checkins")
           .select("goals")
           .eq("user_id", userId)
-          .eq("week_start_date", getMondayOfWeek(now, timezone))
+          .eq("week_start_date", weekStart)
           .eq("weekday", "monday")
           .maybeSingle()
       : { data: null };
 
     const mondayGoals = (mondayRow?.goals as { goals?: string[] } | null)?.goals ?? [];
+    const initial = await loadThemedInitial(privateClient, userId, weekStart, "friday");
 
-    return <ThemedCheckinForm weekday="friday" mondayGoals={mondayGoals} />;
+    return <ThemedCheckinForm weekday="friday" mondayGoals={mondayGoals} initial={initial} />;
   }
 
   if (weekday === "tuesday") {
@@ -152,8 +186,10 @@ async function renderCheckin(
       }
     }
 
-    return <ThemedCheckinForm weekday="tuesday" podcastEpisode={podcastEpisode} />;
+    const initial = await loadThemedInitial(privateClient, userId, weekStart, "tuesday");
+    return <ThemedCheckinForm weekday="tuesday" podcastEpisode={podcastEpisode} initial={initial} />;
   }
 
-  return <ThemedCheckinForm weekday="monday" />;
+  const initial = await loadThemedInitial(privateClient, userId, weekStart, "monday");
+  return <ThemedCheckinForm weekday="monday" initial={initial} />;
 }

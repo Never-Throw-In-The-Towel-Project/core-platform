@@ -3,10 +3,13 @@
 import { useActionState } from "react";
 import { submitThemedCheckin } from "@/lib/actions/themedCheckin";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import type { ThemedInitial } from "@/lib/routines/checkinPrefill";
 import { RoutineComplete } from "./RoutineComplete";
 import { CHECKIN_CONFIG, FRIDAY_GOAL_OPTIONS, type TextCheckinWeekday } from "@/lib/routines/checkinConfig";
 
 const SCALE_1_TO_10 = Array.from({ length: 10 }, (_, i) => i + 1);
+
+const EMPTY: ThemedInitial = { answers: {}, goals: [] };
 
 type Props = {
   weekday: TextCheckinWeekday;
@@ -16,9 +19,14 @@ type Props = {
   quote?: { quote_text: string; author: string | null } | null;
   /** Tuesday only: this month's podcast episode, surfaced on the first Tuesday. */
   podcastEpisode?: { title: string; embed_url: string } | null;
+  /**
+   * This weekday's already-saved answers + Monday goals, pre-filled so a second,
+   * partial submit can't wipe the first (finding E2). Empty for a fresh check-in.
+   */
+  initial?: ThemedInitial;
 };
 
-export function ThemedCheckinForm({ weekday, mondayGoals, quote, podcastEpisode }: Props) {
+export function ThemedCheckinForm({ weekday, mondayGoals, quote, podcastEpisode, initial = EMPTY }: Props) {
   const [state, formAction, isPending] = useActionState(submitThemedCheckin, initialRoutineState);
   const config = CHECKIN_CONFIG[weekday];
 
@@ -60,6 +68,7 @@ export function ThemedCheckinForm({ weekday, mondayGoals, quote, podcastEpisode 
               name={`goal${n}`}
               type="text"
               placeholder={`Goal ${n}`}
+              defaultValue={initial.goals[n - 1] ?? ""}
               className="w-full border border-rule-border bg-transparent px-3 py-2"
             />
           ))}
@@ -79,7 +88,13 @@ export function ThemedCheckinForm({ weekday, mondayGoals, quote, podcastEpisode 
           </ul>
           {FRIDAY_GOAL_OPTIONS.map((option) => (
             <label key={option.value} className="flex items-center gap-2">
-              <input type="radio" name="achieved_monday_goals" value={option.value} required />
+              <input
+                type="radio"
+                name="achieved_monday_goals"
+                value={option.value}
+                defaultChecked={initial.answers.achieved_monday_goals === option.value}
+                required
+              />
               {option.label}
             </label>
           ))}
@@ -93,7 +108,13 @@ export function ThemedCheckinForm({ weekday, mondayGoals, quote, podcastEpisode 
             <div className="flex flex-wrap gap-2">
               {SCALE_1_TO_10.map((n) => (
                 <label key={n}>
-                  <input type="radio" name={field.key} value={n} className="peer sr-only" />
+                  <input
+                    type="radio"
+                    name={field.key}
+                    value={n}
+                    defaultChecked={initial.answers[field.key] === String(n)}
+                    className="peer sr-only"
+                  />
                   <span className="flex h-9 w-9 cursor-pointer items-center justify-center border border-rule-border text-sm peer-checked:bg-brand-accent peer-checked:text-brand-accent-foreground">
                     {n}
                   </span>
@@ -109,12 +130,14 @@ export function ThemedCheckinForm({ weekday, mondayGoals, quote, podcastEpisode 
               <textarea
                 name={field.key}
                 rows={2}
+                defaultValue={initial.answers[field.key] ?? ""}
                 className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
               />
             ) : (
               <input
                 name={field.key}
                 type="text"
+                defaultValue={initial.answers[field.key] ?? ""}
                 className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
               />
             )}
