@@ -1,47 +1,24 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { verifyAckToken } from "@/lib/support/alert";
-import { createAdminClient } from "@/lib/supabase/admin";
 
-/**
- * The "mark as contacted" link included in every Ask for Support alert
- * (SMS + email) -- see src/lib/support/alert.ts's buildMessageBody. No
- * session required: there's no auth flow for company support contacts /
- * Anthony / first-aiders, so this is token-authenticated the same way the
- * Twilio status webhook is signature-verified, not session-authenticated.
- * This is what stops src/app/api/jobs/monitor-support-response-time from
- * escalating a request someone has already actually responded to.
- */
+// LEGACY: this route used to mark an Ask-for-Support request "contacted"
+// directly on GET, which let email/SMS link-scanners and mail-client
+// prefetchers auto-acknowledge a real cry for help -- silently cancelling the
+// escalation in monitor-support-response-time (finding E5). It now just
+// REDIRECTS to the click-to-confirm landing page, where the first-aider has to
+// press a button (a server-action POST, acknowledgeSupportRequest) to actually
+// mark it contacted. Kept so any already-sent alert links pointing here still
+// work, safely. Same fix the event-booking confirm/cancel routes already got.
+export const dynamic = "force-dynamic";
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin;
+  const dest = new URL("/support/ack", site);
+  dest.searchParams.set("request", id);
   const token = request.nextUrl.searchParams.get("token");
-
-  if (!token || !(await verifyAckToken(id, token))) {
-    return new NextResponse("This link isn't valid.", { status: 403 });
-  }
-
-  const supabase = createAdminClient("private");
-
-  const { data, error } = await supabase
-    .from("support_requests")
-    .update({ status: "contacted", contacted_at: new Date().toISOString() })
-    .eq("id", id)
-    .eq("status", "new") // don't overwrite contacted_at if already acknowledged
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    return new NextResponse("Something went wrong. The request has still been logged.", {
-      status: 500,
-    });
-  }
-
-  return new NextResponse(
-    data
-      ? "Thanks -- marked as contacted."
-      : "Already marked as contacted. Thanks for reaching out to them.",
-    { status: 200, headers: { "Content-Type": "text/plain" } }
-  );
+  if (token) dest.searchParams.set("token", token);
+  return NextResponse.redirect(dest);
 }

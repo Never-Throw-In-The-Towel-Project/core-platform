@@ -1,10 +1,11 @@
 "use server";
 
 import { z } from "zod";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getProfile } from "@/lib/auth/dal";
-import { dispatchSupportAlert } from "@/lib/support/alert";
+import { dispatchSupportAlert, verifyAckToken } from "@/lib/support/alert";
 import type { Company } from "@/types/database";
 
 const SupportRequestSchema = z.object({
@@ -140,4 +141,41 @@ export async function submitSupportRequest(
   }
 
   return { status: "success" };
+}
+
+/**
+ * Mark an Ask-for-Support request "contacted" -- the side effect that used to
+ * live on the ack link's GET (finding E5). Now it runs only from a human
+ * submitting the /support/ack landing-page form (a POST), so a link-scanner
+ * that fetches the alert link can't silently acknowledge (and thereby silence
+ * the escalation in monitor-support-response-time). No session: the company's
+ * first-aider / support contact isn't a platform user, so this is gated by the
+ * signed ack token re-verified HERE (the landing page's check is for display
+ * only), the same trust model the old GET route used. The `.eq("status","new")`
+ * keeps it idempotent (a second tap doesn't re-stamp contacted_at), and the
+ * service-role client is the correct one -- support_requests is own-rows under
+ * RLS and the contact has no session to scope to.
+ */
+export async function acknowledgeSupportRequest(formData: FormData): Promise<void> {
+  const id = String(formData.get("request") ?? "");
+  const token = String(formData.get("token") ?? "");
+  let done = "error";
+
+  if (id && token && (await verifyAckToken(id, token))) {
+    try {
+      const admin = createAdminClient("private");
+      const { data } = await admin
+        .from("support_requests")
+        .update({ status: "contacted", contacted_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("status", "new")
+        .select("id")
+        .maybeSingle();
+      done = data ? "contacted" : "already";
+    } catch {
+      done = "error";
+    }
+  }
+
+  redirect(`/support/ack?done=${done}`);
 }
