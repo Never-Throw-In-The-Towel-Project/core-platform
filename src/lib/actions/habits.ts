@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { verifySession, getProfile } from "@/lib/auth/dal";
 import { todayISODate } from "@/lib/routines/dates";
 import { type RoutineActionState } from "./routineState";
@@ -181,9 +182,11 @@ export async function markHabitDayAction(
 type PrivateClient = Awaited<ReturnType<typeof createClient>>;
 
 /** Award the private "Clean Streak" badge once the member's clean-day count for
- *  a challenge reaches its goal. Idempotent (unique user+badge_key, insert-only)
- *  and best-effort: a badge hiccup must never fail the day's check-in. The count
- *  runs under the caller's own private client, so RLS scopes it to their rows. */
+ *  a challenge reaches its goal. The count runs under the caller's own private
+ *  client (RLS scopes it to their rows), so eligibility is genuine; the badge
+ *  WRITE runs service-role because members no longer hold INSERT on
+ *  earned_badges (finding C2). Idempotent (unique user+badge_key, insert-only)
+ *  and best-effort: a badge hiccup must never fail the day's check-in. */
 async function awardHabitCompleteIfReached(
   supabase: PrivateClient,
   userId: string,
@@ -197,7 +200,8 @@ async function awardHabitCompleteIfReached(
       .eq("habit_challenge_id", challengeId)
       .eq("outcome", "success");
     if ((count ?? 0) >= targetDays) {
-      await supabase.from("earned_badges").upsert(
+      const admin = createAdminClient("private");
+      await admin.from("earned_badges").upsert(
         { user_id: userId, badge_key: "habit_complete", earned_at: new Date().toISOString() },
         { onConflict: "user_id,badge_key", ignoreDuplicates: true }
       );

@@ -758,49 +758,51 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 
 -- ============================================================================
--- LIVE RLS test of earned_badges (Track 2 · D2): a member reads and awards ONLY
--- their own badges, and a badge cannot be revoked (no update/delete policy).
--- Reuses usera / userb from the fixtures above.
+-- LIVE RLS + grant test of earned_badges (Track 2 · D2; finding C2): badges are
+-- awarded SERVICE-ROLE ONLY. A member reads only their own, can no longer INSERT
+-- any (the member INSERT grant was revoked by 20261013010000), and a badge can't
+-- be revoked (no update/delete policy). Both badges are seeded service-side (as
+-- the bootstrap superuser), since a member can no longer self-award.
 -- ============================================================================
 insert into private.earned_badges (user_id, badge_key) values
-  ('b0000000-0000-0000-0000-00000000000b', 'first_week');
+  ('b0000000-0000-0000-0000-00000000000b', 'first_week'),
+  ('a0000000-0000-0000-0000-00000000000a', 'ten_days');
 
 select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
 set role authenticated;
 do $$
 declare visible int;
 begin
-  -- TEST 1 (must be BLOCKED): awarding a badge to another user
+  -- TEST 1 (must be BLOCKED, finding C2): a member cannot self-award even their
+  -- OWN badge any more -- earned_badges is written service-role-side only.
   begin
     insert into private.earned_badges (user_id, badge_key)
-    values ('b0000000-0000-0000-0000-00000000000b', 'ten_days');
+    values ('a0000000-0000-0000-0000-00000000000a', 'five_wins');
+    raise exception 'FAIL badges-write: a member self-awarded a badge (INSERT must be service-role only)';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- TEST 2 (must be BLOCKED): awarding a badge to another user, likewise.
+  begin
+    insert into private.earned_badges (user_id, badge_key)
+    values ('b0000000-0000-0000-0000-00000000000b', 'five_wins');
     raise exception 'FAIL badges-write: a member awarded a badge to another user';
   exception when insufficient_privilege then null;
   end;
 
-  -- TEST 2 (must be ALLOWED): awarding your own badge
-  begin
-    insert into private.earned_badges (user_id, badge_key)
-    values ('a0000000-0000-0000-0000-00000000000a', 'first_week');
-  exception when insufficient_privilege then
-    raise exception 'FAIL badges-write: a member was blocked from earning their own badge';
-  end;
-
-  -- TEST 3 (must be REVOKE-PROOF): no delete policy -> a member cannot remove a badge
+  -- TEST 3 (must be REVOKE-PROOF): no delete policy/grant -> a member cannot remove a badge
   begin
     delete from private.earned_badges where user_id = 'a0000000-0000-0000-0000-00000000000a';
-    -- RLS with no DELETE policy makes the row invisible to the delete, so it
-    -- affects 0 rows rather than erroring; assert the badge is still there.
   exception when insufficient_privilege then null;
   end;
 
-  -- TEST 4 (must be ISOLATED + intact): usera sees only their own badge
+  -- TEST 4 (must be ISOLATED + intact): usera still reads only their own badge
   select count(*) into visible from private.earned_badges;
   if visible <> 1 then
     raise exception 'FAIL badges-read: expected usera to see exactly 1 (own) badge, saw %', visible;
   end if;
 
-  raise notice 'PASS  6b* live: earned_badges own-rows-only, cross-user award blocked, revoke-proof';
+  raise notice 'PASS  6b* live: earned_badges service-role-write-only (member self-award blocked, C2), own-rows-read, revoke-proof';
 end
 $$;
 reset role;
@@ -2143,6 +2145,75 @@ begin
   end;
 
   raise notice 'PASS  26  support_requests inserts tenant-locked to the caller''s own company (finding C1)';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+-- ---------------------------------------------------------------------------
+-- 27  over-granted writes locked down (findings C2 + C3, lock_privileged_writes
+--     migration). profiles INSERT and earned_badges INSERT are no longer
+--     granted to anon/authenticated -- the only writers are the SECURITY
+--     DEFINER signup trigger and service-role server code. (Grant-level guard;
+--     the live earned_badges test above exercises the revoked behavior.)
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  if has_table_privilege('authenticated', 'public.profiles', 'insert')
+     or has_table_privilege('anon', 'public.profiles', 'insert') then
+    raise exception 'C3: public.profiles INSERT still granted to anon/authenticated';
+  end if;
+  if has_table_privilege('authenticated', 'private.earned_badges', 'insert') then
+    raise exception 'C2: private.earned_badges INSERT still granted to authenticated';
+  end if;
+  raise notice 'PASS  27  profiles + earned_badges INSERT not granted to anon/authenticated (C2, C3)';
+end
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 28  community_posts.shared_badge_key must be a badge the AUTHOR earned
+--     (finding C2, second vector). shareBadgeAction checks ownership in app
+--     code, but community_posts is member-writable, so a member can POST a wins
+--     row directly; the enforce_shared_badge_ownership trigger is the real gate.
+--     usera (company A, opted in) genuinely owns 'first_post' (seeded service-
+--     side); 'team_mvp' is never awarded to them.
+-- ---------------------------------------------------------------------------
+grant insert on public.community_posts to authenticated;  -- replicate prod grant
+insert into private.earned_badges (user_id, badge_key) values
+  ('a0000000-0000-0000-0000-00000000000a', 'first_post');
+
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+set role authenticated;
+do $$
+begin
+  -- ALLOWED: sharing a badge usera actually earned.
+  begin
+    insert into public.community_posts (user_id, company_id, scope, board, body, shared_badge_key)
+    values ('a0000000-0000-0000-0000-00000000000a','aaaaaaaa-0000-0000-0000-000000000001',
+            'global','wins','earned it','first_post');
+  exception when others then
+    raise exception 'FAIL shared-badge: a genuinely-earned badge share was blocked (%)', sqlerrm;
+  end;
+
+  -- BLOCKED: sharing a badge usera never earned (forged, direct POST).
+  begin
+    insert into public.community_posts (user_id, company_id, scope, board, body, shared_badge_key)
+    values ('a0000000-0000-0000-0000-00000000000a','aaaaaaaa-0000-0000-0000-000000000001',
+            'global','wins','never earned this','team_mvp');
+    raise exception 'FAIL shared-badge: a forged (unearned) shared_badge_key was allowed';
+  exception when check_violation then null;
+  end;
+
+  -- ALLOWED (control): an ordinary post with no shared badge is unaffected.
+  begin
+    insert into public.community_posts (user_id, company_id, scope, board, body)
+    values ('a0000000-0000-0000-0000-00000000000a','aaaaaaaa-0000-0000-0000-000000000001',
+            'global','feed','a normal post');
+  exception when others then
+    raise exception 'FAIL shared-badge: a normal post (no badge) was blocked (%)', sqlerrm;
+  end;
+
+  raise notice 'PASS  28  community_posts shared_badge_key requires a genuinely-earned badge (C2)';
 end
 $$;
 reset role;
