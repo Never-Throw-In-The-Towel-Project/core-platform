@@ -24,9 +24,36 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: () => Promise.resolve({ auth: { signUp: signUpMock } }),
 }));
 
-const profilesUpsertMock = vi.fn();
+// The service-role write is now a GUARDED update (finding E1), not an
+// unconditional upsert: a genuine signup updates the trigger-created
+// employee/DIRECT row; a pending-invite / already-claimed row matches the
+// .eq/.is guards and so is never touched. The mock records the SET values and
+// every guard condition, and the chain resolves to `updateResult`.
+let updateCalled = false;
+let updateValues: Record<string, unknown> | undefined;
+let updateGuards: Array<[string, unknown]> = [];
+let updateResult: { error: unknown } = { error: null };
+
 const createAdminClientMock = vi.fn(() => ({
-  from: () => ({ upsert: profilesUpsertMock }),
+  from: () => ({
+    update: (values: Record<string, unknown>) => {
+      updateCalled = true;
+      updateValues = values;
+      updateGuards = [];
+      const builder = {
+        eq: (col: string, val: unknown) => {
+          updateGuards.push([col, val]);
+          return builder;
+        },
+        is: (col: string, val: unknown) => {
+          updateGuards.push([col, val]);
+          return builder;
+        },
+        then: (resolve: (r: unknown) => void) => resolve(updateResult),
+      };
+      return builder;
+    },
+  }),
 }));
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => createAdminClientMock(),
@@ -57,7 +84,10 @@ beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://app.neverthrowinthetowel.uk");
   resolveCompanyForHost.mockResolvedValue(null);
   headersMock.mockReturnValue(new Map([["host", "neverthrowinthetowel.uk"]]));
-  profilesUpsertMock.mockResolvedValue({ error: null });
+  updateCalled = false;
+  updateValues = undefined;
+  updateGuards = [];
+  updateResult = { error: null };
 });
 
 describe("signUp", () => {
@@ -114,7 +144,7 @@ describe("signUp", () => {
     expect(signUpMock).not.toHaveBeenCalled();
   });
 
-  it("provisions a genuinely new user with the direct company id and employee role", async () => {
+  it("finalizes a genuinely new user via a GUARDED update scoped to the fresh self-signup row", async () => {
     signUpMock.mockResolvedValue({
       data: { user: { id: "new-user-id", identities: [{ id: "identity-1" }] }, session: null },
       error: null,
@@ -135,22 +165,25 @@ describe("signUp", () => {
         }),
       })
     );
-    // The REAL name goes to full_name; the public handle is a generated
-    // non-identifying nickname; DOB + anonymity preference + recorded consent
-    // are all written server-side via the service-role upsert.
-    expect(profilesUpsertMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: "new-user-id",
-        company_id: DIRECT_COMPANY_ID,
-        role: "employee",
-        full_name: validFields.fullName,
-        display_name: generateAnonHandle("new-user-id"),
-        date_of_birth: validFields.dateOfBirth,
-        community_identity_preference: "anonymous",
-        tc_version: CURRENT_TERMS_VERSION,
-        tc_agreed_at: expect.any(String),
-      }),
-      { onConflict: "id" }
+    // The write SETS only the identity/consent fields -- role/company stay the
+    // trigger's employee/DIRECT and are part of the guard, not the SET.
+    expect(updateValues).toEqual({
+      full_name: validFields.fullName,
+      display_name: generateAnonHandle("new-user-id"),
+      date_of_birth: validFields.dateOfBirth,
+      community_identity_preference: "anonymous",
+      tc_version: CURRENT_TERMS_VERSION,
+      tc_agreed_at: expect.any(String),
+    });
+    // The E1 guard: only an own fresh employee/DIRECT row with no recorded
+    // consent is touched -- a pending invitee's row matches none of these.
+    expect(updateGuards).toEqual(
+      expect.arrayContaining([
+        ["id", "new-user-id"],
+        ["role", "employee"],
+        ["company_id", DIRECT_COMPANY_ID],
+        ["tc_agreed_at", null],
+      ])
     );
     expect(state.status).toBe("success");
   });
@@ -166,10 +199,10 @@ describe("signUp", () => {
     expect(redirectMock).toHaveBeenCalledWith("/onboarding");
   });
 
-  it("never upserts a profile for an already-registered email (anti-enumeration)", async () => {
-    // Supabase's own anti-enumeration behavior: an existing email with
-    // confirmation required comes back as a "successful" signUp with an
-    // empty identities array, not an error.
+  it("never touches a profile for an already-registered email (empty identities, anti-enumeration)", async () => {
+    // Supabase's own anti-enumeration behavior: an existing CONFIRMED email with
+    // confirmation required comes back as a "successful" signUp with an empty
+    // identities array, not an error.
     signUpMock.mockResolvedValue({
       data: { user: { id: "someone-elses-id", identities: [] }, session: null },
       error: null,
@@ -177,9 +210,45 @@ describe("signUp", () => {
 
     const state = await signUp(initialRoutineState, formData(validFields));
 
-    expect(profilesUpsertMock).not.toHaveBeenCalled();
+    expect(updateCalled).toBe(false);
     // Response is indistinguishable from the genuine-new-user success path.
     expect(state.status).toBe("success");
+  });
+
+  it("does not clobber a pending invitee: the write is a guarded update, never an unconditional upsert (E1)", async () => {
+    // An UNCONFIRMED invitee (e.g. a pending hr_admin) comes back from signUp()
+    // with a NON-empty identities array -- so the code does reach the write, but
+    // it must be the guarded update whose role/company/consent conditions a
+    // provisioned row fails (matching zero rows), leaving that profile intact.
+    signUpMock.mockResolvedValue({
+      data: { user: { id: "pending-invitee-id", identities: [{ id: "identity-1" }] }, session: null },
+      error: null,
+    });
+
+    const state = await signUp(initialRoutineState, formData(validFields));
+
+    expect(updateCalled).toBe(true);
+    expect(updateGuards).toEqual(
+      expect.arrayContaining([
+        ["role", "employee"],
+        ["company_id", DIRECT_COMPANY_ID],
+        ["tc_agreed_at", null],
+      ])
+    );
+    // Same anti-enumeration response regardless of whether the guard matched.
+    expect(state.status).toBe("success");
+  });
+
+  it("surfaces a finishing-setup error when the guarded write itself fails", async () => {
+    signUpMock.mockResolvedValue({
+      data: { user: { id: "new-user-id", identities: [{ id: "identity-1" }] }, session: null },
+      error: null,
+    });
+    updateResult = { error: { message: "db down" } };
+
+    const state = await signUp(initialRoutineState, formData(validFields));
+
+    expect(state.status).toBe("error");
   });
 
   it("returns a generic error message on a Supabase error, never the raw message", async () => {
@@ -194,7 +263,7 @@ describe("signUp", () => {
     if (state.status === "error") {
       expect(state.message).not.toMatch(/already registered/i);
     }
-    expect(profilesUpsertMock).not.toHaveBeenCalled();
+    expect(updateCalled).toBe(false);
   });
 
   it("degrades to an error state (never throws) when NEXT_PUBLIC_SITE_URL is unset", async () => {

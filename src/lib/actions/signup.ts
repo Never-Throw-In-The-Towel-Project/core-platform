@@ -42,13 +42,13 @@ const SignupSchema = z
  * here too, not just in src/app/signup/page.tsx, since a server action is
  * reachable independently of how its page renders).
  *
- * The profiles row is upserted directly here via the admin client, right
- * after signUp succeeds -- not left to the handle_new_user trigger, same
- * reasoning as invite.ts: testing that flow found Supabase's invite API
- * doesn't reliably attach user_metadata to the same auth.users insert the
- * trigger fires on, and there's no reason to trust supabase.auth.signUp()
- * more than that without the same verification, so this mirrors the
- * already-proven pattern rather than assuming.
+ * The profiles row is finalized here via the admin client right after signUp
+ * succeeds. The handle_new_user trigger has already created a baseline
+ * (employee / DIRECT) row; this fills in the real name, DOB, anonymity
+ * preference and recorded consent on top -- but as a GUARDED update that only
+ * touches a row still in that untouched self-signup state, so a pending invitee
+ * whose email is reused through this public path can never have their profile
+ * relocated, demoted, or overwritten (finding E1). See the guard at the write.
  */
 export async function signUp(
   _prevState: RoutineActionState,
@@ -132,11 +132,21 @@ export async function signUp(
 
   if (isGenuinelyNewUser) {
     const admin = createAdminClient();
-    const { error: profileError } = await admin.from("profiles").upsert(
-      {
-        id: data.user.id,
-        company_id: DIRECT_COMPANY_ID,
-        role: "employee",
+    // Guarded write (finding E1). The handle_new_user trigger has already
+    // inserted a default profiles row (employee / DIRECT / tc_agreed_at NULL)
+    // for this signUp. But an UNCONFIRMED existing account -- e.g. a pending
+    // hr_admin or other-company invitee -- also comes back from signUp() with a
+    // NON-empty identities array, so isGenuinelyNewUser alone can't tell it
+    // apart from a real new signup. So instead of an unconditional
+    // upsert(onConflict:id) (which would overwrite that person's real
+    // role/company/identity), UPDATE only a row still in the untouched
+    // self-signup state: employee + DIRECT + no recorded consent. A pending
+    // invitee's row (real role/company) or an already-consented self-signup
+    // matches zero rows, so their profile is never relocated, demoted, or
+    // overwritten -- the response is identical either way (anti-enumeration).
+    const { error: profileError } = await admin
+      .from("profiles")
+      .update({
         // The REAL name (admin-visible identity) comes from the form; the public
         // handle other members see when this person is anonymous defaults to a
         // stable, non-identifying nickname they can change in settings.
@@ -148,9 +158,11 @@ export async function signUp(
         // write only -- a record the member could rewrite wouldn't be proof).
         tc_agreed_at: new Date().toISOString(),
         tc_version: CURRENT_TERMS_VERSION,
-      },
-      { onConflict: "id" }
-    );
+      })
+      .eq("id", data.user.id)
+      .eq("role", "employee")
+      .eq("company_id", DIRECT_COMPANY_ID)
+      .is("tc_agreed_at", null);
     if (profileError) {
       // Mirrors invite.ts's identical failure mode: the auth-side call
       // already succeeded and can't be undone from here.
