@@ -319,11 +319,14 @@ async function buildAckUrl(requestId: string): Promise<string> {
   const token = await generateAckToken(requestId);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
   if (!token || !siteUrl) return "";
-  // Built via the URL constructor, not string concatenation: a
-  // path-absolute input always replaces the base's own path entirely, so
-  // this stays correct even if NEXT_PUBLIC_SITE_URL ever has a path of its
-  // own tacked on (it shouldn't, but this shouldn't silently double up if it did).
-  const url = new URL(`/api/support-requests/${requestId}/ack`, siteUrl);
+  // Points at the /support/ack landing PAGE, not the old /api ack route: the
+  // GET there is side-effect-free, and the request is only marked contacted
+  // when the first-aider taps the button (a POST). This is what stops an
+  // email/SMS link-scanner from auto-acknowledging and silencing the
+  // escalation (finding E5). The old /api route still redirects here, so
+  // already-sent alerts keep working.
+  const url = new URL("/support/ack", siteUrl);
+  url.searchParams.set("request", requestId);
   url.searchParams.set("token", token);
   return url.toString();
 }
