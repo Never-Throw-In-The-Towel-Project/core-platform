@@ -3,13 +3,32 @@
 import { useActionState, useState } from "react";
 import { submitNightEntry } from "@/lib/actions/night";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import type { NightInitial } from "@/lib/routines/checkinPrefill";
 import { RoutineComplete } from "./RoutineComplete";
 
 const DAY_SCALE = Array.from({ length: 10 }, (_, i) => i + 1);
 
-export function NightRoutineForm({ initialSteps = null }: { initialSteps?: number | null }) {
+const EMPTY: NightInitial = {
+  noPhoneBeforeBed: false,
+  hotBathOrShower: false,
+  gratitude: "",
+  highlight: "",
+  dayRating: null,
+  lookingAhead: "",
+};
+
+// `initial` pre-fills tonight's already-saved entry so a second, partial submit
+// can't wipe the first (finding E2); `initialSteps` is the separate step_entries
+// value. Both default to empty for a fresh night.
+export function NightRoutineForm({
+  initial = EMPTY,
+  initialSteps = null,
+}: {
+  initial?: NightInitial;
+  initialSteps?: number | null;
+}) {
   const [state, formAction, isPending] = useActionState(submitNightEntry, initialRoutineState);
-  const [dayRating, setDayRating] = useState<number | null>(null);
+  const [dayRating, setDayRating] = useState<number | null>(initial.dayRating);
 
   if (state.status === "success") {
     return <RoutineComplete title="Good work today. Rest well." />;
@@ -25,11 +44,11 @@ export function NightRoutineForm({ initialSteps = null }: { initialSteps?: numbe
       <fieldset className="space-y-2 text-sm">
         <legend className="mb-1 font-medium">Evening checklist</legend>
         {[
-          { name: "noPhoneBeforeBed", label: "No phone one hour before bed" },
-          { name: "hotBathOrShower", label: "Hot bath or shower" },
+          { name: "noPhoneBeforeBed", label: "No phone one hour before bed", checked: initial.noPhoneBeforeBed },
+          { name: "hotBathOrShower", label: "Hot bath or shower", checked: initial.hotBathOrShower },
         ].map((item) => (
           <label key={item.name} className="flex items-center gap-2">
-            <input type="checkbox" name={item.name} value="true" />
+            <input type="checkbox" name={item.name} value="true" defaultChecked={item.checked} />
             {item.label}
           </label>
         ))}
@@ -44,6 +63,7 @@ export function NightRoutineForm({ initialSteps = null }: { initialSteps?: numbe
         <textarea
           name="gratitude"
           rows={2}
+          defaultValue={initial.gratitude}
           className="mt-1 w-full border border-ink-hairline bg-transparent px-3 py-2"
         />
       </label>
@@ -53,6 +73,7 @@ export function NightRoutineForm({ initialSteps = null }: { initialSteps?: numbe
         <textarea
           name="highlight"
           rows={2}
+          defaultValue={initial.highlight}
           className="mt-1 w-full border border-ink-hairline bg-transparent px-3 py-2"
         />
       </label>
@@ -85,6 +106,7 @@ export function NightRoutineForm({ initialSteps = null }: { initialSteps?: numbe
         <textarea
           name="lookingAhead"
           rows={2}
+          defaultValue={initial.lookingAhead}
           className="mt-1 w-full border border-ink-hairline bg-transparent px-3 py-2"
         />
       </label>

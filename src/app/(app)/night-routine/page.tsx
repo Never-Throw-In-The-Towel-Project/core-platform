@@ -4,6 +4,7 @@ import { getActiveDayCount } from "@/lib/routines/dayState";
 import { createClient } from "@/lib/supabase/server";
 import { getRecentSteps } from "@/lib/steps/queries";
 import { todayISODate } from "@/lib/routines/dates";
+import { toNightInitial, type NightInitial } from "@/lib/routines/checkinPrefill";
 import { NightRoutineForm } from "@/components/routines/NightRoutineForm";
 
 // What the Rail's "Start night routine" card opens into (see
@@ -14,18 +15,30 @@ export default async function NightRoutinePage() {
   const profile = await getProfile();
   const activeDayCount = await getActiveDayCount(profile.id);
 
-  // Prefill "Steps today" with whatever the member has already logged for
-  // today (e.g. on the Journey card), so re-opening the routine reflects it
-  // rather than showing an empty box. Best-effort: any failure just leaves it
-  // blank -- steps are optional and never block the routine.
+  // Prefill tonight's already-saved entry + the "Steps today" value the member
+  // may have logged elsewhere (e.g. the Journey card), so re-opening the routine
+  // to finish or correct it reflects what's saved rather than wiping it (finding
+  // E2 for the entry; steps were already prefilled). Best-effort: any failure
+  // just renders a blank form -- the routine is never blocked.
+  let initial: NightInitial = toNightInitial(null);
   let initialSteps: number | null = null;
   try {
     const today = todayISODate(new Date(), profile.timezone);
     const privateClient = await createClient("private");
-    const entries = await getRecentSteps(privateClient, profile.id, today);
+    const [{ data: nightEntry }, entries] = await Promise.all([
+      privateClient
+        .from("night_entries")
+        .select("no_phone_before_bed, hot_bath_or_shower, gratitude, highlight, day_rating, looking_ahead")
+        .eq("user_id", profile.id)
+        .eq("entry_date", today)
+        .maybeSingle(),
+      getRecentSteps(privateClient, profile.id, today),
+    ]);
+    initial = toNightInitial(nightEntry);
     const todayEntry = entries.find((e) => e.entry_date === today);
     initialSteps = todayEntry ? todayEntry.steps : null;
   } catch {
+    initial = toNightInitial(null);
     initialSteps = null;
   }
 
@@ -38,7 +51,7 @@ export default async function NightRoutinePage() {
           </Link>
           <span>Day {activeDayCount}</span>
         </div>
-        <NightRoutineForm initialSteps={initialSteps} />
+        <NightRoutineForm initial={initial} initialSteps={initialSteps} />
       </div>
     </main>
   );

@@ -3,11 +3,16 @@
 import { useActionState } from "react";
 import { submitSundaySetup } from "@/lib/actions/sundaySetup";
 import { initialRoutineState } from "@/lib/actions/routineState";
+import type { SundaySetupInitial } from "@/lib/routines/checkinPrefill";
 import { RoutineComplete } from "./RoutineComplete";
 
 const SUGGESTIONS = ["Gym kit ready", "Meals prepped", "Diary checked", "Alarm set"];
 
-export function SundaySetupForm() {
+const EMPTY: SundaySetupInitial = { prepNotes: "", intention: "" };
+
+// `initial` pre-fills this week's already-saved setup so a second, partial
+// submit can't wipe the first (finding E2). Defaults to empty for a fresh week.
+export function SundaySetupForm({ initial = EMPTY }: { initial?: SundaySetupInitial }) {
   const [state, formAction, isPending] = useActionState(submitSundaySetup, initialRoutineState);
 
   if (state.status === "success") {
@@ -35,6 +40,7 @@ export function SundaySetupForm() {
         <textarea
           name="prepNotes"
           rows={3}
+          defaultValue={initial.prepNotes}
           className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
         />
       </label>
@@ -44,6 +50,7 @@ export function SundaySetupForm() {
         <textarea
           name="intention"
           rows={2}
+          defaultValue={initial.intention}
           className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
         />
       </label>

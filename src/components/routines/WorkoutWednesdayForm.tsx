@@ -34,10 +34,17 @@ export function WorkoutWednesdayForm({
   home,
   gym,
   defaultMode,
+  initialAnswers = {},
 }: {
   home: ContentItem[];
   gym: ContentItem[];
   defaultMode: WorkoutSetting | null;
+  /**
+   * This week's already-saved journal answers (PBs + reflections), pre-filled so
+   * a second, partial submit can't wipe the first (finding E2). Empty for a
+   * fresh Wednesday.
+   */
+  initialAnswers?: Record<string, string>;
 }) {
   const [state, formAction, isPending] = useActionState(submitWorkoutWednesday, initialRoutineState);
   const [mode, setMode] = useState<WorkoutSetting>(defaultMode ?? "home");
@@ -130,6 +137,7 @@ export function WorkoutWednesdayForm({
                 <input
                   name={pb.key}
                   type="text"
+                  defaultValue={initialAnswers[pb.key] ?? ""}
                   className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
                 />
               </label>
@@ -143,6 +151,7 @@ export function WorkoutWednesdayForm({
             <textarea
               name={prompt.key}
               rows={2}
+              defaultValue={initialAnswers[prompt.key] ?? ""}
               className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
             />
           </label>
