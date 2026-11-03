@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getMondayOfWeek, getNextMonday } from "@/lib/routines/dates";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import type { ReviewType, Weekday } from "@/types/database";
 
 // Every function here takes a Supabase client rather than creating its own,
@@ -119,11 +120,24 @@ export async function getWeeklyParticipation(
   companyId: string,
   weeks = 12
 ): Promise<WeeklyParticipation[]> {
-  const { data } = await supabase
-    .from("company_daily_participation")
-    .select("entry_date, segment, completed_count, eligible_count")
-    .eq("company_id", companyId)
-    .order("entry_date", { ascending: true });
+  // Paged: a company accrues ~2.7 participation rows/day (morning + night daily,
+  // themed on weekdays) -> ~1000/year, so an un-paged read silently drops the
+  // most RECENT weeks past the 1000 cap and every KPI/trend/headcount below is
+  // computed from year-old data (finding E6/E7). Ordered by the PK so paging is
+  // deterministic; the weekly buckets don't depend on fetch order.
+  const rows = await fetchAllRows<{
+    entry_date: string;
+    segment: "morning" | "night" | "themed_checkin";
+    completed_count: number;
+    eligible_count: number;
+  }>((from, to) =>
+    supabase
+      .from("company_daily_participation")
+      .select("entry_date, segment, completed_count, eligible_count")
+      .eq("company_id", companyId)
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 
   type Bucket = { c: number; e: number };
   // headcount is tracked separately from the morning bucket's summed
@@ -136,7 +150,7 @@ export async function getWeeklyParticipation(
     { morning: Bucket; night: Bucket; themed: Bucket; headcount: number }
   >();
 
-  for (const row of data ?? []) {
+  for (const row of rows) {
     // Cross-user aggregation (Phase 9): row.entry_date is already a
     // resolved plain calendar-date string per-user, and this buckets many
     // users' rows into one company-wide week -- deliberately UTC, not any
@@ -152,10 +166,10 @@ export async function getWeeklyParticipation(
     }
     const bucket = byWeek.get(weekStart)!;
     const target = row.segment === "morning" ? bucket.morning : row.segment === "night" ? bucket.night : bucket.themed;
-    target.c += row.completed_count as number;
-    target.e += row.eligible_count as number;
+    target.c += row.completed_count;
+    target.e += row.eligible_count;
     if (row.segment === "morning") {
-      bucket.headcount = Math.max(bucket.headcount, row.eligible_count as number);
+      bucket.headcount = Math.max(bucket.headcount, row.eligible_count);
     }
   }
 
@@ -186,20 +200,32 @@ export async function getWeekdayEngagement(
   supabase: AnySupabaseClient,
   companyId: string
 ): Promise<WeekdayEngagement[]> {
-  const { data } = await supabase
-    .from("company_daily_participation")
-    .select("weekday, completed_count, eligible_count")
-    .eq("company_id", companyId)
-    .eq("segment", "themed_checkin");
+  // Paged (finding E6/E7): all-time themed-checkin rows accrue ~5/week/company,
+  // so this crosses the 1000 cap on a multi-year company and would otherwise
+  // under-count the impact PDF's weekday breakdown. Ordered by PK for stable
+  // paging. (The live HR page uses getWeekdayEngagementForWeek, bounded already.)
+  const rows = await fetchAllRows<{
+    weekday: Weekday | null;
+    completed_count: number;
+    eligible_count: number;
+  }>((from, to) =>
+    supabase
+      .from("company_daily_participation")
+      .select("weekday, completed_count, eligible_count")
+      .eq("company_id", companyId)
+      .eq("segment", "themed_checkin")
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 
   const byWeekday = new Map<Weekday, { c: number; e: number }>();
-  for (const row of data ?? []) {
-    const weekday = row.weekday as Weekday | null;
+  for (const row of rows) {
+    const weekday = row.weekday;
     if (!weekday) continue;
     if (!byWeekday.has(weekday)) byWeekday.set(weekday, { c: 0, e: 0 });
     const bucket = byWeekday.get(weekday)!;
-    bucket.c += row.completed_count as number;
-    bucket.e += row.eligible_count as number;
+    bucket.c += row.completed_count;
+    bucket.e += row.eligible_count;
   }
 
   return WEEKDAY_ORDER.map((weekday) => {

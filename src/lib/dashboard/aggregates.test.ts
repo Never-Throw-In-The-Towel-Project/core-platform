@@ -26,8 +26,11 @@ function week(overrides: Partial<WeeklyParticipation> = {}): WeeklyParticipation
   };
 }
 
-// Minimal stand-in for the supabase query builder getWeeklyParticipation
-// uses: .from(...).select(...).eq(...).order(...) resolves to { data }.
+// Minimal stand-in for the supabase query builder getWeeklyParticipation uses:
+// .from(...).select(...).eq(...).order(...).range(from,to) resolves to { data }.
+// Since finding E6/E7, the read PAGES via `.range()` (fetchAllRows), so the
+// terminal is `.range()`, not `.order()`. `.range()` slices `rows` so a result
+// set <= one page comes back whole in the first call (the loop then stops).
 type Row = {
   entry_date: string;
   segment: "morning" | "night" | "themed_checkin";
@@ -35,12 +38,12 @@ type Row = {
   eligible_count: number;
 };
 function clientReturning(rows: Row[]) {
-  const result = Promise.resolve({ data: rows });
   const chain = {
     from: () => chain,
     select: () => chain,
     eq: () => chain,
-    order: () => result,
+    order: () => chain,
+    range: (from: number, to: number) => Promise.resolve({ data: rows.slice(from, to + 1), error: null }),
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return chain as any;
@@ -130,6 +133,47 @@ describe("getWeeklyParticipation", () => {
     ];
     const [wk] = await getWeeklyParticipation(clientReturning(growing), "company-1");
     expect(wk.headcount).toBe(12);
+  });
+
+  it("pages past the 1000-row cap so the most recent weeks aren't silently dropped (E6/E7 H1)", async () => {
+    // 2500 consecutive days (~6.8 years) of morning participation -> well past
+    // the 1000 cap. Ascending by date, so a single capped read would keep the
+    // OLDEST ~1000 days and lose everything recent.
+    const DAYS = 2500;
+    const base = Date.UTC(2020, 0, 6); // a Monday
+    const many: Row[] = Array.from({ length: DAYS }, (_, i) => ({
+      entry_date: new Date(base + i * 86_400_000).toISOString().slice(0, 10),
+      segment: "morning",
+      completed_count: 1,
+      eligible_count: 5,
+    }));
+
+    const rangeCalls: Array<[number, number]> = [];
+    const chain = {
+      from: () => chain,
+      select: () => chain,
+      eq: () => chain,
+      order: () => chain,
+      range: (from: number, to: number) => {
+        rangeCalls.push([from, to]);
+        return Promise.resolve({ data: many.slice(from, to + 1), error: null });
+      },
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await getWeeklyParticipation(chain as any, "company-1", 12);
+
+    // It paged (more than one range request) rather than reading a capped slice.
+    expect(rangeCalls.length).toBeGreaterThan(1);
+    expect(result).toHaveLength(12);
+    // The latest returned week reflects data far past row 1000 (~2026, not the
+    // ~2022 a 1000-row truncation would cap at).
+    expect(result.at(-1)!.weekStartDate > "2024-01-01").toBe(true);
+    // 1 of 5 each day -> 20% every week; headcount is the single-day max (5).
+    expect(result.at(-1)!.morningPercent).toBe(20);
+    expect(result.at(-1)!.headcount).toBe(5);
+    // weekNumber is the week's position in the company's FULL history.
+    expect(result.at(-1)!.weekNumber).toBeGreaterThan(300);
   });
 });
 
