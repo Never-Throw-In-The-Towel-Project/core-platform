@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import type {
   CommunityBoard,
   CommunityScope,
@@ -218,22 +219,38 @@ export async function getPosts(
     .map((post) => post.image_url)
     .filter((ref): ref is string => ref !== null);
 
-  const [authorInfo, { data: likes }, { data: comments }, signedImages] = await Promise.all([
+  // Likes/comments are PAGED (finding E6/E7): these span the whole candidate
+  // window (up to FEED_CANDIDATE_LIMIT posts), so a busy feed's total likes can
+  // exceed the 1000-row cap -- a single read would under-count likeCount and,
+  // worse, leave likedByViewer wrong (the viewer's own like in the truncated
+  // tail -> an empty heart on a post they liked). Ordered by the PK; only the
+  // counts and the viewer-membership matter, so fetch order is irrelevant.
+  const [authorInfo, likes, comments, signedImages] = await Promise.all([
     getAuthorInfo(supabase, userIds),
-    supabase.from("community_likes").select("post_id, user_id").in("post_id", postIds),
-    supabase.from("community_comments").select("post_id").in("post_id", postIds).eq("is_removed", false),
+    fetchAllRows<{ post_id: string; user_id: string }>((from, to) =>
+      supabase.from("community_likes").select("post_id, user_id").in("post_id", postIds).order("id", { ascending: true }).range(from, to)
+    ),
+    fetchAllRows<{ post_id: string }>((from, to) =>
+      supabase
+        .from("community_comments")
+        .select("post_id")
+        .in("post_id", postIds)
+        .eq("is_removed", false)
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
     signCommunityImageUrls(supabase, imageRefs),
   ]);
 
   const likeCounts = new Map<string, number>();
   const likedByViewer = new Set<string>();
-  for (const like of likes ?? []) {
+  for (const like of likes) {
     likeCounts.set(like.post_id, (likeCounts.get(like.post_id) ?? 0) + 1);
     if (like.user_id === params.viewerUserId) likedByViewer.add(like.post_id);
   }
 
   const commentCounts = new Map<string, number>();
-  for (const comment of comments ?? []) {
+  for (const comment of comments) {
     commentCounts.set(comment.post_id, (commentCounts.get(comment.post_id) ?? 0) + 1);
   }
 
@@ -293,17 +310,26 @@ export async function getCommentsForPosts(
   // their own thread -- silently deanonymising the post (finding A2). So the
   // post author's OWN comments on that post inherit the post's override;
   // everyone else follows their own account default.
-  const [commentsRes, postAuthorsRes] = await Promise.all([
-    supabase
-      .from("community_comments")
-      .select("id, post_id, user_id, parent_comment_id, body")
-      .in("post_id", postIds)
-      .eq("is_removed", false)
-      .order("created_at", { ascending: true }),
+  // Comments are PAGED (finding E6/E7): across a full page of posts the thread
+  // total can exceed the 1000-row cap, and an un-paged read ordered ascending
+  // would drop the NEWEST comments from the rendered threads. `created_at` isn't
+  // unique, so `id` is the paging tiebreaker that keeps a total order; the
+  // created_at-ascending grouping below is preserved. (postAuthors is bounded by
+  // the ≤FEED_PAGE_SIZE post ids, so it stays a single read.)
+  const [comments, postAuthorsRes] = await Promise.all([
+    fetchAllRows<FeedCommentRow>((from, to) =>
+      supabase
+        .from("community_comments")
+        .select("id, post_id, user_id, parent_comment_id, body")
+        .in("post_id", postIds)
+        .eq("is_removed", false)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to)
+    ),
     supabase.from("community_posts").select("id, user_id, identity_override").in("id", postIds),
   ]);
 
-  const comments = (commentsRes.data as FeedCommentRow[] | null) ?? [];
   if (comments.length === 0) return new Map();
 
   const postAuthor = new Map<string, { authorId: string; override: CommunityIdentityPreference | null }>(
