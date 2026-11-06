@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchVimeoVideo, isVimeoConfigured, listVimeoVideos } from "@/lib/vimeo/client";
 import { vimeoEmbedWarning, type VimeoVideoRef } from "@/lib/vimeo/parse";
 import { buildVimeoInsertRow } from "@/lib/vimeo/importRow";
+import { isVimeoIdConflict } from "@/lib/content/vimeoConflict";
 import { syncVimeoLibrary, type VimeoSyncOutcome } from "@/lib/vimeo/sync";
 
 /**
@@ -112,14 +113,43 @@ export async function importVimeoVideosAction(input: unknown): Promise<VimeoImpo
     const rows = fresh.map((v) =>
       buildVimeoInsertRow(v, { category, folderId: folderId ?? null, createdBy: session.userId })
     );
-    const { data: inserted, error } = await supabase.from("content_items").insert(rows).select("id");
-    if (error) return { status: "error", message: "Something went wrong importing those. Please try again." };
+    const first = await supabase.from("content_items").insert(rows).select("id");
+    let inserted = first.data;
+    if (first.error) {
+      if (!isVimeoIdConflict(first.error)) {
+        return { status: "error", message: "Something went wrong importing those. Please try again." };
+      }
+      // A concurrent import landed one of these between the dedup check above
+      // and this insert; the unique(vimeo_id) index rejected the batch. Re-check
+      // what's now present and retry once with only the genuinely-absent rows,
+      // so the race skips cleanly instead of surfacing an error. (rows is
+      // index-aligned with fresh.)
+      const { data: nowData } = await supabase
+        .from("content_items")
+        .select("vimeo_id")
+        .eq("type", "video")
+        .in("vimeo_id", fresh.map((v) => v.id));
+      const nowPresent = new Set(
+        ((nowData ?? []) as { vimeo_id: string | null }[]).map((r) => r.vimeo_id).filter((v): v is string => v != null)
+      );
+      const retryRows = rows.filter((_, i) => !nowPresent.has(fresh[i].id));
+      if (retryRows.length === 0) return { status: "success", imported: 0, skipped: videos.length };
+      const retry = await supabase.from("content_items").insert(retryRows).select("id");
+      if (retry.error) {
+        // Lost the race again (vanishingly unlikely): treat the remainder as
+        // skipped rather than error — the videos are in the library either way.
+        if (isVimeoIdConflict(retry.error)) return { status: "success", imported: 0, skipped: videos.length };
+        return { status: "error", message: "Something went wrong importing those. Please try again." };
+      }
+      inserted = retry.data;
+    }
 
     revalidatePath("/admin/brain");
     revalidatePath("/admin/content");
     revalidatePath("/admin/calendar");
     revalidatePath("/content");
-    return { status: "success", imported: inserted?.length ?? fresh.length, skipped: videos.length - fresh.length };
+    const importedCount = inserted?.length ?? 0;
+    return { status: "success", imported: importedCount, skipped: videos.length - importedCount };
   } catch {
     return { status: "error", message: "Something went wrong importing those. Please try again." };
   }
