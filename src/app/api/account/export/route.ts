@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifySession, getProfile } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 
 // Right of access + portability (UK GDPR Arts. 15/20): a member downloads a
 // machine-readable copy of their own personal data. Everything is read under the
@@ -11,9 +12,16 @@ export const dynamic = "force-dynamic";
 
 type AnyClient = Awaited<ReturnType<typeof createClient>>;
 
-// Read a table defensively: a query error yields [] but is recorded in
-// `warnings`, so a partial export is signalled to the member (in the payload)
-// rather than silently handed over as a "complete" copy.
+// Read a table defensively and COMPLETELY. A GDPR export must be the member's
+// whole dataset, but PostgREST caps a plain select at 1000 rows and silently
+// truncates (finding E6/E7) -- a long-tenured member's daily entries
+// (morning/night/step/stand, habit check-ins: one row per day) cross that in
+// ~2.7 years, so an un-paged read would hand them an "incompleteSections"-clean
+// copy that silently omits their oldest data. So page through every row with
+// `.range()`; every exported table has a uuid `id` PK, so order by it for
+// deterministic paging. A query error (including a failed page) yields [] but is
+// recorded in `warnings`, so a partial export is still signalled to the member
+// rather than passed off as complete.
 async function rows(
   client: AnyClient,
   table: string,
@@ -21,14 +29,11 @@ async function rows(
   ownUserId?: string
 ): Promise<unknown[]> {
   try {
-    let q = client.from(table).select("*");
-    if (ownUserId) q = q.eq("user_id", ownUserId);
-    const { data, error } = await q;
-    if (error) {
-      warnings.push(`${table}: ${error.message}`);
-      return [];
-    }
-    return data ?? [];
+    return await fetchAllRows<unknown>((from, to) => {
+      let q = client.from(table).select("*");
+      if (ownUserId) q = q.eq("user_id", ownUserId);
+      return q.order("id", { ascending: true }).range(from, to);
+    });
   } catch (e) {
     warnings.push(`${table}: ${e instanceof Error ? e.message : "read failed"}`);
     return [];
