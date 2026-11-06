@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { getPosts } from "@/lib/community/queries";
 import { maxSingleDaySteps, bestStepLoggingStreak } from "@/lib/steps/milestones";
 import { evaluateBadges, countEarned, type Badge, type BadgeStatsInput } from "./badges";
@@ -136,29 +137,57 @@ export async function gatherEngagement(userId: string): Promise<EngagementCounts
     // 404s against real PostgREST regardless of RLS (see lib/supabase/server.ts).
     const privateClient = await createClient("private");
     const publicClient = await createClient();
-    const [{ data: mornings }, { data: nights }, { count: themed }, { count: posts }, { data: steps }] =
-      await Promise.all([
-        privateClient.from("morning_entries").select("entry_date").eq("user_id", userId).not("completed_at", "is", null),
-        privateClient.from("night_entries").select("entry_date").eq("user_id", userId).not("completed_at", "is", null),
+    // morning/night/step are PAGED (finding E6/E7): one row per day per user, so
+    // after ~2.7 years of daily use they cross the 1000-row cap and a single read
+    // would silently drop most of the member's history -- corrupting
+    // activeDayCount, streak, rank, badges and the best-ever step milestones.
+    // Ordered by the PK for deterministic paging. themed/posts are head-count
+    // queries (cap-immune), left as-is.
+    const [mornings, nights, themed, posts, steps] = await Promise.all([
+      fetchAllRows<{ entry_date: string }>((from, to) =>
         privateClient
-          .from("themed_checkins")
-          .select("id", { count: "exact", head: true })
+          .from("morning_entries")
+          .select("entry_date")
           .eq("user_id", userId)
-          .not("completed_at", "is", null),
-        publicClient
-          .from("community_posts")
-          .select("id", { count: "exact", head: true })
+          .not("completed_at", "is", null)
+          .order("id", { ascending: true })
+          .range(from, to)
+      ),
+      fetchAllRows<{ entry_date: string }>((from, to) =>
+        privateClient
+          .from("night_entries")
+          .select("entry_date")
           .eq("user_id", userId)
-          .eq("is_removed", false),
-        // One row per logged day (private, own-rows-only) -- used only to derive
-        // the member's own monotonic step milestones, never aggregated or shared.
-        privateClient.from("step_entries").select("entry_date, steps").eq("user_id", userId),
-      ]);
-    morningDates = (mornings ?? []).map((r) => r.entry_date as string);
-    nightDates = (nights ?? []).map((r) => r.entry_date as string);
-    themedCount = themed ?? 0;
-    postCount = posts ?? 0;
-    stepEntries = (steps ?? []).map((r) => ({ entry_date: r.entry_date as string, steps: r.steps as number }));
+          .not("completed_at", "is", null)
+          .order("id", { ascending: true })
+          .range(from, to)
+      ),
+      privateClient
+        .from("themed_checkins")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .not("completed_at", "is", null),
+      publicClient
+        .from("community_posts")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("is_removed", false),
+      // One row per logged day (private, own-rows-only) -- used only to derive
+      // the member's own monotonic step milestones, never aggregated or shared.
+      fetchAllRows<{ entry_date: string; steps: number }>((from, to) =>
+        privateClient
+          .from("step_entries")
+          .select("entry_date, steps")
+          .eq("user_id", userId)
+          .order("id", { ascending: true })
+          .range(from, to)
+      ),
+    ]);
+    morningDates = mornings.map((r) => r.entry_date);
+    nightDates = nights.map((r) => r.entry_date);
+    themedCount = themed.count ?? 0;
+    postCount = posts.count ?? 0;
+    stepEntries = steps.map((r) => ({ entry_date: r.entry_date, steps: r.steps }));
   } catch {
     // fall through with zero/empty defaults
   }
