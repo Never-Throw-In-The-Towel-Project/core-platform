@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import {
   isPushConfigured,
   sendPushToSubscription,
@@ -52,24 +53,32 @@ export async function notifyEventBookers(eventId: string, payload: PushPayload):
   if (!isPushConfigured()) return;
   try {
     const admin = createAdminClient();
-    const { data: bookings } = await admin
-      .from("event_bookings")
-      .select("user_id")
-      .eq("event_id", eventId)
-      .in("status", ["confirmed", "waitlisted"])
-      .not("user_id", "is", null);
-
-    const userIds = Array.from(
-      new Set(((bookings ?? []) as { user_id: string | null }[]).map((b) => b.user_id).filter(Boolean) as string[])
+    // Paged (finding E6/E7): a large event's bookings (and, below, their device
+    // subscriptions) can exceed the 1000-row cap, which would silently leave
+    // everyone past row 1000 un-notified of a cancellation/time change. Ordered
+    // by the PK; only the set of user ids / targets matters, so order is moot.
+    const bookings = await fetchAllRows<{ user_id: string | null }>((from, to) =>
+      admin
+        .from("event_bookings")
+        .select("user_id")
+        .eq("event_id", eventId)
+        .in("status", ["confirmed", "waitlisted"])
+        .not("user_id", "is", null)
+        .order("id", { ascending: true })
+        .range(from, to)
     );
+
+    const userIds = Array.from(new Set(bookings.map((b) => b.user_id).filter(Boolean) as string[]));
     if (userIds.length === 0) return;
 
-    const { data: subs } = await admin
-      .from("push_subscriptions")
-      .select("id, endpoint, p256dh, auth")
-      .in("user_id", userIds);
-
-    const targets = (subs ?? []) as PushSubscriptionTarget[];
+    const targets = await fetchAllRows<PushSubscriptionTarget>((from, to) =>
+      admin
+        .from("push_subscriptions")
+        .select("id, endpoint, p256dh, auth")
+        .in("user_id", userIds)
+        .order("id", { ascending: true })
+        .range(from, to)
+    );
     if (targets.length === 0) return;
 
     // Parallel + settled: one dead endpoint or slow push service must not hold up
@@ -145,14 +154,20 @@ export async function notifyEventGuests(
     const event = ev as { title: string; slug: string; starts_at: string; ends_at: string | null } | null;
     if (!event) return;
 
-    const { data: bookings } = await admin
-      .from("event_bookings")
-      .select("guest_name, guest_email")
-      .eq("event_id", eventId)
-      .in("status", ["confirmed", "waitlisted"])
-      .is("user_id", null)
-      .not("guest_email", "is", null);
-    const guests = (bookings ?? []) as { guest_name: string | null; guest_email: string | null }[];
+    // Paged (finding E6/E7): a large event's guest bookings can exceed the
+    // 1000-row cap, which would leave guests past row 1000 un-emailed about a
+    // cancellation/change. Ordered by the PK (only the recipient set matters).
+    const guests = await fetchAllRows<{ guest_name: string | null; guest_email: string | null }>((from, to) =>
+      admin
+        .from("event_bookings")
+        .select("guest_name, guest_email")
+        .eq("event_id", eventId)
+        .in("status", ["confirmed", "waitlisted"])
+        .is("user_id", null)
+        .not("guest_email", "is", null)
+        .order("id", { ascending: true })
+        .range(from, to)
+    );
     if (guests.length === 0) return;
 
     const when = formatEventWhen(event.starts_at, event.ends_at);
