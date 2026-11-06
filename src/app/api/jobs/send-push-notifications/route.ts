@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyCronRequest } from "@/lib/auth/cron";
 import { localMinutesSinceMidnight, todayISODate, weekdayNameOrWeekend } from "@/lib/routines/dates";
 import { isPushConfigured, sendPushToSubscription, type PushSubscriptionTarget } from "@/lib/notifications/sendPush";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import type { PushNotificationType } from "@/types/database";
 
 // Matches this route's own schedule in vercel.json -- a user's configured
@@ -73,12 +74,19 @@ export async function GET(request: NextRequest) {
   let sentCount = 0;
 
   for (const notificationType of Object.keys(NOTIFICATION_CONTENT) as PushNotificationType[]) {
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, timezone, morning_notification_time, night_notification_time, sunday_notification_time")
-      .not(FILTER_COLUMN[notificationType], "is", null);
+    // Paged (finding E6/E7): this is a platform-wide scan of every user who set
+    // this reminder time, so an un-paged read silently stops delivering to
+    // everyone past the 1000 cap. Ordered by the PK so paging is deterministic.
+    const profiles = await fetchAllRows<ProfileNotificationRow>((from, to) =>
+      supabase
+        .from("profiles")
+        .select("id, timezone, morning_notification_time, night_notification_time, sunday_notification_time")
+        .not(FILTER_COLUMN[notificationType], "is", null)
+        .order("id", { ascending: true })
+        .range(from, to)
+    );
 
-    for (const profile of (profiles ?? []) as ProfileNotificationRow[]) {
+    for (const profile of profiles) {
       const configuredTime = CONFIGURED_TIME[notificationType](profile);
       if (!configuredTime) continue;
 
