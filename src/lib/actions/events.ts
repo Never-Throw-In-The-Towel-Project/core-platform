@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import { verifySession, getProfile } from "@/lib/auth/dal";
 import { signBookingToken, verifyBookingToken } from "@/lib/events/guestToken";
 import { sendGuestBookingConfirmEmail } from "@/lib/events/guestEmail";
@@ -617,31 +618,37 @@ export async function exportEventRoster(
       return { error: "You don’t have access to this event." };
     }
 
-    const { data: bookingData } = await admin
-      .from("event_bookings")
-      .select("status, user_id, guest_name, guest_email, created_at")
-      .eq("event_id", parsed.data)
-      .in("status", ["confirmed", "waitlisted"])
-      // "confirmed" sorts before "waitlisted", so the register reads confirmed
-      // first, then the waitlist -- each in booking order.
-      .order("status", { ascending: true })
-      .order("created_at", { ascending: true });
-    const bookings =
-      (bookingData as {
-        status: string;
-        user_id: string | null;
-        guest_name: string | null;
-        guest_email: string | null;
-        created_at: string;
-      }[] | null) ?? [];
+    // Paged (finding E6/E7): a large event's register can exceed the 1000-row
+    // cap, which would silently omit everyone past row 1000 from the exported
+    // CSV. "confirmed" sorts before "waitlisted" and then by booking time;
+    // `id` is the paging tiebreaker that keeps a total order while preserving
+    // that output order.
+    const bookings = await fetchAllRows<{
+      status: string;
+      user_id: string | null;
+      guest_name: string | null;
+      guest_email: string | null;
+      created_at: string;
+    }>((from, to) =>
+      admin
+        .from("event_bookings")
+        .select("status, user_id, guest_name, guest_email, created_at")
+        .eq("event_id", parsed.data)
+        .in("status", ["confirmed", "waitlisted"])
+        .order("status", { ascending: true })
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to)
+    );
 
     const memberIds = Array.from(new Set(bookings.filter((b) => b.user_id).map((b) => b.user_id as string)));
     const nameById = new Map<string, string>();
     const emailById = new Map<string, string>();
     if (memberIds.length > 0) {
-      const { data: profs } = await admin.from("profiles").select("id, display_name").in("id", memberIds);
-      for (const p of profs ?? []) {
-        const row = p as { id: string; display_name: string };
+      const profs = await fetchAllRows<{ id: string; display_name: string }>((from, to) =>
+        admin.from("profiles").select("id, display_name").in("id", memberIds).order("id", { ascending: true }).range(from, to)
+      );
+      for (const row of profs) {
         nameById.set(row.id, row.display_name);
       }
       // Member emails are on auth.users, one lookup each (rosters are small).

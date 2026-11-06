@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchAllRows } from "@/lib/supabase/fetchAll";
 import type {
   EventRow,
   EventBooking,
@@ -149,12 +150,19 @@ export async function listBookingsForEvent(
   supabase: AnyClient,
   eventId: string
 ): Promise<EventBookingWithIdentity[]> {
-  const { data } = await supabase
-    .from("event_bookings")
-    .select("*")
-    .eq("event_id", eventId)
-    .order("created_at", { ascending: true });
-  const bookings = (data as EventBooking[] | null) ?? [];
+  // Paged (finding E6/E7): a large event's roster can exceed the 1000-row cap,
+  // which would silently drop attendees from the admin roster view. `created_at`
+  // isn't unique, so `id` is the paging tiebreaker that keeps a total order
+  // while preserving the booking-order the caller renders.
+  const bookings = await fetchAllRows<EventBooking>((from, to) =>
+    supabase
+      .from("event_bookings")
+      .select("*")
+      .eq("event_id", eventId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
   if (bookings.length === 0) return [];
 
   const memberIds = Array.from(
@@ -163,9 +171,10 @@ export async function listBookingsForEvent(
   const nameById = new Map<string, string>();
   if (memberIds.length > 0) {
     const admin = createAdminClient();
-    const { data: profs } = await admin.from("profiles").select("id, display_name").in("id", memberIds);
-    for (const p of profs ?? []) {
-      const row = p as { id: string; display_name: string };
+    const profs = await fetchAllRows<{ id: string; display_name: string }>((from, to) =>
+      admin.from("profiles").select("id, display_name").in("id", memberIds).order("id", { ascending: true }).range(from, to)
+    );
+    for (const row of profs) {
       nameById.set(row.id, row.display_name);
     }
   }
