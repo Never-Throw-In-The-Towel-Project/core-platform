@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
+import { securityHeaders } from "./src/lib/security/headers";
 
 const nextConfig: NextConfig = {
+  // Don't advertise the framework/version in a response header (E15, minor
+  // hardening). Next sets `X-Powered-By: Next.js` by default.
+  poweredByHeader: false,
   experimental: {
     serverActions: {
       // Default is 1MB. Community post photo uploads (submitCommunityPost)
@@ -10,6 +14,13 @@ const nextConfig: NextConfig = {
       // that plus multipart/form-data overhead.
       bodySizeLimit: "6mb",
     },
+  },
+  // E15: security response headers on every route + asset. The hardening
+  // headers are enforced; the Content-Security-Policy is served Report-Only
+  // for now (see src/lib/security/headers.ts for the full rationale and the
+  // planned enforce follow-up).
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders() }];
   },
   // The NTITT admin tools moved out of the member app (/community/admin/*,
   // /admin/invite) into the dedicated /admin Control Tower (see
