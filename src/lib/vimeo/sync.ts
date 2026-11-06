@@ -7,6 +7,7 @@ import { categorizeVideos } from "@/lib/ai/categorizeVideos";
 import { resolveCategory, type CategoryAssignment } from "@/lib/vimeo/categoryPlan";
 import { tagContentTopics } from "@/lib/content/topicTagging";
 import { tagContentStages } from "@/lib/content/stageTagging";
+import { isVimeoIdConflict } from "@/lib/content/vimeoConflict";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- accept either the session or service-role client
 type AnyClient = SupabaseClient<any, any>;
@@ -102,8 +103,24 @@ export async function syncVimeoLibrary(
     );
   });
 
-  const { data, error } = await supabase.from("content_items").insert(rows).select("id, vimeo_id");
-  if (error) return { status: "error", message: "Couldn’t save the imported videos. Please try again." };
+  const first = await supabase.from("content_items").insert(rows).select("id, vimeo_id");
+  let data = first.data;
+  if (first.error) {
+    if (!isVimeoIdConflict(first.error)) {
+      return { status: "error", message: "Couldn’t save the imported videos. Please try again." };
+    }
+    // The OTHER caller of this engine (the Brain button vs. the hourly cron) or
+    // an overlapping tick inserted one of these between the existingVimeoIds()
+    // check and this insert; the unique(vimeo_id) index rejected the batch.
+    // Re-check and retry once with only what's still absent, so the race skips
+    // cleanly rather than failing the whole run. (rows is index-aligned with batch.)
+    const present = await existingVimeoIds(supabase, batch.map((b) => b.id));
+    const retryRows = rows.filter((_, i) => !present.has(batch[i].id));
+    if (retryRows.length === 0) return { status: "success", imported: 0, failed: rows.length, more };
+    const retry = await supabase.from("content_items").insert(retryRows).select("id, vimeo_id");
+    if (retry.error) return { status: "error", message: "Couldn’t save the imported videos. Please try again." };
+    data = retry.data;
+  }
 
   const inserted = (data as { id: string; vimeo_id: string | null }[] | null) ?? [];
 

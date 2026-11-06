@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { verifySession, getProfile } from "@/lib/auth/dal";
 import { uploadContentAsset } from "@/lib/content/assetUpload";
 import { resolveContentMediaUpdate } from "@/lib/content/contentMedia";
+import { isVimeoIdConflict } from "@/lib/content/vimeoConflict";
 import {
   ContentInputSchema,
   parseContentImportCsv,
@@ -166,6 +167,10 @@ export async function createContentItem(
       .single();
 
     if (error || !inserted) {
+      // A video whose vimeo_id is already in the library (unique(vimeo_id)).
+      if (isVimeoIdConflict(error)) {
+        return { status: "error", message: "A video with that Vimeo ID is already in the library." };
+      }
       return { status: "error", message: "Something went wrong saving this. Please try again." };
     }
 
@@ -444,6 +449,16 @@ export async function importContentItems(
     }));
     const { error } = await supabase.from("content_items").insert(insertRows);
     if (error) {
+      // This import is all-or-nothing by design, so surface a duplicate Vimeo id
+      // clearly (already in the library, or repeated within the file) rather than
+      // a generic failure — the admin fixes the CSV and re-imports.
+      if (isVimeoIdConflict(error)) {
+        return {
+          status: "error",
+          message:
+            "One or more rows use a Vimeo ID that’s already in the library (or repeated in the file). Remove the duplicate(s) and re-import.",
+        };
+      }
       return { status: "error", message: "Couldn’t save the imported content. Please try again." };
     }
   } catch {
