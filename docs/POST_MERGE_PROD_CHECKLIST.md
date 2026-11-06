@@ -25,13 +25,42 @@ If the PR added files under `supabase/migrations/`:
 
 ```bash
 npx supabase link --project-ref <prod-project-ref>   # once
-npx supabase db push                                 # applies all pending migrations
+npx supabase migration list --remote                 # see what prod is missing BEFORE pushing
+npx supabase db push --remote                         # applies all pending migrations
 ```
+
+**First confirm prod isn't already behind** — merged ≠ pushed, and migrations
+drift quietly: more than one migration can pile up unapplied if a merge's prod
+step was skipped (we once found *three* merged migrations — including a
+security-hardening one — that had sat unapplied on prod for weeks). So always
+run `migration list --remote` first: every migration should show a timestamp in
+**both** the Local and Remote columns; any row blank in **Remote** is unapplied
+and `db push` will apply it, so make sure you recognise all of them.
+
+Two CLI gotchas (v3+), both of which `--dry-run` will surface:
+
+- `migration list`, `db push` and `db push --dry-run` all default to the
+  **local** stack — pass `--remote` to target the hosted project (otherwise it
+  tries `127.0.0.1` and fails with `connection refused`, needing Docker).
+- If a pending migration is dated *before* the latest one already on prod (an
+  out-of-order gap), `db push` **skips** it and tells you to rerun with
+  `--include-all`. Add that flag so the older file is applied too.
+
+Always `npx supabase db push --dry-run --remote` first and confirm it lists
+exactly the files you expect; then drop `--dry-run` (keeping `--remote`, plus
+`--include-all` if it asked for it) to apply for real.
 
 `db push` does **not** run `supabase/seed.sql` against a remote project — if the
 PR changed seed data, apply it separately (`psql "$DB_URL" -f supabase/seed.sql`,
 or paste into Studio → SQL Editor). No CLI? Paste each new migration file into
 Studio → SQL Editor in filename order. See `docs/DEPLOYMENT.md` for detail.
+
+> If `supabase/config.toml` uses `env(...)` for an Auth SMTP/hook secret you
+> don't have exported locally, the CLI may refuse *any* remote command with an
+> "Invalid hook config" validation error. `db push` never pushes `config.toml`
+> (that's `supabase config push`), so for a migration-only push it's safe to
+> temporarily disable that hook block in a throwaway clone to get past the
+> check.
 
 **Verify:** Table Editor shows the new tables with **RLS enabled**, or the
 `/api/health` schema probe reads `ok` (below).
