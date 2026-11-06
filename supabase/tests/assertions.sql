@@ -533,6 +533,44 @@ select set_config('request.jwt.claim.sub', '', false);
 select set_config('request.jwt.claim.role', '', false);
 
 -- ============================================================================
+-- E8: content_items.vimeo_id is unique for videos (one Vimeo video => one row),
+-- enforced by a PARTIAL unique index so non-video rows (vimeo_id IS NULL) don't
+-- collide. Runs as the bootstrap superuser; reuses the 'vimeo-admin' video the
+-- ntitt_admin block above just inserted.
+-- ============================================================================
+do $$
+declare idx_ok boolean;
+begin
+  select exists (
+    select 1 from pg_indexes
+    where schemaname = 'public' and tablename = 'content_items'
+      and indexname = 'content_items_vimeo_id_key'
+      and indexdef ilike '%unique%'
+      and indexdef ilike '%vimeo_id IS NOT NULL%'
+  ) into idx_ok;
+  if not idx_ok then
+    raise exception 'FAIL E8: partial unique index content_items_vimeo_id_key missing or not partial on vimeo_id';
+  end if;
+
+  -- A second row with an already-present vimeo_id must be rejected.
+  begin
+    insert into public.content_items (type, title, category, vimeo_id, is_published)
+    values ('video', 'dup of admin upload', 'mental_fitness', 'vimeo-admin', true);
+    raise exception 'FAIL E8: a duplicate vimeo_id was accepted';
+  exception when unique_violation then null;
+  end;
+
+  -- But multiple non-video rows (vimeo_id IS NULL) coexist fine -- the index is
+  -- partial, so NULLs are not constrained.
+  insert into public.content_items (type, title, category, external_url, is_published)
+  values ('document', 'e8 doc one', 'tools_tips', 'https://example.com/e8a', true),
+         ('document', 'e8 doc two', 'tools_tips', 'https://example.com/e8b', true);
+
+  raise notice 'PASS  E8 live: vimeo_id unique for videos, NULL-safe for non-video content';
+end
+$$;
+
+-- ============================================================================
 -- LIVE RLS test of challenges: ntitt_admin-only definition writes, published
 -- visibility, and PRIVATE participation (a member enrols only themselves and
 -- never sees another member's enrollment). Reuses usera / userb / the admin and
