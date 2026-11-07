@@ -1,5 +1,7 @@
 import { requireHrAdmin } from "@/lib/auth/dal";
 import { InviteEmployeeForm } from "@/components/admin/InviteEmployeeForm";
+import { RevokePendingInviteForm } from "@/components/admin/RevokePendingInviteForm";
+import { revokeEmployeeInvite } from "@/lib/actions/invite";
 
 /**
  * Workspace › People -- invite staff into this company. inviteEmployee derives
@@ -14,8 +16,9 @@ export default async function WorkspacePeoplePage() {
       <p className="mt-1 text-sm text-muted">
         Invite your staff. Each gets an email to set a password and start their wellbeing routine.
       </p>
-      <div className="mt-6">
+      <div className="mt-6 space-y-4">
         <InviteEmployeeForm />
+        <RevokePendingInviteForm action={revokeEmployeeInvite} />
       </div>
     </main>
   );

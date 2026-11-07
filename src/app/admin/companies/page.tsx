@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DIRECT_COMPANY_ID } from "@/lib/tenant/constants";
 import { DEFAULT_SKIN } from "@/lib/app/skin";
 import { InviteStaffForm } from "@/components/admin/InviteStaffForm";
+import { RevokePendingInviteForm } from "@/components/admin/RevokePendingInviteForm";
+import { revokeStaffInvite } from "@/lib/actions/invite";
 import { NewCompanyWizard } from "@/components/admin/NewCompanyWizard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
@@ -102,8 +104,9 @@ export default async function CompaniesPage() {
         <p className="mt-2 text-xs text-muted">
           Invite additional people (any role) into a company that already exists.
         </p>
-        <div className="mt-4">
+        <div className="mt-4 space-y-4">
           <InviteStaffForm companies={companies.map((c) => ({ id: c.id, name: c.name }))} />
+          <RevokePendingInviteForm action={revokeStaffInvite} />
         </div>
       </details>
     </main>

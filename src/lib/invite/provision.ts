@@ -12,6 +12,12 @@ import type { UserRole } from "@/types/database";
 
 export const INVITE_MISCONFIGURED = "Invites aren't set up correctly yet. Please contact NTITT support.";
 
+// auth-js (2.x) has no getUserByEmail, so revokePendingInvite finds the invitee
+// by scanning the paginated admin user list. A revoke is a rare admin action,
+// so a bounded scan is fine; the cap bounds outbound work on a large tenant.
+const REVOKE_SCAN_PAGE_SIZE = 1000;
+const REVOKE_SCAN_MAX_PAGES = 20;
+
 /**
  * The invite callback URL. Null (not a throw) when NEXT_PUBLIC_SITE_URL is
  * unset/invalid, so a misconfigured deploy surfaces a friendly error instead of
@@ -113,5 +119,66 @@ export async function provisionInvite(params: {
     await admin.auth.admin.deleteUser(data.user.id).catch(() => {});
     return { ok: false, message: "Couldn't finish setting up the invite. Please try again." };
   }
+  return { ok: true };
+}
+
+/**
+ * Rescind a PENDING invite — one sent to the wrong address, or to someone who
+ * left before accepting. Deleting the invitee's auth user invalidates the
+ * emailed link and frees the email to be re-invited (the same mechanism the
+ * rollback above relies on). Server-internal, like provisionInvite: callers own
+ * authorization. `restrictToCompanyId` scopes an hr_admin to a pending EMPLOYEE
+ * invite at their OWN company (exactly what they can create); pass null for an
+ * ntitt_admin, who may revoke any pending invite.
+ *
+ * Hard safety rule: this NEVER deletes an account that has actually been used.
+ * A genuine pending invite has never confirmed its email and never signed in;
+ * anything else is a live account, and revoke refuses rather than destroy it.
+ */
+export async function revokePendingInvite(params: {
+  email: string;
+  restrictToCompanyId: string | null;
+}): Promise<{ ok: true } | { ok: false; message: string }> {
+  const email = params.email.trim().toLowerCase();
+  if (!email) return { ok: false, message: "Enter the email the invite was sent to." };
+
+  const admin = createAdminClient();
+
+  let target: { id: string; confirmed: boolean } | null = null;
+  for (let page = 1; page <= REVOKE_SCAN_MAX_PAGES; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: REVOKE_SCAN_PAGE_SIZE });
+    if (error) return { ok: false, message: "Couldn't look up that invite. Please try again." };
+    const users = data?.users ?? [];
+    const match = users.find((u) => (u.email ?? "").toLowerCase() === email);
+    if (match) {
+      target = { id: match.id, confirmed: Boolean(match.email_confirmed_at || match.last_sign_in_at) };
+      break;
+    }
+    if (users.length < REVOKE_SCAN_PAGE_SIZE) break;
+  }
+
+  if (!target) return { ok: false, message: "No pending invite found for that email." };
+
+  // Already accepted (confirmed email or signed in at least once) => a live
+  // account, not a pending invite. Refuse: revoke must never delete a real user.
+  if (target.confirmed) {
+    return { ok: false, message: "That person has already accepted their invite — it can't be revoked here." };
+  }
+
+  // hr_admin scope: only a pending employee invite at their own company.
+  if (params.restrictToCompanyId) {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("company_id, role")
+      .eq("id", target.id)
+      .maybeSingle();
+    const p = profile as { company_id: string; role: string } | null;
+    if (!p || p.company_id !== params.restrictToCompanyId || p.role !== "employee") {
+      return { ok: false, message: "That invite isn't one you can revoke." };
+    }
+  }
+
+  const { error: deleteError } = await admin.auth.admin.deleteUser(target.id);
+  if (deleteError) return { ok: false, message: "Couldn't revoke that invite. Please try again." };
   return { ok: true };
 }
