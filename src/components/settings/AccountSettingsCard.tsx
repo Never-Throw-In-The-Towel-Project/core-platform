@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DisplayNameForm } from "./DisplayNameForm";
+import { SetNewPasswordForm } from "@/components/auth/SetNewPasswordForm";
 
 /**
  * The "your account" block shared by all three settings pages (member, HR,
@@ -25,6 +26,11 @@ export function AccountSettingsCard({
     <section className="space-y-4">
       <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">{heading}</h2>
       <DisplayNameForm currentName={displayName} />
+      <SetNewPasswordForm
+        heading="Password"
+        helpText="Set or change the password you use to sign in. You can always sign in with an email link instead."
+        submitLabel="Update password"
+      />
       {email && (
         <div className="border border-rule-hairline p-4">
           <p className="text-sm font-medium">Email</p>

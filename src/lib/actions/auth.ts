@@ -199,3 +199,40 @@ export async function setPassword(
 
   return { status: "success" };
 }
+
+export type PasswordResetRequestState =
+  | { status: "idle" }
+  | { status: "error"; message: string }
+  | { status: "sent" };
+
+/**
+ * "Forgot password?" — send a branded recovery email (resetPasswordForEmail).
+ *
+ * Anti-enumeration: returns the same "sent" state whether or not the email has
+ * an account (and even if the send fails), so the form never reveals which
+ * addresses are registered — mirrors signup.ts's own anti-enumeration path.
+ *
+ * The recovery link lands on /auth/confirm (type=recovery); the `next` carried
+ * in redirect_to sends the now-authenticated user on to /reset-password to set
+ * a new password (resolveLandingPath honours that safe `next`).
+ */
+export async function requestPasswordReset(
+  _prevState: PasswordResetRequestState,
+  formData: FormData
+): Promise<PasswordResetRequestState> {
+  const parsed = EmailSchema.safeParse(formData.get("email"));
+  if (!parsed.success) return { status: "error", message: "Enter a valid email." };
+
+  try {
+    const base = process.env.NEXT_PUBLIC_SITE_URL;
+    if (base) {
+      const redirectTo = new URL("/auth/confirm", base);
+      redirectTo.searchParams.set("next", "/reset-password");
+      const supabase = await createClient();
+      await supabase.auth.resetPasswordForEmail(parsed.data, { redirectTo: redirectTo.toString() });
+    }
+  } catch {
+    // Never reveal failure or existence: the user always sees the neutral "sent".
+  }
+  return { status: "sent" };
+}

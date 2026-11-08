@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import {
   signInWithMagicLink,
   signInWithPassword,
@@ -94,6 +95,9 @@ function PasswordForm({ next, onUseMagicLink }: { next?: string; onUseMagicLink:
       <button type="button" onClick={onUseMagicLink} className="text-sm text-muted underline hover:text-foreground">
         Use a sign-in link instead
       </button>
+      <Link href="/forgot-password" className="text-sm text-muted underline hover:text-foreground">
+        Forgot your password?
+      </Link>
     </form>
   );
 }
