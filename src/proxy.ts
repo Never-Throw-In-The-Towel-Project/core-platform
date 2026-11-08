@@ -56,7 +56,7 @@ import { extractTenantSlug, cookieDomainForHost } from "@/lib/tenant/resolve";
 // SMS or email link, who is NOT a platform user with a session -- it
 // authenticates via the signed ack token itself (see src/lib/actions/support.ts
 // acknowledgeSupportRequest), the same trust model as the old /api ack route.
-export const PUBLIC_PATHS = ["/", "/login", "/signup", "/auth/callback", "/auth/confirm", "/documentary", "/podcast", "/what-i-do", "/events", "/privacy", "/terms", "/support/ack"];
+export const PUBLIC_PATHS = ["/", "/login", "/signup", "/forgot-password", "/auth/callback", "/auth/confirm", "/documentary", "/podcast", "/what-i-do", "/events", "/privacy", "/terms", "/support/ack"];
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
