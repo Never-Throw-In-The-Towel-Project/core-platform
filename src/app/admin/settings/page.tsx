@@ -3,6 +3,8 @@ import { listSuperAdmins } from "@/lib/admin/superAdmins";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AccountSettingsCard } from "@/components/settings/AccountSettingsCard";
 import { InviteSuperAdminForm } from "@/components/admin/InviteSuperAdminForm";
+import { RevokePendingInviteForm } from "@/components/admin/RevokePendingInviteForm";
+import { revokeStaffInvite } from "@/lib/actions/invite";
 
 /**
  * Admin Centre › Settings. Two things: the signed-in admin's own account
@@ -37,8 +39,9 @@ export default async function AdminSettingsPage() {
           Super admins
         </h2>
 
-        <div className="mt-4">
+        <div className="mt-4 space-y-4">
           <InviteSuperAdminForm />
+          <RevokePendingInviteForm action={revokeStaffInvite} />
         </div>
 
         <div className="mt-6">

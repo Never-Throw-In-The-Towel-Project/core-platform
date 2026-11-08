@@ -3,8 +3,10 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { requireHrAdmin, requireNtittAdmin } from "@/lib/auth/dal";
-import { provisionInvite } from "@/lib/invite/provision";
+import { provisionInvite, revokePendingInvite } from "@/lib/invite/provision";
 import { type RoutineActionState } from "./routineState";
+
+const RevokeInviteSchema = z.object({ email: z.email() });
 
 const InviteEmployeeSchema = z.object({
   email: z.email(),
@@ -114,5 +116,46 @@ export async function inviteSuperAdmin(
     role: "ntitt_admin",
   });
   if (result.ok) revalidatePath("/admin/settings");
+  return result.ok ? { status: "success" } : { status: "error", message: result.message };
+}
+
+/**
+ * hr_admin rescinds a pending EMPLOYEE invite at their own company (wrong
+ * address, or the person left before accepting). Scoped to the caller's own
+ * company; refuses anything already accepted. Mirrors inviteEmployee's trust model.
+ */
+export async function revokeEmployeeInvite(
+  _prevState: RoutineActionState,
+  formData: FormData
+): Promise<RoutineActionState> {
+  const inviter = await requireHrAdmin();
+
+  const parsed = RevokeInviteSchema.safeParse({ email: formData.get("email") });
+  if (!parsed.success) return { status: "error", message: "Enter the email the invite was sent to." };
+
+  const result = await revokePendingInvite({ email: parsed.data.email, restrictToCompanyId: inviter.company_id });
+  if (result.ok) revalidatePath("/workspace/people");
+  return result.ok ? { status: "success" } : { status: "error", message: result.message };
+}
+
+/**
+ * ntitt_admin rescinds any pending invite (employee / hr_admin / super admin)
+ * by email — the counterpart to inviteStaffMember / inviteSuperAdmin. Refuses
+ * anything already accepted.
+ */
+export async function revokeStaffInvite(
+  _prevState: RoutineActionState,
+  formData: FormData
+): Promise<RoutineActionState> {
+  await requireNtittAdmin();
+
+  const parsed = RevokeInviteSchema.safeParse({ email: formData.get("email") });
+  if (!parsed.success) return { status: "error", message: "Enter the email the invite was sent to." };
+
+  const result = await revokePendingInvite({ email: parsed.data.email, restrictToCompanyId: null });
+  if (result.ok) {
+    revalidatePath("/admin/companies");
+    revalidatePath("/admin/settings");
+  }
   return result.ok ? { status: "success" } : { status: "error", message: result.message };
 }

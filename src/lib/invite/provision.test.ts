@@ -4,6 +4,7 @@ vi.mock("server-only", () => ({}));
 
 const inviteUserByEmail = vi.fn();
 const deleteUser = vi.fn(() => Promise.resolve({ error: null }));
+const listUsers = vi.fn();
 const maybeSingle = vi.fn();
 const upsert = vi.fn();
 const fromMock = vi.fn(() => ({
@@ -13,14 +14,14 @@ const fromMock = vi.fn(() => ({
   upsert,
 }));
 const createAdminClientMock = vi.fn(() => ({
-  auth: { admin: { inviteUserByEmail, deleteUser } },
+  auth: { admin: { inviteUserByEmail, deleteUser, listUsers } },
   from: fromMock,
 }));
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => createAdminClientMock(),
 }));
 
-const { provisionInvite } = await import("./provision");
+const { provisionInvite, revokePendingInvite } = await import("./provision");
 const { DIRECT_COMPANY_ID } = await import("@/lib/tenant/constants");
 
 const params = {
@@ -41,6 +42,7 @@ beforeEach(() => {
   });
   upsert.mockResolvedValue({ error: null });
   deleteUser.mockResolvedValue({ error: null });
+  listUsers.mockResolvedValue({ data: { users: [] }, error: null });
 });
 
 describe("provisionInvite", () => {
@@ -122,5 +124,90 @@ describe("provisionInvite", () => {
 
     expect(res).toEqual({ ok: false, message: "Someone with that email already has an account." });
     expect(upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("revokePendingInvite", () => {
+  const pending = { id: "pending-id", email: "invitee@acme.test", email_confirmed_at: null, last_sign_in_at: null };
+
+  it("deletes a never-accepted invite (ntitt scope, any company)", async () => {
+    listUsers.mockResolvedValue({ data: { users: [pending] }, error: null });
+
+    const res = await revokePendingInvite({ email: "invitee@acme.test", restrictToCompanyId: null });
+
+    expect(res).toEqual({ ok: true });
+    expect(deleteUser).toHaveBeenCalledWith("pending-id");
+  });
+
+  it("matches the email case-insensitively and trims it", async () => {
+    listUsers.mockResolvedValue({ data: { users: [pending] }, error: null });
+
+    const res = await revokePendingInvite({ email: "  Invitee@ACME.test ", restrictToCompanyId: null });
+
+    expect(res.ok).toBe(true);
+    expect(deleteUser).toHaveBeenCalledWith("pending-id");
+  });
+
+  it("refuses — and never deletes — an account that already confirmed its email", async () => {
+    listUsers.mockResolvedValue({
+      data: { users: [{ ...pending, email_confirmed_at: "2026-01-01T00:00:00Z" }] },
+      error: null,
+    });
+
+    const res = await revokePendingInvite({ email: "invitee@acme.test", restrictToCompanyId: null });
+
+    expect(res.ok).toBe(false);
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("refuses — and never deletes — an account that has signed in before", async () => {
+    listUsers.mockResolvedValue({
+      data: { users: [{ ...pending, last_sign_in_at: "2026-01-01T00:00:00Z" }] },
+      error: null,
+    });
+
+    const res = await revokePendingInvite({ email: "invitee@acme.test", restrictToCompanyId: null });
+
+    expect(res.ok).toBe(false);
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("refuses when no user matches the email", async () => {
+    listUsers.mockResolvedValue({ data: { users: [{ ...pending, email: "someone-else@acme.test" }] }, error: null });
+
+    const res = await revokePendingInvite({ email: "invitee@acme.test", restrictToCompanyId: null });
+
+    expect(res).toEqual({ ok: false, message: "No pending invite found for that email." });
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("hr_admin scope: deletes a pending EMPLOYEE invite at their own company", async () => {
+    listUsers.mockResolvedValue({ data: { users: [pending] }, error: null });
+    maybeSingle.mockResolvedValue({ data: { company_id: "company-acme", role: "employee" } });
+
+    const res = await revokePendingInvite({ email: "invitee@acme.test", restrictToCompanyId: "company-acme" });
+
+    expect(res).toEqual({ ok: true });
+    expect(deleteUser).toHaveBeenCalledWith("pending-id");
+  });
+
+  it("hr_admin scope: refuses a pending invite at a DIFFERENT company", async () => {
+    listUsers.mockResolvedValue({ data: { users: [pending] }, error: null });
+    maybeSingle.mockResolvedValue({ data: { company_id: "other-company", role: "employee" } });
+
+    const res = await revokePendingInvite({ email: "invitee@acme.test", restrictToCompanyId: "company-acme" });
+
+    expect(res.ok).toBe(false);
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("hr_admin scope: refuses a non-employee (privileged) pending invite at their company", async () => {
+    listUsers.mockResolvedValue({ data: { users: [pending] }, error: null });
+    maybeSingle.mockResolvedValue({ data: { company_id: "company-acme", role: "hr_admin" } });
+
+    const res = await revokePendingInvite({ email: "invitee@acme.test", restrictToCompanyId: "company-acme" });
+
+    expect(res.ok).toBe(false);
+    expect(deleteUser).not.toHaveBeenCalled();
   });
 });
