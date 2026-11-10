@@ -18,12 +18,18 @@ export interface NoticeView extends Notice {
   video_url: string | null;
 }
 
-function decorate(supabase: AnyClient, rows: Notice[] | null): NoticeView[] {
-  return (rows ?? []).map((n) => ({
-    ...n,
-    image_url: n.media_kind === "image" ? noticeImageUrl(supabase, n.image_path) : null,
-    video_url: n.media_kind === "video" ? noticeVideoUrl(supabase, n.video_path) : null,
-  }));
+// The media URLs are now short-lived SIGNED URLs (notice-media / notice-videos
+// are private — migration 20261110020000), so each is an async round-trip; sign
+// the whole set in parallel. Only the matching media_kind is signed, so a
+// text/vimeo notice costs nothing.
+async function decorate(supabase: AnyClient, rows: Notice[] | null): Promise<NoticeView[]> {
+  return Promise.all(
+    (rows ?? []).map(async (n) => ({
+      ...n,
+      image_url: n.media_kind === "image" ? await noticeImageUrl(supabase, n.image_path) : null,
+      video_url: n.media_kind === "video" ? await noticeVideoUrl(supabase, n.video_path) : null,
+    }))
+  );
 }
 
 /**
@@ -72,5 +78,6 @@ export async function listAllNoticesForAdmin(supabase: AnyClient): Promise<Notic
 export async function getNoticeForAdmin(supabase: AnyClient, id: string): Promise<NoticeView | null> {
   const { data } = await supabase.from("notices").select("*").eq("id", id).maybeSingle();
   if (!data) return null;
-  return decorate(supabase, [data as Notice])[0] ?? null;
+  const [view] = await decorate(supabase, [data as Notice]);
+  return view ?? null;
 }

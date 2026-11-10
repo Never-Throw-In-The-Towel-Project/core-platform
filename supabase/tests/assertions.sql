@@ -1540,7 +1540,7 @@ begin
 end
 $$;
 
--- ---- 12. Notice Board: ntitt_admin-only writes; notice-media bucket public ---
+-- ---- 12. Notice Board: ntitt_admin-only writes; notice-media bucket private --
 do $$
 declare wc text; is_public boolean;
 begin
@@ -1556,10 +1556,26 @@ begin
     raise exception 'anon can read notices (must be members-only)';
   end if;
   select public into is_public from storage.buckets where id = 'notice-media';
-  if is_public is distinct from true then
-    raise exception 'notice-media bucket missing or not public';
+  if is_public is null then raise exception 'notice-media bucket missing'; end if;
+  -- Locked down (20261110020000): notice images are PRIVATE, served to
+  -- authenticated members via read-time signed URLs. The old assertion required
+  -- `public = true`; the lockdown reverses it.
+  if is_public is distinct from false then
+    raise exception 'notice-media bucket is still public (lockdown expects private)';
   end if;
-  raise notice 'PASS  12  notices writes ntitt_admin-gated; anon has no read; notice-media bucket public';
+  if exists (
+    select 1 from pg_policy where polrelid = 'storage.objects'::regclass
+      and polname = 'notice media are publicly readable'
+  ) then
+    raise exception 'public notice-media read policy still present (lockdown)';
+  end if;
+  if not exists (
+    select 1 from pg_policy where polrelid = 'storage.objects'::regclass
+      and polname = 'authenticated users read notice media'
+  ) then
+    raise exception 'authenticated notice-media read policy missing (lockdown)';
+  end if;
+  raise notice 'PASS  12  notices writes ntitt_admin-gated; anon has no read; notice-media bucket private';
 end
 $$;
 
@@ -1634,17 +1650,31 @@ reset role;
 select set_config('request.jwt.claim.sub', '', false);
 select set_config('request.jwt.claim.role', '', false);
 
--- ---- 13. Notice video files (PR2): notice-videos bucket public + admin writes -
--- The bucket that backs media_kind='video' (uploaded video files). Public read
--- (same rationale as notice-media); the boundary is the WRITE policy, gated to
--- ntitt_admin exactly like notice-media. It's a separate bucket from notice-media
--- because video files need their own (larger) size + video MIME limits.
+-- ---- 13. Notice video files (PR2): notice-videos bucket private + admin writes
+-- The bucket that backs media_kind='video' (uploaded video files). Locked down
+-- (20261110020000): PRIVATE, served to authenticated members via read-time
+-- signed URLs; the WRITE policy stays gated to ntitt_admin exactly like
+-- notice-media. It's a separate bucket from notice-media because video files need
+-- their own (larger) size + video MIME limits.
 do $$
 declare is_public boolean; wc text; found boolean := false;
 begin
   select public into is_public from storage.buckets where id = 'notice-videos';
-  if is_public is distinct from true then
-    raise exception 'notice-videos bucket missing or not public';
+  if is_public is null then raise exception 'notice-videos bucket missing'; end if;
+  if is_public is distinct from false then
+    raise exception 'notice-videos bucket is still public (lockdown expects private)';
+  end if;
+  if exists (
+    select 1 from pg_policy where polrelid = 'storage.objects'::regclass
+      and polname = 'notice videos are publicly readable'
+  ) then
+    raise exception 'public notice-videos read policy still present (lockdown)';
+  end if;
+  if not exists (
+    select 1 from pg_policy where polrelid = 'storage.objects'::regclass
+      and polname = 'authenticated users read notice videos'
+  ) then
+    raise exception 'authenticated notice-videos read policy missing (lockdown)';
   end if;
   for wc in
     select pg_get_expr(polwithcheck, polrelid)
@@ -1658,7 +1688,7 @@ begin
     end if;
   end loop;
   if not found then raise exception 'no INSERT policy on storage.objects for notice-videos'; end if;
-  raise notice 'PASS  13  notice-videos bucket public + writes gated to ntitt_admin';
+  raise notice 'PASS  13  notice-videos bucket private + writes gated to ntitt_admin';
 end
 $$;
 

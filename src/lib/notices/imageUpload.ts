@@ -9,6 +9,11 @@ type AnyClient = SupabaseClient<any, any>;
 
 const BUCKET = "notice-media";
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MiB, matches the bucket's file_size_limit
+// notice-media is PRIVATE (20261110020000); a stored image is served via a
+// short-lived SIGNED URL rather than a permanent public link. 1h is ample: the
+// notice surfaces (Today board + Studio) are server-rendered per request, so a
+// fresh URL is minted on every load.
+const NOTICE_MEDIA_URL_TTL_SECONDS = 60 * 60;
 const EXTENSION_BY_TYPE: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -26,8 +31,8 @@ export type NoticeImageUploadResult = { path: string } | { error: string };
  * ntitt_admin-only (see the notices migration), so this must be called with the
  * admin's own request-scoped session client -- the same server-side-upload
  * pattern as uploadContentAsset. Returns the object PATH (not a URL); the bucket
- * is public, so the Today widget + Studio derive the public URL from the path
- * (noticeImageUrl) without a signed-URL round-trip.
+ * is private, so the Today widget + Studio sign the stored path at read time
+ * (noticeImageUrl).
  */
 export async function uploadNoticeImage(supabase: AnyClient, file: File): Promise<NoticeImageUploadResult> {
   const extension = EXTENSION_BY_TYPE[file.type];
@@ -49,10 +54,18 @@ export async function uploadNoticeImage(supabase: AnyClient, file: File): Promis
   return { path };
 }
 
-/** Resolve the public URL for a stored notice image path (null passes through). */
-export function noticeImageUrl(supabase: AnyClient, path: string | null | undefined): string | null {
+/**
+ * A short-lived signed URL for a stored notice image path, or null if there's no
+ * path or it can't be signed (so a caller renders without the image rather than a
+ * broken link). notice-media is private, so this replaces the old getPublicUrl.
+ */
+export async function noticeImageUrl(
+  supabase: AnyClient,
+  path: string | null | undefined
+): Promise<string | null> {
   if (!path) return null;
-  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+  const { data } = await supabase.storage.from(BUCKET).createSignedUrl(path, NOTICE_MEDIA_URL_TTL_SECONDS);
+  return data?.signedUrl ?? null;
 }
 
 /**
