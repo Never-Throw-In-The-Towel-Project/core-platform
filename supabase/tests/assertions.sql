@@ -189,10 +189,26 @@ begin
     raise exception 'content_items INSERT policy is not ntitt_admin gated: %', wc;
   end if;
   select public into is_public from storage.buckets where id = 'content-assets';
-  if is_public is distinct from true then
-    raise exception 'content-assets bucket missing or not public';
+  if is_public is null then raise exception 'content-assets bucket missing'; end if;
+  -- Locked down: the content library's documents/images are PRIVATE, served to
+  -- authenticated members via read-time signed URLs, never a permanent public
+  -- link. The old assertion required `public = true`; the lockdown reverses it.
+  if is_public is distinct from false then
+    raise exception 'content-assets bucket is still public (lockdown expects private)';
   end if;
-  raise notice 'PASS  4  content_items writes ntitt_admin-gated; content-assets bucket public';
+  if exists (
+    select 1 from pg_policy where polrelid = 'storage.objects'::regclass
+      and polname = 'content assets are publicly readable'
+  ) then
+    raise exception 'public content-assets read policy still present (lockdown)';
+  end if;
+  if not exists (
+    select 1 from pg_policy where polrelid = 'storage.objects'::regclass
+      and polname = 'authenticated users read content assets'
+  ) then
+    raise exception 'authenticated content-assets read policy missing (lockdown)';
+  end if;
+  raise notice 'PASS  4  content_items writes ntitt_admin-gated; content-assets bucket private';
 end
 $$;
 

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getContentItem } from "@/lib/content/queries";
 import { getContentResumeState } from "@/lib/content/progress";
+import { contentAssetSignedUrl } from "@/lib/content/brain";
 import { WatchModal } from "@/components/content/WatchModal";
 import type { ContentItem } from "@/types/database";
 
@@ -25,7 +26,8 @@ export default async function InterceptedWatch({ params }: { params: Promise<{ i
       if (item.external_url) {
         mediaUrl = item.external_url;
       } else if (item.asset_path) {
-        mediaUrl = supabase.storage.from("content-assets").getPublicUrl(item.asset_path).data.publicUrl;
+        // content-assets is private (20261110000000); sign the stored path at read time.
+        mediaUrl = await contentAssetSignedUrl(supabase, item.asset_path);
       }
     }
   } catch {

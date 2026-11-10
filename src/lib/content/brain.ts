@@ -21,27 +21,49 @@ export async function listContentFolders(supabase: AnyClient): Promise<ContentFo
   return (data as ContentFolder[] | null) ?? [];
 }
 
+// content-assets is PRIVATE (20261110000000_content_assets_private.sql), so a
+// document/image is served via a short-lived SIGNED URL rather than a permanent
+// public link. 1h is ample: these pages are server-rendered per request, so a
+// fresh URL is minted on every load; the watch page is open far less than that.
+const CONTENT_ASSET_URL_TTL_SECONDS = 60 * 60;
+
 /**
- * Public URL for a content-assets object path. content-assets is a public
- * bucket (see the spine migration), so the URL is derived, not signed — the
- * same derivation the member watch page uses (app/(app)/content/[id]/page.tsx).
+ * A short-lived signed URL for one content-assets object path, or null if it
+ * can't be signed (so a caller renders without the asset rather than a broken
+ * link). The same derivation the member watch page uses.
  */
-export function contentAssetUrl(supabase: AnyClient, path: string): string {
-  return supabase.storage.from("content-assets").getPublicUrl(path).data.publicUrl;
+export async function contentAssetSignedUrl(supabase: AnyClient, path: string): Promise<string | null> {
+  const { data } = await supabase.storage.from("content-assets").createSignedUrl(path, CONTENT_ASSET_URL_TTL_SECONDS);
+  return data?.signedUrl ?? null;
 }
 
 /**
- * Resolve display thumbnail/asset URLs for a set of items, keyed by item id.
- * Only items with an uploaded asset_path get an entry; videos (Vimeo) and
- * external-URL items are rendered from their own fields by the grid. Kept as a
- * lookup so the grid stays a plain client component fed serialisable data.
+ * Resolve display asset URLs for a set of items, keyed by item id. Only items
+ * with an uploaded asset_path get an entry; videos (Vimeo) and external-URL
+ * items are rendered from their own fields by the grid. Signs the whole batch in
+ * one round-trip. Kept as a lookup so the grid stays a plain client component
+ * fed serialisable data. An item whose URL can't be signed is simply omitted.
  */
-export function resolveAssetUrls(supabase: AnyClient, items: ContentItem[]): Record<string, string> {
+export async function resolveAssetUrls(
+  supabase: AnyClient,
+  items: ContentItem[]
+): Promise<Record<string, string>> {
+  const withAsset = items.filter((i): i is ContentItem & { asset_path: string } => Boolean(i.asset_path));
+  if (withAsset.length === 0) return {};
+
+  const { data } = await supabase.storage
+    .from("content-assets")
+    .createSignedUrls(withAsset.map((i) => i.asset_path), CONTENT_ASSET_URL_TTL_SECONDS);
+
+  const byPath = new Map<string, string>();
+  for (const entry of data ?? []) {
+    if (entry.signedUrl && entry.path) byPath.set(entry.path, entry.signedUrl);
+  }
+
   const map: Record<string, string> = {};
-  for (const item of items) {
-    if (item.asset_path) {
-      map[item.id] = contentAssetUrl(supabase, item.asset_path);
-    }
+  for (const item of withAsset) {
+    const url = byPath.get(item.asset_path);
+    if (url) map[item.id] = url;
   }
   return map;
 }

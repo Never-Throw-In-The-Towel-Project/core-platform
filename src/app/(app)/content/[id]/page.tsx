@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getContentItem } from "@/lib/content/queries";
 import { getContentResumeState } from "@/lib/content/progress";
+import { contentAssetSignedUrl } from "@/lib/content/brain";
 import { VimeoWatch } from "@/components/content/VimeoWatch";
 import type { ContentItem } from "@/types/database";
 
@@ -33,9 +34,9 @@ export default async function ContentItemPage({ params }: { params: Promise<{ id
       if (item.external_url) {
         mediaUrl = item.external_url;
       } else if (item.asset_path) {
-        // content-assets is a public bucket (see the spine migration); the
-        // public URL is derivable without a signed-URL round-trip.
-        mediaUrl = supabase.storage.from("content-assets").getPublicUrl(item.asset_path).data.publicUrl;
+        // content-assets is private (20261110000000); sign the stored object
+        // path at read time for this authenticated member.
+        mediaUrl = await contentAssetSignedUrl(supabase, item.asset_path);
       }
     }
   } catch {
