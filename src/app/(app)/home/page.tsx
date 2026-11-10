@@ -33,6 +33,8 @@ import { getMyHabitEntrySummary, type HabitEntrySummary } from "@/lib/habits/que
 import { StandFundamentals } from "@/components/today/StandFundamentals";
 import { getMyStandEntry } from "@/lib/routines/stand";
 import { toStandState, type StandState } from "@/lib/routines/standConfig";
+import { MyRoutines } from "@/components/today/MyRoutines";
+import { getTodaysRoutines, type TodayRoutine } from "@/lib/routines/userRoutines";
 import type { ContentItem, ChallengeWithProgress } from "@/types/database";
 
 const THEMED_TITLES: Record<Weekday, { title: string; subtitle: string }> = {
@@ -127,6 +129,7 @@ export default async function HomePage() {
   let habitSummary: HabitEntrySummary = { hasAny: false, active: null };
   let standState: StandState = toStandState(null);
   let weeklyReviewDone = false;
+  let myRoutines: TodayRoutine[] = [];
 
   try {
     const privateClient = await createClient("private");
@@ -152,6 +155,7 @@ export default async function HomePage() {
       noticesResult,
       habitSummaryResult,
       standEntryResult,
+      myRoutinesResult,
     ] = await Promise.all([
       privateClient
         .from("morning_entries")
@@ -199,6 +203,8 @@ export default async function HomePage() {
       getMyHabitEntrySummary(privateClient, profile.id, todayISO),
       // The member's own STAND fundamentals for today (private, own-rows only).
       getMyStandEntry(privateClient, profile.id, todayISO),
+      // The member's own routines that run today (private, own-rows only).
+      getTodaysRoutines(privateClient, profile.id, isoWeekday, todayISO),
     ]);
 
     morningDone = Boolean(morningEntry?.completed_at);
@@ -223,6 +229,7 @@ export default async function HomePage() {
     habitSummary = habitSummaryResult;
     standState = toStandState(standEntryResult);
     weeklyReviewDone = Boolean(weeklyReviewRow?.completed_at);
+    myRoutines = myRoutinesResult;
   } catch {
     // safe defaults above
   }
@@ -508,6 +515,11 @@ export default async function HomePage() {
                 yes/no questions, right under the habit tracker. Private,
                 own-rows only; nothing here is reported. */}
             <StandFundamentals initial={standState} />
+
+            {/* My Routines: the member's own routines that run today, one-tap to
+                tick off. Private, own-rows only; the card is the entry point to
+                the /routines manage page. */}
+            <MyRoutines routines={myRoutines} />
 
             {/* Support: the person-led "check in with me" flow, always present
                 and never triggered by anything the member logs. A second entry

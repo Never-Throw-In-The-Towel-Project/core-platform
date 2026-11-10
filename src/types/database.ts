@@ -466,6 +466,32 @@ export interface HabitCheckIn {
   updated_at: string;
 }
 
+// MY ROUTINES — a member's own user-authored recurring routines on the weekly
+// planner (private, own-rows only; see 20261110010000_user_routines.sql).
+export interface UserRoutine {
+  id: string;
+  user_id: string;
+  /** Free text the member types (e.g. "Gym"). Personal — never shared/reported. */
+  label: string;
+  /** ISO weekdays the routine runs on: 1 = Monday … 7 = Sunday. */
+  weekdays: number[];
+  /** Optional local time-of-day hint ("HH:MM:SS"), or null. */
+  time_of_day: string | null;
+  sort_order: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserRoutineCompletion {
+  id: string;
+  user_id: string;
+  routine_id: string;
+  /** The member's local day the routine was ticked (YYYY-MM-DD). */
+  completion_date: string;
+  created_at: string;
+}
+
 export interface DailyQuote {
   id: string;
   bank_position: number;
