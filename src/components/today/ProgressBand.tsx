@@ -25,6 +25,7 @@ export function ProgressBand({
   isoWeek,
   weekDaysIn,
   completedWeekdays,
+  weeklyReviewDone,
   todayKey,
 }: {
   rank: Rank;
@@ -39,6 +40,7 @@ export function ProgressBand({
   isoWeek: number;
   weekDaysIn: number;
   completedWeekdays: Set<Weekday>;
+  weeklyReviewDone: boolean;
   todayKey: DayKey;
 }) {
   const reviewTarget = activeDayCount + daysToReview;
@@ -68,7 +70,12 @@ export function ProgressBand({
             </span>
           </div>
           <div className="mt-2">
-            <WeekStrip completedWeekdays={completedWeekdays} todayKey={todayKey} onDark />
+            <WeekStrip
+              completedWeekdays={completedWeekdays}
+              todayKey={todayKey}
+              weeklyReviewDone={weeklyReviewDone}
+              onDark
+            />
           </div>
 
           <div className="mt-5 flex items-center justify-between">
