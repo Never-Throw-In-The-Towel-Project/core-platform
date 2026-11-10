@@ -58,7 +58,7 @@ export default async function BrainPage({
     items = itemsResult;
     folders = foldersResult;
     topics = topicsResult;
-    assetUrls = resolveAssetUrls(supabase, items);
+    assetUrls = await resolveAssetUrls(supabase, items);
   } catch {
     companies = [];
     items = [];
