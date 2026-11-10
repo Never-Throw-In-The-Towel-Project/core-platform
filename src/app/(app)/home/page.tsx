@@ -126,6 +126,7 @@ export default async function HomePage() {
   let notices: NoticeView[] = [];
   let habitSummary: HabitEntrySummary = { hasAny: false, active: null };
   let standState: StandState = toStandState(null);
+  let weeklyReviewDone = false;
 
   try {
     const privateClient = await createClient("private");
@@ -144,6 +145,7 @@ export default async function HomePage() {
       { data: morningEntry },
       { data: nightEntry },
       { data: todayCheckin },
+      { data: weeklyReviewRow },
       { data: company },
       dayItemsResult,
       myChallengesResult,
@@ -170,6 +172,17 @@ export default async function HomePage() {
             .eq("user_id", profile.id)
             .eq("week_start_date", mondayStart)
             .eq("weekday", todayWeekday)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      // This week's Weekly Review completion -- anchors Saturday's hero and
+      // lights the Saturday cell in the week strip. Only read Fri-Sun, when the
+      // review can exist (the server gate blocks it earlier anyway).
+      weeklyReviewOpen
+        ? privateClient
+            .from("weekly_reviews")
+            .select("completed_at")
+            .eq("user_id", profile.id)
+            .eq("week_start_date", mondayStart)
             .maybeSingle()
         : Promise.resolve({ data: null }),
       publicClient
@@ -209,6 +222,7 @@ export default async function HomePage() {
     notices = noticesResult;
     habitSummary = habitSummaryResult;
     standState = toStandState(standEntryResult);
+    weeklyReviewDone = Boolean(weeklyReviewRow?.completed_at);
   } catch {
     // safe defaults above
   }
@@ -237,6 +251,7 @@ export default async function HomePage() {
     morningDone,
     nightDone,
     answeredToday,
+    weeklyReviewDone,
   });
 
   // Which routine/check-in status rows to show below the hero: everything the
@@ -291,7 +306,10 @@ export default async function HomePage() {
   // loops (the design's compact list). Always ends with a Library entry so the
   // block is never empty on a plain weekday.
   const alsoThisWeek: { label: string; href: string }[] = [];
-  if (weeklyReviewOpen) alsoThisWeek.push({ label: "Weekly Review is open", href: "/weekly-review" });
+  // On Saturday the Weekly Review is already the hero, so it isn't repeated in
+  // the rail; Fri/Sun still nudge toward it here.
+  if (weeklyReviewOpen && phase.kind !== "weekly_review")
+    alsoThisWeek.push({ label: "Weekly Review is open", href: "/weekly-review" });
   if (todayWeekday === "sunday") {
     alsoThisWeek.push({ label: "Set Up Sunday is open", href: "/sunday-setup" });
   } else if (todayWeekday === "saturday") {
@@ -317,6 +335,7 @@ export default async function HomePage() {
         isoWeek={isoWeek}
         weekDaysIn={isoWeekday}
         completedWeekdays={completedWeekdays}
+        weeklyReviewDone={weeklyReviewDone}
         todayKey={todayWeekday}
       />
 
@@ -407,7 +426,12 @@ export default async function HomePage() {
             <section>
               <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">The Week</h2>
               <div className="mt-2">
-                <WeekStrip completedWeekdays={completedWeekdays} todayKey={todayWeekday} onDark />
+                <WeekStrip
+                  completedWeekdays={completedWeekdays}
+                  todayKey={todayWeekday}
+                  weeklyReviewDone={weeklyReviewDone}
+                  onDark
+                />
               </div>
             </section>
 
@@ -557,11 +581,13 @@ function buildHero({
   morningDone,
   nightDone,
   answeredToday,
+  weeklyReviewDone,
 }: {
   phase: ReturnType<typeof resolveHomePhase>;
   morningDone: boolean;
   nightDone: boolean;
   answeredToday: number;
+  weeklyReviewDone: boolean;
 }): HeroSpec {
   if (phase.kind === "morning") {
     return {
@@ -607,7 +633,19 @@ function buildHero({
     };
   }
 
-  // weekend_midday
+  if (phase.kind === "weekly_review") {
+    // Saturday: the week's reflection is the day's focus (opens Fri-Sun, but
+    // anchored here). Same card whether or not it's done -- "Review" vs "Start".
+    return {
+      headerLabel: "Saturday · Weekly Review",
+      title: "Review your week",
+      description: "Look back on the week — the wins, the lessons, the habits that served you — and reset for the next one.",
+      ctaLabel: weeklyReviewDone ? "Review →" : "Start →",
+      ctaHref: "/weekly-review",
+    };
+  }
+
+  // weekend_midday (Sunday)
   return {
     headerLabel: "Weekend",
     title: "Enjoy the weekend.",

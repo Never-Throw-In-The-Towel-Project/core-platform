@@ -11,18 +11,30 @@ import type { Weekday } from "@/types/database";
 export type HomePhase =
   | { kind: "morning" }
   | { kind: "themed"; weekday: Weekday }
+  // Saturday: the Weekly Review is the planner's focus for the whole day (not
+  // just midday). The review itself stays openable Fri-Sun -- see the server
+  // gate in lib/actions/weeklyReview.ts; this only anchors it to Saturday on
+  // the Today board, per the brief.
+  | { kind: "weekly_review" }
   | { kind: "weekend_midday"; isSunday: boolean }
   | { kind: "night" };
 
 export function resolveHomePhase(now: Date, timeZone: TimeZone): HomePhase {
-  const hour = localHour(now, timeZone);
+  const weekday = weekdayNameOrWeekend(now, timeZone);
 
+  // Saturday is anchored to the Weekly Review all day -- it's the day's focus
+  // on the planner. The daily Morning/Night routines still appear as rows
+  // beneath the hero (the home page adds every row the hero isn't), so nothing
+  // is lost; Saturday just leads with "review your week" instead of a generic
+  // weekend card.
+  if (weekday === "saturday") return { kind: "weekly_review" };
+
+  const hour = localHour(now, timeZone);
   if (hour < 12) return { kind: "morning" };
   if (hour >= 19) return { kind: "night" };
 
-  const weekday = weekdayNameOrWeekend(now, timeZone);
-  if (weekday === "saturday" || weekday === "sunday") {
-    return { kind: "weekend_midday", isSunday: weekday === "sunday" };
+  if (weekday === "sunday") {
+    return { kind: "weekend_midday", isSunday: true };
   }
   return { kind: "themed", weekday };
 }
