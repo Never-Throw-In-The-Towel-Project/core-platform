@@ -63,6 +63,8 @@ export async function GET() {
     stepChallengeOptins,
     habitChallenges,
     habitCheckIns,
+    userRoutines,
+    userRoutineCompletions,
     supportRequests,
     communityPosts,
     communityComments,
@@ -83,6 +85,9 @@ export async function GET() {
     // habit-quit challenges and daily clean/slip marks.
     rows(priv, "habit_challenges", warnings),
     rows(priv, "habit_check_ins", warnings),
+    // My Routines (own-rows-only) -- the member's own planner routines + daily ticks.
+    rows(priv, "user_routines", warnings),
+    rows(priv, "user_routine_completions", warnings),
     rows(priv, "support_requests", warnings),
     rows(pub, "community_posts", warnings, profile.id),
     rows(pub, "community_comments", warnings, profile.id),
@@ -112,6 +117,8 @@ export async function GET() {
     stepChallengeOptins,
     habitChallenges,
     habitCheckIns,
+    userRoutines,
+    userRoutineCompletions,
     supportRequests,
     communityPosts,
     communityComments,

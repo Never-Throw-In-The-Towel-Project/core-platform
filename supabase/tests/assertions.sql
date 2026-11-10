@@ -21,8 +21,8 @@ begin
     raise exception 'RLS disabled on % public/private table(s)', missing;
   end if;
   select count(*) into total from pg_tables where schemaname in ('public','private');
-  if total <> 43 then
-    raise exception 'expected 43 public+private tables (27+16), found %', total;
+  if total <> 45 then
+    raise exception 'expected 45 public+private tables (27+18), found %', total;
   end if;
   raise notice 'PASS  1  RLS enabled on all % public/private tables', total;
 end
@@ -2268,6 +2268,110 @@ begin
   end;
 
   raise notice 'PASS  28  community_posts shared_badge_key requires a genuinely-earned badge (C2)';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+-- ---------------------------------------------------------------------------
+-- 29  My Routines (private.user_routines + private.user_routine_completions):
+--     own-rows RLS with no admin reference, the weekday domain/non-empty checks,
+--     one-tick-per-day uniqueness, and cross-user isolation (migration
+--     20261110010000). These are user-authored personal data — own-rows only,
+--     never aggregated — so a member must see only their own.
+-- ---------------------------------------------------------------------------
+do $$
+declare rsec boolean; pol text;
+begin
+  select rowsecurity into rsec from pg_tables where schemaname='private' and tablename='user_routines';
+  if rsec is distinct from true then raise exception '29: RLS not enabled on private.user_routines'; end if;
+  select rowsecurity into rsec from pg_tables where schemaname='private' and tablename='user_routine_completions';
+  if rsec is distinct from true then raise exception '29: RLS not enabled on private.user_routine_completions'; end if;
+
+  select pg_get_expr(polqual, polrelid) into pol
+    from pg_policy where polrelid='private.user_routines'::regclass limit 1;
+  if pol is null or pol not like '%auth.uid()%user_id%' then
+    raise exception '29: user_routines policy is not own-rows (auth.uid() = user_id): %', pol;
+  end if;
+  select pg_get_expr(polqual, polrelid) into pol
+    from pg_policy where polrelid='private.user_routine_completions'::regclass limit 1;
+  if pol is null or pol not like '%auth.uid()%user_id%' then
+    raise exception '29: user_routine_completions policy is not own-rows: %', pol;
+  end if;
+
+  if exists (
+    select 1 from pg_policy
+    where polrelid in ('private.user_routines'::regclass, 'private.user_routine_completions'::regclass)
+      and pg_get_expr(polqual, polrelid) ~* 'hr_admin|ntitt_admin'
+  ) then
+    raise exception '29: a My Routines policy references an admin role -- must be own-rows only';
+  end if;
+
+  raise notice 'PASS  29a My Routines RLS is own-rows only, no admin reference';
+end
+$$;
+
+-- Weekday domain + non-empty checks (run as table owner, so the CHECKs — not RLS
+-- — are what reject these). Both inserts must fail, leaving no rows behind.
+do $$
+begin
+  begin
+    insert into private.user_routines (user_id, label, weekdays)
+      values ('a0000000-0000-0000-0000-00000000000a','bad day','{8}');
+    raise exception '29: an out-of-range weekday (8) was allowed';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into private.user_routines (user_id, label, weekdays)
+      values ('a0000000-0000-0000-0000-00000000000a','no days','{}');
+    raise exception '29: an empty weekday set was allowed';
+  exception when check_violation then null;
+  end;
+  raise notice 'PASS  29b weekday domain + non-empty checks hold';
+end
+$$;
+
+-- usera creates a routine + ticks it; a same-day re-tick is rejected.
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+set role authenticated;
+do $$
+declare rid uuid;
+begin
+  insert into private.user_routines (user_id, label, weekdays, time_of_day)
+    values ('a0000000-0000-0000-0000-00000000000a','Gym','{1,3,5}','07:00')
+    returning id into rid;
+  insert into private.user_routine_completions (user_id, routine_id, completion_date)
+    values ('a0000000-0000-0000-0000-00000000000a', rid, current_date);
+  begin
+    insert into private.user_routine_completions (user_id, routine_id, completion_date)
+      values ('a0000000-0000-0000-0000-00000000000a', rid, current_date);
+    raise exception '29: a duplicate same-day completion was allowed';
+  exception when unique_violation then null;
+  end;
+  if (select count(*) from private.user_routines) <> 1 then
+    raise exception '29: usera should see exactly their own routine';
+  end if;
+  raise notice 'PASS  29c usera can create a routine + tick it once per day';
+end
+$$;
+reset role;
+
+-- userb must see and touch none of usera's rows.
+select set_config('request.jwt.claim.sub', 'b0000000-0000-0000-0000-00000000000b', false);
+set role authenticated;
+do $$
+begin
+  if (select count(*) from private.user_routines) <> 0 then
+    raise exception '29: userb can see another member''s routines (RLS leak)';
+  end if;
+  if (select count(*) from private.user_routine_completions) <> 0 then
+    raise exception '29: userb can see another member''s completions (RLS leak)';
+  end if;
+  update private.user_routines set label='hijacked';
+  if found then
+    raise exception '29: userb was able to update another member''s routine';
+  end if;
+  raise notice 'PASS  29d userb cannot see or modify usera''s routines';
 end
 $$;
 reset role;
