@@ -22,7 +22,7 @@ export default async function MorningRoutinePage() {
     const privateClient = await createClient("private");
     const { data } = await privateClient
       .from("morning_entries")
-      .select("sleep_score, morning_walk, breathwork, cold_dip, power_list")
+      .select("sleep_score, morning_walk, breathwork, cold_dip, power_list, extra_routines")
       .eq("user_id", profile.id)
       .eq("entry_date", todayISODate(new Date(), profile.timezone))
       .maybeSingle();

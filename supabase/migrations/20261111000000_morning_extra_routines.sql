@@ -1,0 +1,18 @@
+-- ============================================================================
+-- Morning Routine: a member's OWN self-directed routines for the day.
+-- ============================================================================
+-- A subtle free-text field on the Morning Routine (like the Power List) where a
+-- member records any extra routines they've chosen to do that day themselves,
+-- outside NTITT's fixed morning checklist. Available every morning (the Morning
+-- Routine is a daily screen), and recapped read-only in the Saturday Weekly
+-- Review so the member can reflect on what they kept across the week.
+--
+-- This is DISTINCT from the structured "My Routines" feature (20261110010000):
+-- that is a recurring, tracked list ticked on the Today board; this is an
+-- in-the-moment, free-text note per day. Both are the member's own, private, and
+-- never reported.
+--
+-- Just a nullable text column on the existing private.morning_entries table —
+-- it inherits that table's own-rows RLS (auth.uid() = user_id), its grants, and
+-- the GDPR export (which selects *). No policy or grant change needed.
+alter table private.morning_entries add column if not exists extra_routines text;

@@ -39,6 +39,7 @@ export type MorningInitial = {
   breathwork: boolean;
   coldDip: boolean;
   powerList: string;
+  extraRoutines: string;
 };
 
 export function toMorningInitial(row: Row): MorningInitial {
@@ -48,6 +49,7 @@ export function toMorningInitial(row: Row): MorningInitial {
     breathwork: bool(row, "breathwork"),
     coldDip: bool(row, "cold_dip"),
     powerList: str(row, "power_list"),
+    extraRoutines: str(row, "extra_routines"),
   };
 }
 

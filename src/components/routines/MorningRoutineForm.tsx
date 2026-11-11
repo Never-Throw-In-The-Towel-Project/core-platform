@@ -14,6 +14,7 @@ const EMPTY: MorningInitial = {
   breathwork: false,
   coldDip: false,
   powerList: "",
+  extraRoutines: "",
 };
 
 // `initial` pre-fills today's already-saved entry so a second, partial submit
@@ -85,6 +86,23 @@ export function MorningRoutineForm({ initial = EMPTY }: { initial?: MorningIniti
           rows={4}
           defaultValue={initial.powerList}
           className="mt-1 w-full border border-rule-border bg-transparent px-3 py-2"
+        />
+      </label>
+
+      {/* The member's OWN self-directed routines for the day, outside the fixed
+          checklist above (Anthony's ask). Available every morning; recapped in
+          the Saturday Weekly Review. Kept subtle, like the Power List. */}
+      <label className="block text-sm">
+        <span className="font-medium">My own routines today</span>
+        <span className="mt-0.5 block text-xs text-muted">
+          Anything extra you&rsquo;ve decided to do today, outside the above. Private to you.
+        </span>
+        <textarea
+          name="extraRoutines"
+          rows={3}
+          defaultValue={initial.extraRoutines}
+          placeholder="e.g. 20 min run, no caffeine after midday, call a friend"
+          className="mt-1.5 w-full border border-rule-border bg-transparent px-3 py-2"
         />
       </label>
 
