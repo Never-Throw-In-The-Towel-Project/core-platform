@@ -12,6 +12,7 @@ const MorningEntrySchema = z.object({
   breathwork: z.boolean(),
   coldDip: z.boolean(),
   powerList: z.string().max(4000).optional(),
+  extraRoutines: z.string().max(4000).optional(),
 });
 
 export async function submitMorningEntry(
@@ -27,13 +28,14 @@ export async function submitMorningEntry(
     breathwork: formData.get("breathwork") === "true",
     coldDip: formData.get("coldDip") === "true",
     powerList: formData.get("powerList") || undefined,
+    extraRoutines: formData.get("extraRoutines") || undefined,
   });
 
   if (!parsed.success) {
     return { status: "error", message: "Please check the form and try again." };
   }
 
-  const { sleepScore, morningWalk, breathwork, coldDip, powerList } = parsed.data;
+  const { sleepScore, morningWalk, breathwork, coldDip, powerList, extraRoutines } = parsed.data;
 
   // Wrapped in try/catch: createClient() throws synchronously if the
   // URL/key are missing or malformed -- same gap already closed elsewhere.
@@ -48,6 +50,7 @@ export async function submitMorningEntry(
         breathwork,
         cold_dip: coldDip,
         power_list: powerList ?? null,
+        extra_routines: extraRoutines ?? null,
         completed_at: new Date().toISOString(),
       },
       { onConflict: "user_id,entry_date" }

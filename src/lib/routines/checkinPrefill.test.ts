@@ -16,6 +16,7 @@ describe("checkin prefill mappers (E2 -- surface the saved row so a re-submit ca
         breathwork: false,
         coldDip: false,
         powerList: "",
+        extraRoutines: "",
       });
     });
 
@@ -27,6 +28,7 @@ describe("checkin prefill mappers (E2 -- surface the saved row so a re-submit ca
           breathwork: false,
           cold_dip: true,
           power_list: "ship E2",
+          extra_routines: "20 min run",
           // unrelated columns are ignored
           completed_at: "2026-10-13T06:00:00Z",
         })
@@ -36,6 +38,7 @@ describe("checkin prefill mappers (E2 -- surface the saved row so a re-submit ca
         breathwork: false,
         coldDip: true,
         powerList: "ship E2",
+        extraRoutines: "20 min run",
       });
     });
 
@@ -46,6 +49,7 @@ describe("checkin prefill mappers (E2 -- surface the saved row so a re-submit ca
         breathwork: false,
         coldDip: false,
         powerList: "",
+        extraRoutines: "",
       });
     });
   });
