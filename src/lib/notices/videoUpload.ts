@@ -9,6 +9,12 @@ type AnyClient = SupabaseClient<any, any>;
 
 export const NOTICE_VIDEO_BUCKET = "notice-videos";
 
+// notice-videos is PRIVATE (20261110020000); a stored video is served via a
+// short-lived SIGNED URL rather than a permanent public link. 1h is ample: the
+// notice surfaces are server-rendered per request, so a fresh URL is minted on
+// every load.
+const NOTICE_VIDEO_URL_TTL_SECONDS = 60 * 60;
+
 const EXTENSION_BY_TYPE: Record<string, string> = {
   "video/mp4": "mp4",
   "video/webm": "webm",
@@ -54,10 +60,20 @@ export async function createNoticeVideoUploadTarget(
   return { path: data.path, token: data.token };
 }
 
-/** Resolve the public URL for a stored notice video path (null passes through). */
-export function noticeVideoUrl(supabase: AnyClient, path: string | null | undefined): string | null {
+/**
+ * A short-lived signed URL for a stored notice video path, or null if there's no
+ * path or it can't be signed (so a caller renders without the video rather than a
+ * broken link). notice-videos is private, so this replaces the old getPublicUrl.
+ */
+export async function noticeVideoUrl(
+  supabase: AnyClient,
+  path: string | null | undefined
+): Promise<string | null> {
   if (!path) return null;
-  return supabase.storage.from(NOTICE_VIDEO_BUCKET).getPublicUrl(path).data.publicUrl;
+  const { data } = await supabase.storage
+    .from(NOTICE_VIDEO_BUCKET)
+    .createSignedUrl(path, NOTICE_VIDEO_URL_TTL_SECONDS);
+  return data?.signedUrl ?? null;
 }
 
 /** Best-effort delete of a notice video object when it's replaced, the notice is
