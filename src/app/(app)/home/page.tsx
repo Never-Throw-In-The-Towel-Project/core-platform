@@ -275,7 +275,7 @@ export default async function HomePage() {
         ? `Done${morningTime ? ` at ${morningTime}` : ""}${
             sleepScore != null ? ` · slept ${sleepScore}/10 · private to you` : ""
           }`
-        : "Win the morning, win the day",
+        : "The morning is the most programmable part of the day — win the morning, win the day!",
       trailing: morningDone ? "Edit" : formatHM(profile.morning_notification_time),
     });
   }
@@ -605,7 +605,7 @@ function buildHero({
     return {
       headerLabel: "Morning Routine · 5 min",
       title: "Win the morning",
-      description: "Win the morning, win the day.",
+      description: "The morning is the most programmable part of the day — win the morning, win the day!",
       ctaLabel: morningDone ? "Review →" : "Start →",
       ctaHref: "/morning-routine",
     };
