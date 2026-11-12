@@ -106,6 +106,10 @@ begin
   if not has_column_privilege('authenticated','public.profiles','onboarding_completed','update') then
     raise exception 'authenticated lost UPDATE on profiles.onboarding_completed (breaks onboarding)';
   end if;
+  -- The welcome-video "seen" flag the member stamps on their own row (20261112000000).
+  if not has_column_privilege('authenticated','public.profiles','welcome_video_seen_at','update') then
+    raise exception 'authenticated lost UPDATE on profiles.welcome_video_seen_at (breaks welcome-video dismiss)';
+  end if;
   raise notice 'PASS  2c2 profiles role/company_id UPDATE revoked; self-service columns kept';
 end
 $$;

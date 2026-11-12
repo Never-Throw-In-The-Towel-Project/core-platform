@@ -61,6 +61,10 @@ export interface Profile {
   tc_agreed_at: string | null;
   tc_version: string | null;
   onboarding_completed: boolean;
+  /** When the member dismissed the first-run "why NTITT" welcome video. Null =
+   *  not seen yet (the modal shows on their first Today screen). Backfilled to
+   *  now() for members who pre-date the feature, so only new signups see it. */
+  welcome_video_seen_at: string | null;
   community_opt_in: boolean;
   podcast_guest_opt_in: boolean;
   podcast_guest_anonymity_preference: PodcastGuestAnonymityPreference | null;

@@ -35,6 +35,7 @@ import { getMyStandEntry } from "@/lib/routines/stand";
 import { toStandState, type StandState } from "@/lib/routines/standConfig";
 import { MyRoutines } from "@/components/today/MyRoutines";
 import { getTodaysRoutines, type TodayRoutine } from "@/lib/routines/userRoutines";
+import { WelcomeVideoModal } from "@/components/welcome/WelcomeVideoModal";
 import type { ContentItem, ChallengeWithProgress } from "@/types/database";
 
 const THEMED_TITLES: Record<Weekday, { title: string; subtitle: string }> = {
@@ -329,6 +330,11 @@ export default async function HomePage() {
     // remaps the ground tokens so every card here renders on near-black, while
     // the same shared components stay light on their own pages (see globals.css).
     <main data-surface="ink" className="min-h-full bg-background text-foreground">
+      {/* First-run "why NTITT" welcome video: a one-time modal for a new member
+          (role gated to employees; shown while welcome_video_seen_at is null).
+          Dismissing stamps the flag; revisitable any time from Settings. */}
+      {profile.role === "employee" && !profile.welcome_video_seen_at && <WelcomeVideoModal />}
+
       <ProgressBand
         rank={stats.rank}
         streak={stats.streak}
