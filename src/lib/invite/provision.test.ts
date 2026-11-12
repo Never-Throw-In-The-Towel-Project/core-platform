@@ -33,6 +33,9 @@ const params = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // provisionInvite now logs the real cause on an inviteUserByEmail failure;
+  // silence it so the error-path tests don't spew to the test console.
+  vi.spyOn(console, "error").mockImplementation(() => {});
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://app.neverthrowinthetowel.uk");
   inviteUserByEmail.mockResolvedValue({ data: { user: { id: "invitee-id" } }, error: null });
   // Default: the handle_new_user trigger's untouched default row for a genuinely
@@ -124,6 +127,18 @@ describe("provisionInvite", () => {
 
     expect(res).toEqual({ ok: false, message: "Someone with that email already has an account." });
     expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it("maps a rate-limited auth email to an actionable 'wait and retry' message", async () => {
+    inviteUserByEmail.mockResolvedValue({ data: { user: null }, error: { message: "email rate limit exceeded" } });
+
+    const res = await provisionInvite(params);
+
+    expect(res.ok).toBe(false);
+    expect(res).toMatchObject({ message: expect.stringMatching(/wait a minute/i) });
+    expect(upsert).not.toHaveBeenCalled();
+    // The real cause is logged (diagnosability), not swallowed.
+    expect(console.error).toHaveBeenCalled();
   });
 });
 
