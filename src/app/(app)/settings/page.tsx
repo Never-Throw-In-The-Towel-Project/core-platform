@@ -60,6 +60,22 @@ export default async function SettingsPage() {
       </div>
 
       <div className="mt-10 space-y-4">
+        <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">About</h2>
+        <Link
+          href="/welcome"
+          className="block border border-rule-hairline p-4 transition-colors hover:bg-foreground/[0.03]"
+        >
+          <p className="text-sm font-medium">Why Never Throw In The Towel</p>
+          <p className="mt-1 text-xs text-muted">
+            Watch Anthony&apos;s welcome video again — the reason this platform exists.
+          </p>
+          <span className="mt-3 inline-block text-xs font-extrabold uppercase tracking-wide text-brand-accent-deep">
+            Watch the welcome video →
+          </span>
+        </Link>
+      </div>
+
+      <div className="mt-10 space-y-4">
         <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Reminders</h2>
         <TimezoneForm currentTimezone={profile.timezone} />
         <NotificationTimesForm
