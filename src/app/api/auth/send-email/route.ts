@@ -40,6 +40,10 @@ export async function POST(req: NextRequest) {
     Math.floor(Date.now() / 1000)
   );
   if (!verified) {
+    // A burst of these when an auth email is attempted = the hook secret doesn't
+    // match between Supabase and this deployment (GoTrue then reports the email as
+    // failed to send). Logged so that symptom is visible in the deployment logs.
+    console.warn("[auth/send-email] rejected an unverified request — check SUPABASE_AUTH_HOOK_SECRET matches Supabase");
     return NextResponse.json({ error: { http_code: 401, message: "invalid signature" } }, { status: 401 });
   }
 
@@ -71,13 +75,21 @@ export async function POST(req: NextRequest) {
       actionUrl: buildActionUrl(data),
       token: data.token ? String(data.token) : undefined,
     }));
-  } catch {
+  } catch (err) {
+    console.error("[auth/send-email] could not build email (check NEXT_PUBLIC_SITE_URL)", err);
     return NextResponse.json({ error: { http_code: 500, message: "could not build email" } }, { status: 500 });
   }
 
   const res = await sendBrandedEmail({ to, subject, html, text });
   if (!res.ok) {
-    // Let GoTrue report the failure (auth needs the email to have been sent).
+    // The real Brevo cause (bad/absent BREVO_API_KEY, unauthenticated sender, a
+    // Brevo API error) so a failed auth email is diagnosable here rather than
+    // only as a generic GoTrue error upstream. Let GoTrue still report the
+    // failure (auth needs the email to have actually been sent).
+    console.error("[auth/send-email] Brevo send failed", {
+      actionType: data.email_action_type,
+      cause: res.error,
+    });
     return NextResponse.json({ error: { http_code: 500, message: res.error ?? "send failed" } }, { status: 500 });
   }
   return NextResponse.json({}, { status: 200 });

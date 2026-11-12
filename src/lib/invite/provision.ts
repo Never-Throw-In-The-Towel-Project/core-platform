@@ -33,10 +33,16 @@ export function buildInviteRedirect(): string | null {
   }
 }
 
-/** Friendly copy for the one invite error an admin can actually act on. */
+/** Friendly copy for the invite errors an admin can actually act on. */
 export function inviteErrorMessage(message: string): string {
   if (/already registered|already exists/i.test(message)) {
     return "Someone with that email already has an account.";
+  }
+  // GoTrue throttles auth emails (the built-in mailer caps near ~2/hour; a real
+  // ceiling is set in the dashboard). Bulk invites in one sitting hit this —
+  // tell the admin to wait rather than leaving them staring at a generic error.
+  if (/rate limit|too many requests/i.test(message)) {
+    return "Too many invite emails have gone out in a short time. Wait a minute, then try again.";
   }
   return "Something went wrong sending the invite. Please try again.";
 }
@@ -64,7 +70,21 @@ export async function provisionInvite(params: {
     data: { company_id: params.companyId, role: params.role, display_name: params.displayName },
     redirectTo,
   });
-  if (error || !data.user) return { ok: false, message: inviteErrorMessage(error?.message ?? "") };
+  if (error || !data.user) {
+    // Log the REAL cause so the failure is diagnosable in Vercel logs — the
+    // admin-facing message is deliberately generic, but without this the actual
+    // reason (an email-delivery failure via the Send Email hook → Brevo, a rate
+    // limit, a misconfigured hook secret) was swallowed at every step of the
+    // chain, which is exactly why this took a code read to diagnose. The invitee
+    // email is PII, so it's left out — the admin knows which address they typed;
+    // the cause is what's missing. Matches the log-the-real-error pattern used in
+    // finishOnboarding / uploadNoticeImage.
+    console.error("[provisionInvite] inviteUserByEmail failed", {
+      role: params.role,
+      cause: error?.message ?? "no user returned",
+    });
+    return { ok: false, message: inviteErrorMessage(error?.message ?? "") };
+  }
 
   // Guard against clobbering an existing account (finding E-new-6). For a
   // genuinely new invite the handle_new_user trigger has just inserted a default
