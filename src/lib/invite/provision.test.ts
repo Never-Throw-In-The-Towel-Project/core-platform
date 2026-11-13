@@ -129,6 +129,23 @@ describe("provisionInvite", () => {
     expect(upsert).not.toHaveBeenCalled();
   });
 
+  it("maps GoTrue's email_exists code to a clear 'already has an account' message (the real duplicate-invite case)", async () => {
+    // GoTrue phrases a duplicate as "...has already been registered" (note the
+    // "been") and sets code "email_exists". Keying off the code, not the wording,
+    // is what makes this surface a clear message instead of the generic "try
+    // again" — the exact defect an admin hit re-inviting an existing super admin.
+    inviteUserByEmail.mockResolvedValue({
+      data: { user: null },
+      error: { message: "A user with this email address has already been registered", code: "email_exists" },
+    });
+
+    const res = await provisionInvite(params);
+
+    expect(res).toEqual({ ok: false, message: "Someone with that email already has an account." });
+    expect(upsert).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalled();
+  });
+
   it("maps a rate-limited auth email to an actionable 'wait and retry' message", async () => {
     inviteUserByEmail.mockResolvedValue({ data: { user: null }, error: { message: "email rate limit exceeded" } });
 
