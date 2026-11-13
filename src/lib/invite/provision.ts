@@ -33,14 +33,36 @@ export function buildInviteRedirect(): string | null {
   }
 }
 
-/** Friendly copy for the invite errors an admin can actually act on. */
-export function inviteErrorMessage(message: string): string {
-  if (/already registered|already exists/i.test(message)) {
+/**
+ * Friendly copy for the invite errors an admin can actually act on.
+ *
+ * Keyed off GoTrue's stable error `code` first (auth-js `ErrorCode`), with the
+ * message text only as a fallback. The human message wording is NOT a contract:
+ * GoTrue phrases a duplicate as "...has already been registered", which the old
+ * message-only `/already registered/` match missed (the word "been" sits in the
+ * middle), so a plain re-invite of an existing account surfaced the generic
+ * "try again" — actively misleading, since the retry can never succeed. The code
+ * is the documented, version-stable signal, so prefer it.
+ */
+export function inviteErrorMessage(message: string, code?: string): string {
+  if (code === "email_exists" || code === "user_already_exists") {
     return "Someone with that email already has an account.";
   }
   // GoTrue throttles auth emails (the built-in mailer caps near ~2/hour; a real
   // ceiling is set in the dashboard). Bulk invites in one sitting hit this —
   // tell the admin to wait rather than leaving them staring at a generic error.
+  if (code === "over_email_send_rate_limit") {
+    return "Too many invite emails have gone out in a short time. Wait a minute, then try again.";
+  }
+  if (code === "email_address_invalid") {
+    return "That email address doesn't look valid. Check it and try again.";
+  }
+  // Fallbacks for an error that reached us without a code (a network/transport
+  // failure, or a non-API error). The duplicate match is broadened to also catch
+  // GoTrue's "has already been registered" phrasing.
+  if (/already\s+(been\s+)?registered|already exists/i.test(message)) {
+    return "Someone with that email already has an account.";
+  }
   if (/rate limit|too many requests/i.test(message)) {
     return "Too many invite emails have gone out in a short time. Wait a minute, then try again.";
   }
@@ -81,9 +103,10 @@ export async function provisionInvite(params: {
     // finishOnboarding / uploadNoticeImage.
     console.error("[provisionInvite] inviteUserByEmail failed", {
       role: params.role,
+      code: error?.code ?? "no_user_returned",
       cause: error?.message ?? "no user returned",
     });
-    return { ok: false, message: inviteErrorMessage(error?.message ?? "") };
+    return { ok: false, message: inviteErrorMessage(error?.message ?? "", error?.code) };
   }
 
   // Guard against clobbering an existing account (finding E-new-6). For a
