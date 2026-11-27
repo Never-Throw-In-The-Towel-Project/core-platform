@@ -80,6 +80,49 @@ export interface Profile {
   last_seen_at: string | null;
 }
 
+// SUBSCRIPTIONS & BILLING (Phase 1 B2C) — see
+// supabase/migrations/20261127000000_subscriptions_schema.sql and
+// docs/SUBSCRIPTIONS_PLAN.md. Both tables are member-readable (own row) but
+// service-role-written ONLY (Stripe webhook + start-trial action), so entitlement
+// is tamper-proof.
+export type SubscriptionSource = "app_trial" | "stripe";
+export type SubscriptionStatus =
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "canceled"
+  | "incomplete"
+  | "incomplete_expired"
+  | "unpaid"
+  | "paused";
+
+/** Per-user billing record: the Stripe customer mapping + the no-card trial
+ *  guard (`trial_started_at` — set once, so a lapsed user gets no second trial). */
+export interface BillingCustomer {
+  user_id: string;
+  stripe_customer_id: string | null;
+  trial_started_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** The authoritative per-user subscription/trial state — the input to the
+ *  entitlement resolver. One row per user (the app-trial row is updated in place
+ *  on conversion to a paid Stripe subscription). */
+export interface Subscription {
+  user_id: string;
+  source: SubscriptionSource;
+  status: SubscriptionStatus;
+  tier: "pro";
+  price_id: string | null;
+  stripe_subscription_id: string | null;
+  current_period_end: string | null;
+  trial_end: string | null;
+  cancel_at_period_end: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PushSubscriptionRow {
   id: string;
   user_id: string;

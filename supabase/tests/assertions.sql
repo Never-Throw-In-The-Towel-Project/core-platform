@@ -21,8 +21,8 @@ begin
     raise exception 'RLS disabled on % public/private table(s)', missing;
   end if;
   select count(*) into total from pg_tables where schemaname in ('public','private');
-  if total <> 45 then
-    raise exception 'expected 45 public+private tables (27+18), found %', total;
+  if total <> 47 then
+    raise exception 'expected 47 public+private tables (29+18), found %', total;
   end if;
   raise notice 'PASS  1  RLS enabled on all % public/private tables', total;
 end
@@ -2406,6 +2406,63 @@ begin
     raise exception '29: userb was able to update another member''s routine';
   end if;
   raise notice 'PASS  29d userb cannot see or modify usera''s routines';
+end
+$$;
+reset role;
+select set_config('request.jwt.claim.sub', '', false);
+
+-- ============================================================================
+-- LIVE RLS test of the BILLING tables (billing_customers + subscriptions):
+-- a member may READ only their OWN billing row and may NEVER write either table
+-- (all writes are service-role: the Stripe webhook + the start-trial action).
+-- Reuses usera / userb. See 20261127000000_subscriptions_schema.sql.
+-- ============================================================================
+-- Seed one billing row per user as the bootstrap superuser (the service-role
+-- analogue, bypassing RLS): userb's to prove isolation, usera's to prove own-read.
+insert into public.billing_customers (user_id, stripe_customer_id, trial_started_at) values
+  ('b0000000-0000-0000-0000-00000000000b', 'cus_userb', now()),
+  ('a0000000-0000-0000-0000-00000000000a', 'cus_usera', now());
+insert into public.subscriptions (user_id, source, status, tier, trial_end) values
+  ('b0000000-0000-0000-0000-00000000000b', 'app_trial', 'trialing', 'pro', now() + interval '7 days'),
+  ('a0000000-0000-0000-0000-00000000000a', 'app_trial', 'trialing', 'pro', now() + interval '7 days');
+
+select set_config('request.jwt.claim.sub', 'a0000000-0000-0000-0000-00000000000a', false);
+set role authenticated;
+do $$
+declare visible int;
+begin
+  -- TEST 1 (OWN-READ + ISOLATION): usera sees exactly their own 1 row in each
+  select count(*) into visible from public.billing_customers;
+  if visible <> 1 then raise exception 'FAIL billing-read: expected usera to see exactly 1 (own) billing_customers row, saw %', visible; end if;
+  select count(*) into visible from public.subscriptions;
+  if visible <> 1 then raise exception 'FAIL billing-read: expected usera to see exactly 1 (own) subscriptions row, saw %', visible; end if;
+
+  -- TEST 2 (must be BLOCKED): a member cannot insert a subscription for themselves
+  -- -- only the service role may (no insert grant, no insert policy).
+  begin
+    insert into public.subscriptions (user_id, source, status, tier)
+      values ('a0000000-0000-0000-0000-00000000000a', 'stripe', 'active', 'pro');
+    raise exception 'FAIL billing-write: a member inserted a subscription row';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- TEST 3 (must be BLOCKED): a member cannot update their subscription status
+  -- (e.g. self-grant 'active').
+  begin
+    update public.subscriptions set status = 'active' where user_id = 'a0000000-0000-0000-0000-00000000000a';
+    raise exception 'FAIL billing-write: a member updated a subscription row';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- TEST 4 (must be BLOCKED): a member cannot grant themselves a trial.
+  begin
+    insert into public.billing_customers (user_id, trial_started_at)
+      values ('a0000000-0000-0000-0000-00000000000a', now());
+    raise exception 'FAIL billing-write: a member wrote a billing_customers row';
+  exception when insufficient_privilege then null;
+  end;
+
+  raise notice 'PASS  30 live: billing own-read-only; member writes blocked (service-role only)';
 end
 $$;
 reset role;
