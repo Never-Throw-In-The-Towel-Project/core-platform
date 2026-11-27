@@ -21,6 +21,11 @@ const FULL_ENV: Record<string, string> = {
   TWILIO_FROM_NUMBER: "+441234567890",
   ANTHROPIC_API_KEY: "sk-ant",
   vimeo_access_token: "vimeo-token",
+  STRIPE_SECRET_KEY: "sk_test_x",
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_x",
+  STRIPE_WEBHOOK_SECRET: "whsec_x",
+  STRIPE_PRICE_PRO_MONTHLY: "price_monthly",
+  STRIPE_PRICE_PRO_ANNUAL: "price_annual",
 };
 
 const group = (summary: ReturnType<typeof summarizeConfig>, key: string) =>
@@ -73,6 +78,25 @@ describe("summarizeConfig", () => {
     expect(summary.criticalOk).toBe(true);
     expect(group(summary, "ai").configured).toBe(false);
     expect(group(summary, "sms").configured).toBe(false);
+  });
+
+  it("treats the (not-yet-live) stripe group as non-critical — its absence keeps criticalOk true", () => {
+    const {
+      STRIPE_SECRET_KEY,
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+      STRIPE_WEBHOOK_SECRET,
+      STRIPE_PRICE_PRO_MONTHLY,
+      STRIPE_PRICE_PRO_ANNUAL,
+      ...env
+    } = FULL_ENV;
+    void STRIPE_SECRET_KEY;
+    void NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+    void STRIPE_WEBHOOK_SECRET;
+    void STRIPE_PRICE_PRO_MONTHLY;
+    void STRIPE_PRICE_PRO_ANNUAL;
+    const summary = summarizeConfig(env);
+    expect(summary.criticalOk).toBe(true);
+    expect(group(summary, "stripe").configured).toBe(false);
   });
 
   it("never leaks values — only var names appear in `missing`", () => {

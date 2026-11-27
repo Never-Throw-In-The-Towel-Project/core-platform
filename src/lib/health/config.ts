@@ -68,6 +68,22 @@ const GROUP_DEFS: { key: string; label: string; critical: boolean; vars: string[
     vars: ["SUPPORT_ACK_TOKEN_SECRET", "NTITT_FALLBACK_CONTACT_EMAIL"],
   },
   {
+    key: "stripe",
+    label: "Stripe subscriptions (B2C billing)",
+    // Non-critical until B2C subscriptions go live. Flip to `critical: true` at
+    // launch so /api/health gates on billing readiness; until then an unset Stripe
+    // config must NOT fail criticalOk (the feature isn't live yet). See
+    // docs/SUBSCRIPTIONS_PLAN.md.
+    critical: false,
+    vars: [
+      "STRIPE_SECRET_KEY",
+      "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+      "STRIPE_WEBHOOK_SECRET",
+      "STRIPE_PRICE_PRO_MONTHLY",
+      "STRIPE_PRICE_PRO_ANNUAL",
+    ],
+  },
+  {
     key: "sms",
     label: "Support SMS (Twilio)",
     critical: false,
