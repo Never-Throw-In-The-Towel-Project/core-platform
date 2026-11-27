@@ -8,6 +8,7 @@ import { NotificationTimesForm } from "@/components/settings/NotificationTimesFo
 import { PushNotificationToggle } from "@/components/settings/PushNotificationToggle";
 import { DeleteAccountForm } from "@/components/settings/DeleteAccountForm";
 import { GuidelinesList } from "@/components/community/GuidelinesList";
+import { BillingSection } from "@/components/settings/BillingSection";
 
 export default async function SettingsPage() {
   // getProfile and getPushSubscriptionStatus are independent reads; verifySession
@@ -28,6 +29,8 @@ export default async function SettingsPage() {
       <div className="mt-8">
         <AccountSettingsCard heading="Account" displayName={profile.display_name} email={session.email} />
       </div>
+
+      <BillingSection />
 
       <div className="mt-10 space-y-4">
         <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">Your identity</h2>
