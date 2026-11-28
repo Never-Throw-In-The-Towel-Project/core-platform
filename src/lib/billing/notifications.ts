@@ -67,3 +67,29 @@ export async function sendTrialEndingEmail(
   const { subject, html, text } = buildTrialEndingEmail(daysLeft, settingsUrl);
   return sendBrandedEmail({ to, subject, html, text });
 }
+
+/** Launch cut-over "grandfather" email: tells an existing Direct member that Pro
+ *  has launched and we've started a free 7-day trial on their account, so nothing
+ *  they use today stops working. Pure + testable. */
+export function buildGrandfatherEmail(settingsUrl: string): { subject: string; html: string; text: string } {
+  const { html, text } = renderBrandedEmail({
+    preheader: "We've started a free Pro trial on your account — nothing changes for 7 days.",
+    heading: "Your Pro access — on us for 7 days",
+    paragraphs: [
+      "We've just introduced NTITT Pro, and because you're already part of the community we've started a free 7-day Pro trial on your account. Everything you use today keeps working, exactly as it is.",
+      "To keep Pro after the trial, add a card in your settings. Prefer not to? You'll move to the free plan — you keep your account and all your data, and Get Support and Events stay open to you.",
+    ],
+    button: { label: "See your plan", url: settingsUrl },
+    afterButton: ["No card needed for the trial, and you can cancel any time."],
+  });
+  return { subject: "Your NTITT Pro trial has started", html, text };
+}
+
+/** Send the launch grandfather email. Degrades (never throws) on a send failure. */
+export async function sendGrandfatherEmail(
+  to: string,
+  settingsUrl: string
+): Promise<{ ok: boolean; error?: string }> {
+  const { subject, html, text } = buildGrandfatherEmail(settingsUrl);
+  return sendBrandedEmail({ to, subject, html, text });
+}

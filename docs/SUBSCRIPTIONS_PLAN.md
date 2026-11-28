@@ -182,10 +182,25 @@ Add a **`stripe` group** to `src/lib/health/config.ts` (`STRIPE_SECRET_KEY`,
 
 ## 8. Existing Direct members at launch (your decision: grace + auto-trial + email)
 
-At cut-over, a one-off migration/job grants **every current Direct member a 7-day Pro
-app-trial** (`trialing` row, `trial_end = now + 7d`) and emails them to subscribe — so
-nobody is suddenly locked out of features they use today. After their grace trial ends
-without a card, they move to Freemium like anyone else.
+At cut-over, every current Direct member is granted a 7-day Pro app-trial (`trialing`
+row, `trial_end = now + 7d`) and emailed — so nobody is suddenly locked out of features
+they use today. After the grace trial ends without a card, they move to Freemium like
+anyone else.
+
+**Built (PR 7) as a one-off JOB, not a migration** — a migration would fire at deploy
+(i.e. now, mid-test), but the grace window must start at *launch*. So the code lands now
+and is triggered by hand once, at go-live, with the `CRON_SECRET` bearer:
+
+```
+# preview (read-only): how many members would be granted + emailed
+curl -H "Authorization: Bearer $CRON_SECRET" ".../api/jobs/grandfather-existing-members?dryRun=1"
+# execute:
+curl -H "Authorization: Bearer $CRON_SECRET" ".../api/jobs/grandfather-existing-members"
+```
+
+The grant reuses `startAppTrial` (the single one-trial-ever guard), so the job is
+**idempotent**: a member who already has a trial or a Stripe subscription is skipped and
+not re-emailed. The response reports `{total, granted, emailed, skipped, failed}`.
 
 ---
 
@@ -209,7 +224,7 @@ without a card, they move to Freemium like anyone else.
 4. **Trial + Checkout + Portal** — start-trial action, Checkout convert, Billing Portal, entry points.
 5. **Entitlement + gating** — resolver, server-side enforcement, Freemium allowlist (Get Support + Events + own read-only data), upgrade/paywall page.
 6. **Trial & dunning UX** — trial-ending reminder cron (+ `trial_reminder_sent_at` idempotency), Settings `?billing=` banners, and the `/upgrade` past_due notice. Failed-payment emails are Stripe-native (Dashboard), not rebuilt here.
-7. **Existing-member cut-over** — the grace auto-trial migration + notification email (run at launch).
+7. **Existing-member cut-over** — one-off, hand-triggered `grandfather-existing-members` job (dry-run + execute) granting every Direct member the grace 7-day trial + email. Idempotent via `startAppTrial`. Not a migration/cron, so it fires at launch, not at deploy.
 
 Each small, fully verified (tsc/lint/tests/harness/build), draft PR, merged on your
 "merge when green".

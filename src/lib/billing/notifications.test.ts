@@ -10,7 +10,7 @@ vi.mock("@/lib/email/brevo", () => ({ sendBrandedEmail }));
 type SentEmail = { to: string; subject: string; html: string; text: string };
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
 
-const { buildTrialEndingEmail, sendTrialEndingEmail } = await import("./notifications");
+const { buildTrialEndingEmail, sendTrialEndingEmail, buildGrandfatherEmail } = await import("./notifications");
 
 const URL_ = "https://app.neverthrowinthetowel.uk/settings";
 
@@ -34,6 +34,17 @@ describe("buildTrialEndingEmail", () => {
     expect(html).toContain(URL_);
     expect(text).toContain(URL_);
     expect(html).toContain("Keep my Pro access");
+  });
+});
+
+describe("buildGrandfatherEmail", () => {
+  it("reassures the member nothing changes and embeds the settings URL", () => {
+    const { subject, html, text } = buildGrandfatherEmail(URL_);
+    expect(subject).toContain("trial has started");
+    expect(html).toContain("7 days");
+    expect(html).toContain("See your plan");
+    expect(html).toContain(URL_);
+    expect(text).toContain(URL_);
   });
 });
 
