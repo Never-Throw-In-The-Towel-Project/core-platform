@@ -2468,5 +2468,25 @@ $$;
 reset role;
 select set_config('request.jwt.claim.sub', '', false);
 
+-- ---- 31. subscriptions trial-reminder idempotency column -------------------
+-- (20261128000000) nullable timestamptz the trial-reminders cron stamps so an
+-- app-trial member is never reminded twice. Additive + service-role written (no
+-- member grant), so the existing own-row SELECT exposes it with no grant change.
+do $$
+declare col_type text;
+begin
+  select data_type into col_type
+    from information_schema.columns
+    where table_schema = 'public' and table_name = 'subscriptions' and column_name = 'trial_reminder_sent_at';
+  if col_type is null then
+    raise exception 'subscriptions.trial_reminder_sent_at missing (trial-reminder idempotency)';
+  end if;
+  if col_type <> 'timestamp with time zone' then
+    raise exception 'subscriptions.trial_reminder_sent_at is % (expected timestamptz)', col_type;
+  end if;
+  raise notice 'PASS  31  subscriptions.trial_reminder_sent_at (timestamptz) present';
+end
+$$;
+
 \echo ''
 \echo 'ALL ASSERTIONS PASSED'

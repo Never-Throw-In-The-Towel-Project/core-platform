@@ -161,13 +161,21 @@ Add a **`stripe` group** to `src/lib/health/config.ts` (`STRIPE_SECRET_KEY`,
 ## 7. UX — "best experience"
 
 - **Start trial:** one click, **no card**, instant full access.
-- **Trial countdown + reminders:** we own `trial_end` (reuse the existing push/email cron)
-  — a mid-trial nudge and a day-6 "add a card to keep Pro, or you'll move to Freemium".
+- **Trial reminders (built, PR 6):** the 7-day trial is app-level (no Stripe subscription),
+  so Stripe can't warn them — a daily cron (`/api/jobs/trial-reminders`, 09:00 UTC) emails
+  every member whose `trial_end` is inside 2 days ("add a card to keep Pro, or you'll move to
+  Freemium"), stamping `subscriptions.trial_reminder_sent_at` so no trial is emailed twice.
 - **Convert:** a single Checkout (first time a card is asked). Upgrade page shows monthly
   vs annual (annual highlights the 10% saving).
 - **Settings → Billing:** current plan, renewal date, "Manage billing" (Portal).
-- **Dunning:** `payment_failed` → in-app banner + email, Stripe retries, then graceful drop
-  to Freemium (Get Support always reachable).
+- **Dunning (built, PR 6):** a `past_due` member drops to Freemium while Stripe retries the
+  card automatically. In-app we surface it where they land — Settings → Billing ("Payment
+  needs attention" + Update payment) and the `/upgrade` paywall ("Your Pro access is paused"
+  + Update your card, with the fresh buy buttons hidden so a retry can't spawn a second
+  subscription). The failed-payment **emails are Stripe-native** (Dashboard → Billing →
+  Customer emails) rather than re-implemented here — Stripe already owns retry timing and
+  the card-update link, so one Dashboard toggle beats a parallel email path we'd have to keep
+  in sync. Get Support stays reachable throughout.
 - **Lapsed users keep their data** and can re-subscribe (no second free trial).
 
 ---
@@ -200,7 +208,7 @@ without a card, they move to Freemium like anyone else.
 3. **Webhook** — `/api/stripe/webhook` + service-role state sync + idempotency (source of truth; testable via Stripe CLI before any UI).
 4. **Trial + Checkout + Portal** — start-trial action, Checkout convert, Billing Portal, entry points.
 5. **Entitlement + gating** — resolver, server-side enforcement, Freemium allowlist (Get Support + Events + own read-only data), upgrade/paywall page.
-6. **Trial & dunning UX** — countdown, reminder emails, failed-payment handling, Settings → Billing.
+6. **Trial & dunning UX** — trial-ending reminder cron (+ `trial_reminder_sent_at` idempotency), Settings `?billing=` banners, and the `/upgrade` past_due notice. Failed-payment emails are Stripe-native (Dashboard), not rebuilt here.
 7. **Existing-member cut-over** — the grace auto-trial migration + notification email (run at launch).
 
 Each small, fully verified (tsc/lint/tests/harness/build), draft PR, merged on your

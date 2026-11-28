@@ -119,6 +119,9 @@ export interface Subscription {
   current_period_end: string | null;
   trial_end: string | null;
   cancel_at_period_end: boolean;
+  /** When the trial-ending reminder email was sent, so the trial-reminders cron
+   *  never emails the same app-trial twice. Null until a reminder goes out. */
+  trial_reminder_sent_at: string | null;
   created_at: string;
   updated_at: string;
 }

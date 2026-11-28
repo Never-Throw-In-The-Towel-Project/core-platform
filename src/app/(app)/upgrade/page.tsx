@@ -4,9 +4,9 @@ import { getProfile } from "@/lib/auth/dal";
 import { createClient } from "@/lib/supabase/server";
 import { DIRECT_COMPANY_ID } from "@/lib/tenant/constants";
 import { getEntitlement } from "@/lib/billing/entitlement";
-import { startTrial, createCheckout } from "@/lib/actions/billing";
+import { startTrial, createCheckout, openBillingPortal } from "@/lib/actions/billing";
 import { PRO_MONTHLY_PENCE, PRO_ANNUAL_PENCE, TRIAL_DAYS } from "@/lib/billing/plans";
-import type { BillingCustomer } from "@/types/database";
+import type { BillingCustomer, Subscription } from "@/types/database";
 
 function gbp(pence: number): string {
   return `£${(pence / 100).toFixed(2)}`;
@@ -29,24 +29,43 @@ export default async function UpgradePage() {
   if (!(profile.role === "employee" && profile.company_id === DIRECT_COMPANY_ID)) redirect("/home");
 
   const supabase = await createClient();
-  const { data: bcData } = await supabase
-    .from("billing_customers")
-    .select("trial_started_at")
-    .eq("user_id", profile.id)
-    .maybeSingle();
+  const [{ data: bcData }, { data: subData }] = await Promise.all([
+    supabase.from("billing_customers").select("trial_started_at").eq("user_id", profile.id).maybeSingle(),
+    supabase.from("subscriptions").select("status").eq("user_id", profile.id).maybeSingle(),
+  ]);
   const trialUsed = Boolean((bcData as Pick<BillingCustomer, "trial_started_at"> | null)?.trial_started_at);
+  // A past_due member is freemium (the resolver drops them here), but they're a
+  // paying customer whose card failed — so they get a "fix your card" prompt, not
+  // a fresh trial/upsell. Stripe retries the charge automatically in the meantime.
+  const pastDue = (subData as Pick<Subscription, "status"> | null)?.status === "past_due";
 
   return (
     <div data-surface="ink" className="min-h-full bg-background text-foreground">
       <main className="mx-auto max-w-xl px-6 py-12">
-        <h1 className="text-3xl font-extrabold tracking-tight">Unlock the full platform</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight">
+          {pastDue ? "Your Pro access is paused" : "Unlock the full platform"}
+        </h1>
         <p className="mt-3 text-sm text-muted">
-          Your free plan keeps the Get support button and the Events page. Go Pro to unlock everything else — your
-          morning &amp; night routines, the weekly planner and reviews, the Library, challenges, the community and
-          your Journey.
+          {pastDue
+            ? "We couldn't take your last Pro payment, so your access is paused. Update your card to turn everything back on — your account and all your data are exactly where you left them."
+            : "Your free plan keeps the Get support button and the Events page. Go Pro to unlock everything else — your morning & night routines, the weekly planner and reviews, the Library, challenges, the community and your Journey."}
         </p>
 
-        {!trialUsed && (
+        {pastDue && (
+          <div className="mt-8 border border-brand-accent bg-brand-accent/[0.06] p-5">
+            <p className="text-sm font-semibold">There&apos;s a problem with your payment</p>
+            <p className="mt-1 text-xs text-muted">
+              Update your card and your Pro access comes straight back. It&apos;s usually an expired or blocked card.
+            </p>
+            <form action={openBillingPortal} className="mt-4">
+              <button type="submit" className={PRIMARY}>
+                Update your card
+              </button>
+            </form>
+          </div>
+        )}
+
+        {!pastDue && !trialUsed && (
           <div className="mt-8 border border-brand-accent bg-brand-accent/[0.06] p-5">
             <p className="text-sm font-semibold">Try Pro free for {TRIAL_DAYS} days</p>
             <p className="mt-1 text-xs text-muted">
@@ -60,25 +79,30 @@ export default async function UpgradePage() {
           </div>
         )}
 
-        <div className="mt-8 space-y-3">
-          <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
-            {trialUsed ? "Go Pro" : "Or go straight to Pro"}
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            <form action={createCheckout}>
-              <input type="hidden" name="interval" value="month" />
-              <button type="submit" className={PRIMARY}>
-                {gbp(PRO_MONTHLY_PENCE)}/month
-              </button>
-            </form>
-            <form action={createCheckout}>
-              <input type="hidden" name="interval" value="year" />
-              <button type="submit" className={SECONDARY}>
-                {gbp(PRO_ANNUAL_PENCE)}/year — save 10%
-              </button>
-            </form>
+        {/* A past_due member already has a Stripe subscription — a fresh Checkout
+            would create a SECOND one, so they only get the "update your card"
+            portal route above, never these buy buttons. */}
+        {!pastDue && (
+          <div className="mt-8 space-y-3">
+            <h2 className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
+              {trialUsed ? "Go Pro" : "Or go straight to Pro"}
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              <form action={createCheckout}>
+                <input type="hidden" name="interval" value="month" />
+                <button type="submit" className={PRIMARY}>
+                  {gbp(PRO_MONTHLY_PENCE)}/month
+                </button>
+              </form>
+              <form action={createCheckout}>
+                <input type="hidden" name="interval" value="year" />
+                <button type="submit" className={SECONDARY}>
+                  {gbp(PRO_ANNUAL_PENCE)}/year — save 10%
+                </button>
+              </form>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mt-10 border-t border-rule-hairline pt-6">
           <p className="text-xs text-muted">On the free plan you can still:</p>

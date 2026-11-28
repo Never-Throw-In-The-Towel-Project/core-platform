@@ -10,13 +10,53 @@ import { DeleteAccountForm } from "@/components/settings/DeleteAccountForm";
 import { GuidelinesList } from "@/components/community/GuidelinesList";
 import { BillingSection } from "@/components/settings/BillingSection";
 
-export default async function SettingsPage() {
+// The ?billing= banner the billing actions redirect back with (startTrial →
+// trial; createCheckout → success/cancelled/unavailable; portal → unavailable).
+// Entitlement is granted by the Stripe webhook, so after `success` the plan may
+// take a few seconds to reflect — the copy says so rather than promising it's live.
+const BILLING_NOTICES: Record<string, { tone: "ok" | "info"; text: string }> = {
+  trial: {
+    tone: "ok",
+    text: "Your free trial has started — you've got full access. Add a card before it ends to keep Pro.",
+  },
+  success: {
+    tone: "ok",
+    text: "Payment received — we're setting up your Pro access now. It can take a few seconds to show here.",
+  },
+  cancelled: {
+    tone: "info",
+    text: "Checkout cancelled — no charge was made. You can go Pro whenever you're ready.",
+  },
+  unavailable: {
+    tone: "info",
+    text: "Billing isn't available right now. Please try again in a moment.",
+  },
+};
+
+function BillingNotice({ billing }: { billing?: string }) {
+  const notice = billing ? BILLING_NOTICES[billing] : undefined;
+  if (!notice) return null;
+  const tone =
+    notice.tone === "ok" ? "border border-brand-accent bg-brand-accent/[0.06]" : "border border-rule-border";
+  return (
+    <div role="status" className={`mt-6 ${tone} p-4 text-sm`}>
+      {notice.text}
+    </div>
+  );
+}
+
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ billing?: string }>;
+}) {
   // getProfile and getPushSubscriptionStatus are independent reads; verifySession
   // is cache()-shared with getProfile, so it's effectively free.
-  const [profile, pushSubscribed, session] = await Promise.all([
+  const [profile, pushSubscribed, session, { billing }] = await Promise.all([
     getProfile(),
     getPushSubscriptionStatus(),
     verifySession(),
+    searchParams,
   ]);
 
   return (
@@ -25,6 +65,8 @@ export default async function SettingsPage() {
     <div data-surface="ink" className="min-h-full bg-background text-foreground">
     <main className="mx-auto max-w-xl px-6 py-12">
       <h1 className="text-3xl font-extrabold tracking-tight">Settings</h1>
+
+      <BillingNotice billing={billing} />
 
       <div className="mt-8">
         <AccountSettingsCard heading="Account" displayName={profile.display_name} email={session.email} />
