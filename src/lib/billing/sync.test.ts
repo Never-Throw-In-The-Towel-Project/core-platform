@@ -58,6 +58,13 @@ describe("mapSubscriptionToRow", () => {
     expect(row.price_id).toBeNull();
     expect(row.current_period_end).toBeNull();
   });
+
+  it("falls back to the subscription-level current_period_end (older-API webhook payload)", () => {
+    // Item has no current_period_end (older API shape puts it on the subscription).
+    const sub = fakeSub({ items: { data: [{ price: { id: "price_m" } }] }, current_period_end: 1_900_000_000 });
+    const row = mapSubscriptionToRow(sub, "user-1");
+    expect(row.current_period_end).toBe(new Date(1_900_000_000 * 1000).toISOString());
+  });
 });
 
 describe("resolveUserIdFromObjects", () => {
