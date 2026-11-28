@@ -36,8 +36,15 @@ function stripeCustomerId(sub: Stripe.Subscription): string | null {
 /** Map a Stripe Subscription to our `subscriptions` row. Pure + testable. */
 export function mapSubscriptionToRow(sub: Stripe.Subscription, userId: string) {
   const item = sub.items?.data?.[0];
-  // current_period_end is on the ITEM in this API version (not the subscription).
-  const periodEnd = item?.current_period_end ?? null;
+  // current_period_end is on the ITEM in Stripe API 2026-11-18 (our pinned SDK
+  // version), but on the SUBSCRIPTION itself in older versions — which is what a
+  // webhook configured on an older account API version (e.g. 2025-12-15) sends in
+  // its event payload. Read whichever is present so the renewal date populates
+  // regardless of the sending version.
+  const periodEnd =
+    item?.current_period_end ??
+    (sub as unknown as { current_period_end?: number | null }).current_period_end ??
+    null;
   return {
     user_id: userId,
     source: "stripe" as const,

@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { PodcastOptIn } from "@/app/(app)/community/podcast-optin";
+import { PodcastOptIn } from "@/app/(app)/(gated)/community/podcast-optin";
 import type { PodcastGuestAnonymityPreference } from "@/types/database";
 
 const SPACE_LINKS = [
